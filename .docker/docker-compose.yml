@@ -15,8 +15,9 @@ services:
     environment:
       - TZ=UTC
     # Explicitly set the project name to avoid conflicts
-    # This helps ensure only this service is started
+    # This ensures only this service is started
     # The project name is used as a prefix for container names
     # and helps isolate the environment
-    # You can change this to any unique name for your project
+    # Use a unique project name to avoid conflicts with other projects
     # project: homeassistant-project
+    # Use the --project-name flag when running docker compose to ensure this name is used
