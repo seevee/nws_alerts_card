@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "A custom Lovelace card template using TypeScript and LitElement",
   "main": "dist/lovelace-card.js",
+  "module": "dist/lovelace-card.js",
+  "types": "dist/lovelace-card.d.ts",
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
