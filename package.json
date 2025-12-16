@@ -1,0 +1,27 @@
+{
+  "name": "my-lovelace-card",
+  "version": "1.0.0",
+  "description": "A custom Lovelace card template using TypeScript and LitElement",
+  "main": "dist/lovelace-card.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "lovelace",
+    "custom",
+    "card",
+    "typescript",
+    "litelement"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "typescript": "^4.9.0"
+  },
+  "dependencies": {
+    "lit": "^3.0.0"
+  }
+}
