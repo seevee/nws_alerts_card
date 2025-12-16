@@ -1,0 +1,10 @@
+# Home Assistant core dependencies
+homeassistant>=2023.10,<2024.0
+
+# Additional dependencies for development
+pytest
+pytest-asyncio
+flake8
+black
+isort
+mypy

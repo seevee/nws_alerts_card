@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  homeassistant:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+    container_name: homeassistant
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./config:/config
+      - ./my-lovelace-card:/config/custom_components/my_lovelace_card
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=UTC
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RAWIO
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev/ttyACM0:/dev/ttyACM0
