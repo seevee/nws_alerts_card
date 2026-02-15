@@ -1,201 +1,21 @@
 # Basic Home Assistant configuration
 
-# Configure the time zone
 homeassistant:
+  name: Home Assistant
   time_zone: UTC
   latitude: 32.0
   longitude: 34.8
   elevation: 0
   unit_system: metric
-  name: Home Assistant
-  customize: !include customize.yaml
 
-# Enable default components
 default_config:
 
-# Enable the frontend
 frontend:
 
-# Enable the HTTP component
 http:
-  # Use the default port
-  port: 8123
+  server_port: 8123
 
-# Enable the history component
-history:
-
-# Enable the recorder component
-recorder:
-  include:
-    entities:
-      - sensor.*
-      - switch.*
-      - light.*
-      - input_boolean.*
-      - input_number.*
-      - input_select.*
-      - input_text.*
-      - input_datetime.*
-      - climate.*
-      - cover.*
-      - fan.*
-      - media_player.*
-      - scene.*
-      - group.*
-      - device_tracker.*
-      - alarm_control_panel.*
-      - lock.*
-      - binary_sensor.*
-      - sensor.*
-      - switch.*
-      - light.*
-      - input_boolean.*
-      - input_number.*
-      - input_select.*
-      - input_text.*
-      - input_datetime.*
-      - climate.*
-      - cover.*
-      - fan.*
-      - media_player.*
-      - scene.*
-      - group.*
-      - device_tracker.*
-      - alarm_control_panel.*
-      - lock.*
-      - binary_sensor.*
-  exclude:
-    entities:
-      - sensor.date_time
-      - sensor.time
-      - sensor.version
-      - sensor.uptime
-      - sensor.last_boot
-      - sensor.last_restart
-      - sensor.last_update
-      - sensor.last_seen
-      - sensor.last_message
-      - sensor.last_event
-      - sensor.last_action
-      - sensor.last_state
-      - sensor.last_change
-      - sensor.last_update
-      - sensor.last_seen
-      - sensor.last_message
-      - sensor.last_event
-      - sensor.last_action
-      - sensor.last_state
-      - sensor.last_change
-
-# Enable the logbook component
-logbook:
-
-# Enable the map component
-map:
-
-# Enable the system health component
-system_health:
-
-# Enable the automation component
-automation:
-
-# Enable the script component
-script:
-
-# Enable the input_boolean component
-input_boolean:
-
-# Enable the input_number component
-input_number:
-
-# Enable the input_select component
-input_select:
-
-# Enable the input_text component
-input_text:
-
-# Enable the input_datetime component
-input_datetime:
-
-# Enable the climate component
-climate:
-
-# Enable the cover component
-cover:
-
-# Enable the fan component
-fan:
-
-# Enable the media_player component
-media_player:
-
-# Enable the scene component
-scene:
-
-# Enable the group component
-group:
-
-# Enable the device_tracker component
-device_tracker:
-
-# Enable the alarm_control_panel component
-alarm_control_panel:
-
-# Enable the lock component
-lock:
-
-# Enable the binary_sensor component
-binary_sensor:
-
-# Enable the sensor component
-sensor:
-
-# Enable the switch component
-switch:
-
-# Enable the light component
-light:
-
-# Enable the camera component
-camera:
-
-# Enable the tts component
-tts:
-
-# Enable the notify component
-notify:
-
-# Enable the persistent_notification component
-persistent_notification:
-
-# Enable the websocket_api component
-websocket_api:
-
-# Enable the api component
-api:
-
-# Enable the cloud component
-cloud:
-
-# Enable the zeroconf component
-zeroconf:
-
-# Enable the discovery component
-discovery:
-
-# Enable the updater component
-updater:
-
-# Enable the updater component
-updater:
-
-# Enable the http component
-http:
-
-# Enable the http component
-http:
-
-# Enable the http component
-http:
-  # Use the default port
-  port: 8123
+lovelace:
+  resources:
+    - url: /local/nws-alerts-card.js
+      type: module

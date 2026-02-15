@@ -1,63 +1,93 @@
-# My Lovelace Card Template
+# NWS Alerts Card
 
-A template for creating custom Lovelace cards using TypeScript and LitElement.
+A custom Home Assistant Lovelace card for displaying NWS (National Weather Service) weather alerts with severity indicators, progress bars, and expandable details.
 
 ## Features
 
-- TypeScript support
-- LitElement for component creation
-- Ready-to-use structure for Lovelace cards
-- Easy to extend and customize
-- Home Assistant development container setup
+- Severity-based color coding with animated borders for extreme/severe alerts
+- Progress bars showing elapsed/remaining time for each alert
+- Expandable details with description, instructions, and NWS source link
+- Zone-based alert filtering
+- Card picker integration (add from HA UI)
+- Shadow DOM — no style conflicts, full HA theme support
+- HACS compatible
 
-## Getting Started
+## Prerequisites
 
-1. Clone this repository
-2. Install dependencies: `npm install`
-3. Start development server: `npm run watch`
-4. Build for production: `npm run build`
+- [NWS Alerts integration](https://github.com/finity69x2/nws_alerts) v6.1+
 
-## Home Assistant Development Container
+## Installation
 
-To set up a development environment with Home Assistant:
+### HACS (recommended)
 
-1. Ensure you have Docker and Docker Compose installed
-2. Create a `config` directory in the project root
-3. Create a `configuration.yaml` file in the `config` directory with basic Home Assistant configuration
-4. Build the container: `docker-compose build`
-5. Start the container: `docker-compose up -d`
-6. Access Home Assistant at http://localhost:8123
+1. Open HACS in Home Assistant
+2. Go to **Frontend** → three-dot menu → **Custom repositories**
+3. Add this repository URL, category **Lovelace**
+4. Search for "NWS Alerts Card" and install
+5. Refresh your browser
 
-## Using the Development Container
+### Manual
 
-The development container provides a complete environment for developing and testing your Lovelace card:
+1. Download `nws-alerts-card.js` from the [latest release](../../releases/latest)
+2. Copy to `config/www/nws-alerts-card.js`
+3. Add the resource in **Settings → Dashboards → Resources** (requires Advanced Mode enabled in your user profile):
+   - URL: `/local/nws-alerts-card.js`
+   - Type: JavaScript Module
 
-1. **Automatic Code Sync**: The container automatically syncs your local code changes to the Home Assistant instance. When you make changes to your card in the `src` directory, they will be reflected in the container.
+## Configuration
 
-2. **Development Workflow**:
-   - Make changes to your card in `src/lovelace-card.ts`
-   - Use `npm run watch` to automatically compile TypeScript changes
-   - The compiled JavaScript will be available in the `dist` directory
-   - The container will automatically reload when changes are detected
+| Option   | Type     | Required | Default | Description                        |
+|----------|----------|----------|---------|------------------------------------|
+| `entity` | string   | yes      | —       | Entity ID (e.g. `sensor.nws_alerts_alerts`) |
+| `title`  | string   | no       | —       | Card header title                  |
+| `zones`  | string[] | no       | —       | Filter alerts to specific NWS zone codes |
 
-3. **Testing Your Card**:
-   - Add your card to a Lovelace view in Home Assistant
-   - Use the following configuration:
-   ```yaml
-   type: custom:my-lovelace-card
-   title: My Custom Card
-   ```
-   - The card will be available in the Lovelace UI
+### Basic
 
-4. **Debugging**:
-   - Access the container shell: `docker exec -it homeassistant bash`
-   - Check logs: `docker logs homeassistant`
-   - View the Home Assistant configuration: `cat /config/configuration.yaml`
+```yaml
+type: custom:nws-alerts-card
+entity: sensor.nws_alerts_alerts
+```
 
-5. **Stopping the Container**:
-   - Stop the container: `docker-compose down`
-   - Remove the container: `docker-compose down --rmi all`
+### With title and zone filtering
 
-## Usage
+```yaml
+type: custom:nws-alerts-card
+entity: sensor.nws_alerts_alerts
+title: Weather Alerts
+zones:
+  - COC059
+  - COZ039
+  - COZ239
+```
 
-1. Import the card in your Lovelace configuration:
+## NWS Alerts Integration Setup
+
+This card requires the [NWS Alerts](https://github.com/finity69x2/nws_alerts) custom integration to provide the `sensor.nws_alerts_alerts` entity.
+
+1. Install via HACS: **Integrations** → **Explore & Download Repositories** → search "NWS Alerts"
+2. Restart Home Assistant
+3. **Settings → Devices & Services → Add Integration** → search "NWS Alerts"
+4. Enter your zone/county codes (find yours at [alerts.weather.gov](https://alerts.weather.gov/))
+
+> **Note**: Zone codes must be comma-delimited with **no spaces** (e.g. `COC059,COZ039,COZ239`). Adding spaces after commas causes the integration to silently return no alerts.
+
+## Development
+
+```bash
+npm install
+npm run build     # bundle → dist/nws-alerts-card.js
+npm run watch     # bundle with file watching
+npm run lint      # TypeScript type-check
+```
+
+### Local HA dev container
+
+```bash
+npm run build
+docker compose -f .docker/docker-compose.yml up
+```
+
+Access Home Assistant at http://localhost:8123. The card JS is volume-mounted read-only — rebuild on the host and refresh the browser to see changes.
+
+After the HA onboarding flow, add the card resource via **Settings → Dashboards → Resources** (URL: `/local/nws-alerts-card.js`, type: JavaScript Module). Then add the card to any dashboard — it will appear in the card picker as "NWS Alerts Card".

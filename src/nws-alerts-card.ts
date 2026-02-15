@@ -1,0 +1,250 @@
+import { LitElement, html, nothing, TemplateResult } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import { NwsAlertsCardConfig, NwsAlert, AlertProgress } from './types';
+import {
+  getWeatherIcon,
+  getCertaintyIcon,
+  computeAlertProgress,
+  formatProgressTimestamp,
+  formatLocalTimestamp,
+  normalizeSeverity,
+  alertMatchesZones,
+} from './utils';
+import { cardStyles } from './styles';
+
+// HA types from custom-card-helpers
+interface HomeAssistant {
+  states: Record<string, HassEntity>;
+}
+
+interface HassEntity {
+  state: string;
+  attributes: Record<string, unknown>;
+}
+
+@customElement('nws-alerts-card')
+export class NwsAlertsCard extends LitElement {
+  static styles = cardStyles;
+
+  @property({ attribute: false }) public hass!: HomeAssistant;
+  @state() private _config!: NwsAlertsCardConfig;
+  @state() private _expandedAlerts: Map<string, boolean> = new Map();
+
+  public setConfig(config: NwsAlertsCardConfig): void {
+    if (!config.entity) {
+      throw new Error('You need to define an entity');
+    }
+    this._config = config;
+  }
+
+  public getCardSize(): number {
+    const alerts = this._getAlerts();
+    return Math.max(1, alerts.length * 3);
+  }
+
+  public static getStubConfig(): Record<string, unknown> {
+    return { entity: 'sensor.nws_alerts_alerts' };
+  }
+
+  private _getAlerts(): NwsAlert[] {
+    if (!this.hass || !this._config) return [];
+    const entity = this.hass.states[this._config.entity];
+    if (!entity) return [];
+    const alerts = (entity.attributes['Alerts'] as NwsAlert[] | undefined) || [];
+
+    if (this._config.zones && this._config.zones.length > 0) {
+      const zoneSet = new Set(this._config.zones.map(z => z.toUpperCase()));
+      return alerts.filter(a => alertMatchesZones(a, zoneSet));
+    }
+
+    return alerts;
+  }
+
+  private _toggleDetails(alertId: string): void {
+    const next = new Map(this._expandedAlerts);
+    next.set(alertId, !next.get(alertId));
+    this._expandedAlerts = next;
+  }
+
+  protected render(): TemplateResult {
+    if (!this._config || !this.hass) return html``;
+
+    const entity = this.hass.states[this._config.entity];
+    if (!entity) {
+      return html`
+        <ha-card .header=${this._config.title || ''}>
+          <div class="error">
+            Entity not found: ${this._config.entity}
+          </div>
+        </ha-card>
+      `;
+    }
+
+    const alerts = this._getAlerts();
+
+    return html`
+      <ha-card .header=${this._config.title || ''}>
+        ${alerts.length === 0
+        ? this._renderNoAlerts()
+        : alerts.map(alert => this._renderAlert(alert))}
+      </ha-card>
+    `;
+  }
+
+  private _renderNoAlerts(): TemplateResult {
+    return html`
+      <div class="no-alerts">
+        <ha-icon icon="mdi:weather-sunny"></ha-icon><br>
+        No active NWS alerts.
+      </div>
+    `;
+  }
+
+  private _renderAlert(alert: NwsAlert): TemplateResult {
+    const severity = normalizeSeverity(alert.Severity);
+    const className = `severity-${severity}`;
+    const progress = computeAlertProgress(alert);
+    const phaseClass = progress.phaseText.toLowerCase();
+    const expanded = this._expandedAlerts.get(alert.ID) || false;
+
+    const desc = (alert.Description || '').replace(/\n{2,}/g, '\n\n').trim();
+    const instr = (alert.Instruction || '').replace(/\n{2,}/g, '\n\n').trim();
+
+    return html`
+      <div class="alert-card ${className} ${phaseClass}">
+        <div class="alert-header-row">
+          <div class="icon-box">
+            <ha-icon icon=${getWeatherIcon(alert.Event)}></ha-icon>
+          </div>
+          <div class="info-box">
+            <div class="title-row">
+              <span class="alert-title">${alert.Event || 'Unknown'}</span>
+            </div>
+            <div class="badges-row">
+              <span class="badge severity-badge">${alert.Severity}</span>
+              <span class="badge certainty-badge">
+                <ha-icon
+                  icon=${getCertaintyIcon(alert.Certainty)}
+                  style="width: 12px; height: 12px; vertical-align: -2px;"
+                ></ha-icon>
+                ${alert.Certainty}
+              </span>
+              ${progress.isActive
+        ? html`<span class="badge active-badge">Active</span>`
+        : html`<span class="badge prep-badge">In Prep</span>`}
+            </div>
+          </div>
+        </div>
+
+        ${this._renderProgressSection(alert, progress)}
+
+        <div class="alert-details-section">
+          <div
+            class="details-summary"
+            @click=${() => this._toggleDetails(alert.ID)}
+          >
+            <span>Read Details</span>
+            <ha-icon
+              icon="mdi:chevron-down"
+              class="chevron ${expanded ? 'expanded' : ''}"
+            ></ha-icon>
+          </div>
+          ${expanded
+        ? html`
+                <div class="details-content">
+                  <div class="meta-grid">
+                    <div class="meta-item">
+                      <span class="meta-label">Issued</span>
+                      <span class="meta-value">${formatLocalTimestamp(progress.sentTs)}</span>
+                    </div>
+                    <div class="meta-item">
+                      <span class="meta-label">Onset</span>
+                      <span class="meta-value">${formatLocalTimestamp(progress.onsetTs)}</span>
+                    </div>
+                    <div class="meta-item">
+                      <span class="meta-label">Expires</span>
+                      <span class="meta-value">${formatLocalTimestamp(progress.endsTs)}</span>
+                    </div>
+                  </div>
+
+                  ${desc
+            ? html`
+                        <div class="text-block">
+                          <div class="text-label">Description</div>
+                          <div class="text-body">${desc}</div>
+                        </div>
+                      `
+            : nothing}
+
+                  ${instr
+            ? html`
+                        <div class="text-block">
+                          <div class="text-label">Instructions</div>
+                          <div class="text-body">${instr}</div>
+                        </div>
+                      `
+            : nothing}
+
+                  <div class="footer-link">
+                    <a href=${alert.URL || '#'} target="_blank">
+                      Open NWS Source
+                      <ha-icon icon="mdi:open-in-new" style="width:14px;"></ha-icon>
+                    </a>
+                  </div>
+                </div>
+              `
+        : nothing}
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderProgressSection(alert: NwsAlert, progress: AlertProgress): TemplateResult {
+    const { isActive, progressPct, hasEndTime, onsetMinutes, onsetHours, onsetTs, endsTs, nowTs } = progress;
+
+    const fillStyle = isActive && !hasEndTime
+      ? 'width: 100%; left: 0; animation: ongoing-pulse 5s infinite; opacity: 0.8;'
+      : `width: ${100 - progressPct}%; left: ${progressPct}%;`;
+
+    return html`
+      <div class="progress-section">
+        <div class="progress-labels">
+          <div class="label-left">
+            <span class="label-sub">${isActive ? 'Start' : 'Now'}</span><br>
+            ${formatProgressTimestamp(isActive ? onsetTs : nowTs)}
+          </div>
+          <div class="label-center">
+            ${!hasEndTime
+        ? html`<span style="color: var(--color);"><b>Ongoing</b></span>`
+        : isActive
+          ? html`${Math.round(progressPct)}% Elapsed`
+          : html`starts in <b>${onsetMinutes < 60 ? onsetMinutes : onsetHours}</b> ${onsetMinutes < 60 ? 'min' : 'hrs'}`}
+          </div>
+          <div class="label-right">
+            <span class="label-sub">End</span><br>
+            ${hasEndTime ? formatProgressTimestamp(endsTs) : 'TBD'}
+          </div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" style=${fillStyle}></div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// Register with HA card picker
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const w = window as any;
+w.customCards = w.customCards || [];
+w.customCards.push({
+  type: 'nws-alerts-card',
+  name: 'NWS Alerts Card',
+  description: 'A card for displaying NWS weather alerts with severity indicators, progress bars, and expandable details.',
+});
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'nws-alerts-card': NwsAlertsCard;
+  }
+}
