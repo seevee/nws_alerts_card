@@ -2,6 +2,11 @@
 
 A custom Home Assistant Lovelace card for displaying NWS (National Weather Service) weather alerts with severity indicators, progress bars, and expandable details.
 
+| Dark theme | Light theme |
+|:---:|:---:|
+| ![Dark theme - collapsed](img/dark-closed.png) | ![Light theme - collapsed](img/light-closed.png) |
+| ![Dark theme - expanded](img/dark-open.png) | ![Light theme - expanded](img/light-open.png) |
+
 ## Features
 
 - Severity-based color coding with animated borders for extreme/severe alerts
