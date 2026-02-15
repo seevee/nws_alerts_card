@@ -1,5 +1,4 @@
-# Build output
-dist/
+# Build output (dist/nws-alerts-card.js is committed for HACS compatibility)
 
 # Dependencies
 node_modules/
