@@ -6,8 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A standalone custom Home Assistant Lovelace card for displaying NWS (National Weather Service) weather alerts. Built with LitElement/Lit 3, bundled with Rollup, and packaged for HACS distribution.
 
-The legacy `v1.yml` is a Jinja2 template card (for `custom:html-template-card` + `card_mod`) that served as the reference implementation. All of its logic has been ported to the TypeScript card.
-
 ## Build Commands
 
 ```bash
@@ -93,7 +91,3 @@ The card needs the `sensor.nws_alerts_alerts` entity which comes from the [NWS A
 - `hacs.json` — HACS manifest (name, filename).
 - `.github/workflows/release.yml` — on GitHub Release publish: builds and attaches `dist/nws-alerts-card.js` to the release.
 - To release: create a GitHub Release tag; the workflow handles the rest. Users add this repo as a HACS custom repository (Frontend category).
-
-## Legacy Reference
-
-- `v1.yml` — the original Jinja2/html-template-card implementation. Kept as reference. Not used at runtime.
