@@ -15,7 +15,6 @@ A custom Home Assistant Lovelace card for displaying NWS (National Weather Servi
 - Zone-based alert filtering
 - Card picker integration (add from HA UI)
 - Shadow DOM — no style conflicts, full HA theme support
-- HACS compatible
 
 ## Prerequisites
 
@@ -45,7 +44,7 @@ A custom Home Assistant Lovelace card for displaying NWS (National Weather Servi
 |----------|----------|----------|---------|------------------------------------|
 | `entity` | string   | yes      | —       | Entity ID (e.g. `sensor.nws_alerts_alerts`) |
 | `title`  | string   | no       | —       | Card header title                  |
-| `zones`  | string[] | no       | —       | Filter alerts to specific NWS zone codes |
+| `zones`  | string[] | no       | —       | Filter alerts to specific NWS zone codes (omit to use all configured zones) |
 
 ### Basic
 
