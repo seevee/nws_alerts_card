@@ -1,3 +1,13 @@
+// HA types (subset needed by card + editor)
+export interface HomeAssistant {
+  states: Record<string, HassEntity>;
+}
+
+export interface HassEntity {
+  state: string;
+  attributes: Record<string, unknown>;
+}
+
 export interface NwsAlertsCardConfig {
   type: string;
   entity: string;

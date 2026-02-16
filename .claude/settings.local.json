@@ -18,7 +18,8 @@
       "WebFetch(domain:api.github.com)",
       "Bash(gh repo view:*)",
       "Bash(gh workflow run:*)",
-      "Bash(gh release view:*)"
+      "Bash(gh release view:*)",
+      "WebFetch(domain:gist.github.com)"
     ]
   }
 }

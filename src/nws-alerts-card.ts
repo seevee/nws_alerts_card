@@ -1,6 +1,6 @@
 import { LitElement, html, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { NwsAlertsCardConfig, NwsAlert, AlertProgress } from './types';
+import { HomeAssistant, NwsAlertsCardConfig, NwsAlert, AlertProgress } from './types';
 import {
   getWeatherIcon,
   getCertaintyIcon,
@@ -11,16 +11,7 @@ import {
   alertMatchesZones,
 } from './utils';
 import { cardStyles } from './styles';
-
-// HA types from custom-card-helpers
-interface HomeAssistant {
-  states: Record<string, HassEntity>;
-}
-
-interface HassEntity {
-  state: string;
-  attributes: Record<string, unknown>;
-}
+import './nws-alerts-card-editor';
 
 @customElement('nws-alerts-card')
 export class NwsAlertsCard extends LitElement {
@@ -40,6 +31,10 @@ export class NwsAlertsCard extends LitElement {
   public getCardSize(): number {
     const alerts = this._getAlerts();
     return Math.max(1, alerts.length * 3);
+  }
+
+  public static getConfigElement(): HTMLElement {
+    return document.createElement('nws-alerts-card-editor');
   }
 
   public static getStubConfig(): Record<string, unknown> {
