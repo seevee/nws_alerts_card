@@ -4,6 +4,7 @@ export interface HomeAssistant {
   locale: {
     language: string;
     time_format: 'language' | '12' | '24';
+    date_format: 'language' | 'DMY' | 'MDY' | 'YMD';
   };
 }
 

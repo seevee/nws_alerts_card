@@ -87,6 +87,7 @@ export function computeAlertProgress(alert: NwsAlert): AlertProgress {
 interface HaLocale {
   language: string;
   time_format: 'language' | '12' | '24';
+  date_format?: 'language' | 'DMY' | 'MDY' | 'YMD';
 }
 
 function timeFormatOptions(locale?: HaLocale): { locale: string | undefined; hour12?: boolean } {
@@ -95,6 +96,30 @@ function timeFormatOptions(locale?: HaLocale): { locale: string | undefined; hou
   if (locale.time_format === '12') return { locale: lang, hour12: true };
   if (locale.time_format === '24') return { locale: lang, hour12: false };
   return { locale: lang };
+}
+
+function formatDate(d: Date, locale?: HaLocale): string {
+  const lang = locale?.language;
+  const fmt = locale?.date_format;
+
+  if (!fmt || fmt === 'language') {
+    return d.toLocaleDateString(lang);
+  }
+
+  const parts = new Intl.DateTimeFormat(lang, {
+    day: 'numeric', month: 'numeric', year: 'numeric',
+  }).formatToParts(d);
+
+  const day = parts.find(p => p.type === 'day')?.value ?? '';
+  const month = parts.find(p => p.type === 'month')?.value ?? '';
+  const year = parts.find(p => p.type === 'year')?.value ?? '';
+
+  switch (fmt) {
+    case 'DMY': return `${day}/${month}/${year}`;
+    case 'MDY': return `${month}/${day}/${year}`;
+    case 'YMD': return `${year}/${month}/${day}`;
+    default: return d.toLocaleDateString(lang);
+  }
 }
 
 export function formatProgressTimestamp(ts: number, locale?: HaLocale): string {
@@ -110,15 +135,17 @@ export function formatProgressTimestamp(ts: number, locale?: HaLocale): string {
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate();
   if (sameDay) return time;
-  return `${time} (${d.toLocaleDateString(fmt.locale)})`;
+  return `${time} (${formatDate(d, locale)})`;
 }
 
 export function formatLocalTimestamp(ts: number, locale?: HaLocale): string {
   if (ts <= 100) return 'N/A';
+  const d = new Date(ts * 1000);
   const fmt = timeFormatOptions(locale);
-  const opts: Intl.DateTimeFormatOptions = {};
-  if (fmt.hour12 !== undefined) opts.hour12 = fmt.hour12;
-  return new Date(ts * 1000).toLocaleString(fmt.locale, opts);
+  const timeOpts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
+  if (fmt.hour12 !== undefined) timeOpts.hour12 = fmt.hour12;
+  const time = d.toLocaleTimeString(fmt.locale, timeOpts);
+  return `${formatDate(d, locale)}, ${time}`;
 }
 
 export function normalizeSeverity(severity: string | undefined): string {
