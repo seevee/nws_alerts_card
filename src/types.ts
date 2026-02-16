@@ -1,6 +1,10 @@
 // HA types (subset needed by card + editor)
 export interface HomeAssistant {
   states: Record<string, HassEntity>;
+  locale: {
+    language: string;
+    time_format: 'language' | '12' | '24';
+  };
 }
 
 export interface HassEntity {

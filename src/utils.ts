@@ -84,22 +84,41 @@ export function computeAlertProgress(alert: NwsAlert): AlertProgress {
   };
 }
 
-export function formatProgressTimestamp(ts: number): string {
+interface HaLocale {
+  language: string;
+  time_format: 'language' | '12' | '24';
+}
+
+function timeFormatOptions(locale?: HaLocale): { locale: string | undefined; hour12?: boolean } {
+  if (!locale) return { locale: undefined };
+  const lang = locale.language;
+  if (locale.time_format === '12') return { locale: lang, hour12: true };
+  if (locale.time_format === '24') return { locale: lang, hour12: false };
+  return { locale: lang };
+}
+
+export function formatProgressTimestamp(ts: number, locale?: HaLocale): string {
   if (ts <= 0) return 'N/A';
   const d = new Date(ts * 1000);
   const now = new Date();
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const fmt = timeFormatOptions(locale);
+  const timeOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+  if (fmt.hour12 !== undefined) timeOpts.hour12 = fmt.hour12;
+  const time = d.toLocaleTimeString(fmt.locale, timeOpts);
   const sameDay =
     d.getFullYear() === now.getFullYear() &&
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate();
   if (sameDay) return time;
-  return `${time} (${d.toLocaleDateString()})`;
+  return `${time} (${d.toLocaleDateString(fmt.locale)})`;
 }
 
-export function formatLocalTimestamp(ts: number): string {
+export function formatLocalTimestamp(ts: number, locale?: HaLocale): string {
   if (ts <= 100) return 'N/A';
-  return new Date(ts * 1000).toLocaleString();
+  const fmt = timeFormatOptions(locale);
+  const opts: Intl.DateTimeFormatOptions = {};
+  if (fmt.hour12 !== undefined) opts.hour12 = fmt.hour12;
+  return new Date(ts * 1000).toLocaleString(fmt.locale, opts);
 }
 
 export function normalizeSeverity(severity: string | undefined): string {

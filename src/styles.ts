@@ -98,6 +98,10 @@ export const cardStyles = css`
   }
 
   .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1;
     font-size: 0.75rem;
     padding: 2px 8px;
     border-radius: 12px;

@@ -120,7 +120,7 @@ export class NwsAlertsCard extends LitElement {
               <span class="badge certainty-badge">
                 <ha-icon
                   icon=${getCertaintyIcon(alert.Certainty)}
-                  style="width: 12px; height: 12px; vertical-align: -2px;"
+                  style="--mdc-icon-size: 14px; width: 14px; height: 14px;"
                 ></ha-icon>
                 ${alert.Certainty}
               </span>
@@ -150,15 +150,15 @@ export class NwsAlertsCard extends LitElement {
                   <div class="meta-grid">
                     <div class="meta-item">
                       <span class="meta-label">Issued</span>
-                      <span class="meta-value">${formatLocalTimestamp(progress.sentTs)}</span>
+                      <span class="meta-value">${formatLocalTimestamp(progress.sentTs, this.hass.locale)}</span>
                     </div>
                     <div class="meta-item">
                       <span class="meta-label">Onset</span>
-                      <span class="meta-value">${formatLocalTimestamp(progress.onsetTs)}</span>
+                      <span class="meta-value">${formatLocalTimestamp(progress.onsetTs, this.hass.locale)}</span>
                     </div>
                     <div class="meta-item">
                       <span class="meta-label">Expires</span>
-                      <span class="meta-value">${formatLocalTimestamp(progress.endsTs)}</span>
+                      <span class="meta-value">${formatLocalTimestamp(progress.endsTs, this.hass.locale)}</span>
                     </div>
                   </div>
 
@@ -206,7 +206,7 @@ export class NwsAlertsCard extends LitElement {
         <div class="progress-labels">
           <div class="label-left">
             <span class="label-sub">${isActive ? 'Start' : 'Now'}</span><br>
-            ${formatProgressTimestamp(isActive ? onsetTs : nowTs)}
+            ${formatProgressTimestamp(isActive ? onsetTs : nowTs, this.hass.locale)}
           </div>
           <div class="label-center">
             ${!hasEndTime
@@ -217,7 +217,7 @@ export class NwsAlertsCard extends LitElement {
           </div>
           <div class="label-right">
             <span class="label-sub">End</span><br>
-            ${hasEndTime ? formatProgressTimestamp(endsTs) : 'TBD'}
+            ${hasEndTime ? formatProgressTimestamp(endsTs, this.hass.locale) : 'TBD'}
           </div>
         </div>
         <div class="progress-track">
