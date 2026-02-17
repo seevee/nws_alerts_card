@@ -18,6 +18,7 @@ export interface NwsAlertsCardConfig {
   entity: string;
   title?: string;
   zones?: string[];
+  sortOrder?: 'default' | 'onset' | 'severity';
   animations?: boolean;
   layout?: 'default' | 'compact';
 }

@@ -154,6 +154,31 @@ export function normalizeSeverity(severity: string | undefined): string {
   return 'unknown';
 }
 
+const SEVERITY_RANK: Record<string, number> = {
+  extreme: 0, severe: 1, moderate: 2, minor: 3, unknown: 4,
+};
+
+function parseOnsetForSort(alert: NwsAlert): number {
+  if (!alert.Onset || alert.Onset === 'None' || alert.Onset.trim() === '') return Infinity;
+  const d = new Date(alert.Onset.trim());
+  return isNaN(d.getTime()) ? Infinity : d.getTime();
+}
+
+export function sortAlerts(alerts: NwsAlert[], order: string): NwsAlert[] {
+  if (order === 'onset') {
+    return [...alerts].sort((a, b) => parseOnsetForSort(a) - parseOnsetForSort(b));
+  }
+  if (order === 'severity') {
+    return [...alerts].sort((a, b) => {
+      const diff = (SEVERITY_RANK[normalizeSeverity(a.Severity)] ?? 4)
+                 - (SEVERITY_RANK[normalizeSeverity(b.Severity)] ?? 4);
+      if (diff !== 0) return diff;
+      return parseOnsetForSort(a) - parseOnsetForSort(b);
+    });
+  }
+  return alerts;
+}
+
 export function extractZoneCode(url: string): string {
   const parts = url.split('/');
   return parts[parts.length - 1].toUpperCase();

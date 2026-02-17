@@ -45,7 +45,9 @@ A custom Home Assistant Lovelace card for displaying NWS (National Weather Servi
 | `entity` | string   | yes      | —       | Entity ID (e.g. `sensor.nws_alerts_alerts`) |
 | `title`  | string   | no       | —       | Card header title                  |
 | `zones`  | string[] | no       | —       | Filter alerts to specific NWS zone codes (omit to use all configured zones) |
+| `sortOrder` | string | no | `'default'` | Sort alerts: `'default'` (as returned by integration), `'onset'` (soonest first), `'severity'` (most severe first) |
 | `animations` | boolean | no    | `true`  | Enable animated borders, progress bars, and other visual animations |
+| `layout` | string | no | `'default'` | Card layout: `'default'` (full detail) or `'compact'` (collapsed single-row alerts) |
 
 ### Basic
 

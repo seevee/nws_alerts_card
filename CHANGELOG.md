@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.4.0] - 2026-02-17
+
+### Added
+
+- `sortOrder` config option to control alert display order: `'default'` (integration order), `'onset'` (soonest first), or `'severity'` (most severe first)
+- Sort order dropdown in the visual configuration editor
+- Documented `layout` config option in README
+
 ## [v1.3.1] - 2026-02-17
 
 ### Added
@@ -47,6 +55,7 @@ All notable changes to this project will be documented in this file.
 - Card picker integration
 - Shadow DOM with full HA theme support
 
+[v1.4.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.4.0
 [v1.3.1]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.3.1
 [v1.3.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.3.0
 [v1.2.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.2.0

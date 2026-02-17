@@ -8,6 +8,7 @@ import {
   formatProgressTimestamp,
   formatLocalTimestamp,
   normalizeSeverity,
+  sortAlerts,
   alertMatchesZones,
 } from './utils';
 import { cardStyles } from './styles';
@@ -48,12 +49,13 @@ export class NwsAlertsCard extends LitElement {
     if (!entity) return [];
     const alerts = (entity.attributes['Alerts'] as NwsAlert[] | undefined) || [];
 
+    let filtered = alerts;
     if (this._config.zones && this._config.zones.length > 0) {
       const zoneSet = new Set(this._config.zones.map(z => z.toUpperCase()));
-      return alerts.filter(a => alertMatchesZones(a, zoneSet));
+      filtered = alerts.filter(a => alertMatchesZones(a, zoneSet));
     }
 
-    return alerts;
+    return sortAlerts(filtered, this._config.sortOrder || 'default');
   }
 
   private _toggleDetails(alertId: string): void {

@@ -77,6 +77,18 @@ export class NwsAlertsCardEditor extends LitElement {
     this._fireConfigChanged(newConfig);
   }
 
+  private _sortOrderChanged(ev: CustomEvent): void {
+    const value = (ev.target as HTMLSelectElement).value as 'default' | 'onset' | 'severity';
+    if (value === (this._config.sortOrder || 'default')) return;
+    const newConfig = { ...this._config };
+    if (value === 'default') {
+      delete newConfig.sortOrder;
+    } else {
+      newConfig.sortOrder = value;
+    }
+    this._fireConfigChanged(newConfig);
+  }
+
   protected render(): TemplateResult {
     if (!this.hass || !this._config) return html``;
 
@@ -106,6 +118,19 @@ export class NwsAlertsCardEditor extends LitElement {
           .helperPersistent=${true}
           @change=${this._zonesChanged}
         ></ha-textfield>
+
+        <ha-select
+          .label=${'Sort order'}
+          .value=${this._config.sortOrder || 'default'}
+          @selected=${this._sortOrderChanged}
+          @closed=${(ev: Event) => ev.stopPropagation()}
+          fixedMenuPosition
+          naturalMenuWidth
+        >
+          <ha-list-item value="default">Default</ha-list-item>
+          <ha-list-item value="onset">Onset time</ha-list-item>
+          <ha-list-item value="severity">Severity</ha-list-item>
+        </ha-select>
 
         <ha-formfield .label=${'Enable animations'}>
           <ha-switch
