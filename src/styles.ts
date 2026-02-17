@@ -267,6 +267,54 @@ export const cardStyles = css`
     font-size: 0.85rem;
   }
 
+  /* --- COMPACT LAYOUT --- */
+  .compact .alert-card {
+    margin-bottom: 4px;
+    border-radius: 8px;
+  }
+
+  .compact .alert-card::before {
+    display: none;
+  }
+
+  .compact .alert-header-row.compact-row {
+    padding: 8px 12px;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .compact .alert-header-row.compact-row:hover {
+    background: rgba(var(--color-rgb), 0.05);
+  }
+
+  .compact .icon-box {
+    width: 32px;
+    height: 32px;
+  }
+  .compact .icon-box ha-icon {
+    --mdc-icon-size: 18px;
+  }
+
+  .compact .alert-title {
+    font-size: 0.95rem;
+    flex-grow: 1;
+  }
+
+  .compact-chevron {
+    color: var(--secondary-text-color);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+    --mdc-icon-size: 20px;
+  }
+  .compact-chevron.expanded {
+    transform: rotate(180deg);
+  }
+
+  .compact .alert-expanded {
+    padding-top: 4px;
+    border-top: 1px solid var(--divider-color);
+  }
+
   /* --- NO ANIMATIONS --- */
   .no-animations .alert-card {
     animation: none !important;

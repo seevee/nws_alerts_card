@@ -30,7 +30,8 @@ export class NwsAlertsCard extends LitElement {
 
   public getCardSize(): number {
     const alerts = this._getAlerts();
-    return Math.max(1, alerts.length * 3);
+    const perAlert = this._config?.layout === 'compact' ? 1 : 3;
+    return Math.max(1, alerts.length * perAlert);
   }
 
   public static getConfigElement(): HTMLElement {
@@ -77,9 +78,10 @@ export class NwsAlertsCard extends LitElement {
 
     const alerts = this._getAlerts();
     const animClass = this._config.animations === false ? 'no-animations' : '';
+    const layoutClass = this._config.layout === 'compact' ? 'compact' : '';
 
     return html`
-      <ha-card .header=${this._config.title || ''} class=${animClass}>
+      <ha-card .header=${this._config.title || ''} class="${animClass} ${layoutClass}">
         ${alerts.length === 0
         ? this._renderNoAlerts()
         : alerts.map(alert => this._renderAlert(alert))}
@@ -103,9 +105,83 @@ export class NwsAlertsCard extends LitElement {
     const phaseClass = progress.phaseText.toLowerCase();
     const expanded = this._expandedAlerts.get(alert.ID) || false;
 
+    if (this._config.layout === 'compact') {
+      return this._renderCompactAlert(alert, className, phaseClass, progress, expanded);
+    }
+
+    return this._renderFullAlert(alert, className, phaseClass, progress, expanded);
+  }
+
+  private _renderCompactAlert(
+    alert: NwsAlert, className: string, phaseClass: string,
+    progress: AlertProgress, expanded: boolean,
+  ): TemplateResult {
+    return html`
+      <div class="alert-card ${className} ${phaseClass}">
+        <div
+          class="alert-header-row compact-row"
+          @click=${() => this._toggleDetails(alert.ID)}
+        >
+          <div class="icon-box">
+            <ha-icon icon=${getWeatherIcon(alert.Event)}></ha-icon>
+          </div>
+          <span class="alert-title">${alert.Event || 'Unknown'}</span>
+          <ha-icon
+            icon="mdi:chevron-down"
+            class="compact-chevron ${expanded ? 'expanded' : ''}"
+          ></ha-icon>
+        </div>
+        ${expanded ? this._renderExpandedContent(alert, progress) : nothing}
+      </div>
+    `;
+  }
+
+  private _renderExpandedContent(alert: NwsAlert, progress: AlertProgress): TemplateResult {
     const desc = (alert.Description || '').replace(/\n{2,}/g, '\n\n').trim();
     const instr = (alert.Instruction || '').replace(/\n{2,}/g, '\n\n').trim();
+    const expanded = true;
 
+    return html`
+      <div class="alert-expanded">
+        <div class="badges-row" style="padding: 0 12px 8px;">
+          <span class="badge severity-badge">${alert.Severity}</span>
+          <span class="badge certainty-badge">
+            <ha-icon
+              icon=${getCertaintyIcon(alert.Certainty)}
+              style="--mdc-icon-size: 14px; width: 14px; height: 14px;"
+            ></ha-icon>
+            ${alert.Certainty}
+          </span>
+          ${progress.isActive
+        ? html`<span class="badge active-badge">Active</span>`
+        : html`<span class="badge prep-badge">In Prep</span>`}
+        </div>
+
+        ${this._renderProgressSection(alert, progress)}
+
+        <div class="alert-details-section">
+          <div
+            class="details-summary"
+            @click=${() => this._toggleDetails(alert.ID + '_details')}
+          >
+            <span>Read Details</span>
+            <ha-icon
+              icon="mdi:chevron-down"
+              class="chevron ${this._expandedAlerts.get(alert.ID + '_details') ? 'expanded' : ''}"
+            ></ha-icon>
+          </div>
+          ${this._expandedAlerts.get(alert.ID + '_details')
+        ? this._renderDetailsContent(alert, progress)
+        : nothing}
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderFullAlert(
+    alert: NwsAlert, className: string, phaseClass: string,
+    progress: AlertProgress, expanded: boolean,
+  ): TemplateResult {
     return html`
       <div class="alert-card ${className} ${phaseClass}">
         <div class="alert-header-row">
@@ -145,51 +221,56 @@ export class NwsAlertsCard extends LitElement {
               class="chevron ${expanded ? 'expanded' : ''}"
             ></ha-icon>
           </div>
-          ${expanded
+          ${expanded ? this._renderDetailsContent(alert, progress) : nothing}
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderDetailsContent(alert: NwsAlert, progress: AlertProgress): TemplateResult {
+    const desc = (alert.Description || '').replace(/\n{2,}/g, '\n\n').trim();
+    const instr = (alert.Instruction || '').replace(/\n{2,}/g, '\n\n').trim();
+
+    return html`
+      <div class="details-content">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">Issued</span>
+            <span class="meta-value">${formatLocalTimestamp(progress.sentTs, this.hass.locale)}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Onset</span>
+            <span class="meta-value">${formatLocalTimestamp(progress.onsetTs, this.hass.locale)}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Expires</span>
+            <span class="meta-value">${formatLocalTimestamp(progress.endsTs, this.hass.locale)}</span>
+          </div>
+        </div>
+
+        ${desc
         ? html`
-                <div class="details-content">
-                  <div class="meta-grid">
-                    <div class="meta-item">
-                      <span class="meta-label">Issued</span>
-                      <span class="meta-value">${formatLocalTimestamp(progress.sentTs, this.hass.locale)}</span>
-                    </div>
-                    <div class="meta-item">
-                      <span class="meta-label">Onset</span>
-                      <span class="meta-value">${formatLocalTimestamp(progress.onsetTs, this.hass.locale)}</span>
-                    </div>
-                    <div class="meta-item">
-                      <span class="meta-label">Expires</span>
-                      <span class="meta-value">${formatLocalTimestamp(progress.endsTs, this.hass.locale)}</span>
-                    </div>
-                  </div>
-
-                  ${desc
-            ? html`
-                        <div class="text-block">
-                          <div class="text-label">Description</div>
-                          <div class="text-body">${desc}</div>
-                        </div>
-                      `
-            : nothing}
-
-                  ${instr
-            ? html`
-                        <div class="text-block">
-                          <div class="text-label">Instructions</div>
-                          <div class="text-body">${instr}</div>
-                        </div>
-                      `
-            : nothing}
-
-                  <div class="footer-link">
-                    <a href=${alert.URL || '#'} target="_blank">
-                      Open NWS Source
-                      <ha-icon icon="mdi:open-in-new" style="width:14px;"></ha-icon>
-                    </a>
-                  </div>
-                </div>
-              `
+              <div class="text-block">
+                <div class="text-label">Description</div>
+                <div class="text-body">${desc}</div>
+              </div>
+            `
         : nothing}
+
+        ${instr
+        ? html`
+              <div class="text-block">
+                <div class="text-label">Instructions</div>
+                <div class="text-body">${instr}</div>
+              </div>
+            `
+        : nothing}
+
+        <div class="footer-link">
+          <a href=${alert.URL || '#'} target="_blank">
+            Open NWS Source
+            <ha-icon icon="mdi:open-in-new" style="width:14px;"></ha-icon>
+          </a>
         </div>
       </div>
     `;

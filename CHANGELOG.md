@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.3.0] - 2026-02-17
+
+### Added
+
+- `layout: compact` config option for space-constrained dashboards — renders each alert as a single slim row (icon + event name) that expands on tap to reveal badges, progress bar, and details
+
 ## [v1.2.0] - 2026-02-16
 
 ### Added
@@ -35,6 +41,7 @@ All notable changes to this project will be documented in this file.
 - Card picker integration
 - Shadow DOM with full HA theme support
 
+[v1.3.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.3.0
 [v1.2.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.2.0
 [v1.1.1]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.1.1
 [v1.1.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.1.0
