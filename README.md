@@ -96,3 +96,7 @@ docker compose -f .docker/docker-compose.yml up
 Access Home Assistant at http://localhost:8123. The card JS is volume-mounted read-only — rebuild on the host and refresh the browser to see changes.
 
 After the HA onboarding flow, add the card resource via **Settings → Dashboards → Resources** (URL: `/local/nws-alerts-card.js`, type: JavaScript Module). Then add the card to any dashboard — it will appear in the card picker as "NWS Alerts Card".
+
+### Resources
+
+- [Home Assistant Community thread](https://community.home-assistant.io/t/nws-alerts-card)
