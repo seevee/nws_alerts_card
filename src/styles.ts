@@ -267,6 +267,15 @@ export const cardStyles = css`
     font-size: 0.85rem;
   }
 
+  /* --- NO ANIMATIONS --- */
+  .no-animations .alert-card {
+    animation: none !important;
+  }
+  .no-animations .progress-fill {
+    animation: none !important;
+    transition: none !important;
+  }
+
   /* --- EMPTY STATE --- */
   .no-alerts {
     padding: 20px;

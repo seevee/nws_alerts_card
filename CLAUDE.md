@@ -41,6 +41,7 @@ interface NwsAlertsCardConfig {
   entity: string;        // required — e.g. "sensor.nws_alerts_alerts"
   title?: string;        // optional card header
   zones?: string[];      // optional zone filter — e.g. ["COC059", "COZ039"]
+  animations?: boolean;  // optional — default true; controls animated borders, progress bars, etc.
 }
 ```
 

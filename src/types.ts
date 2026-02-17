@@ -18,6 +18,7 @@ export interface NwsAlertsCardConfig {
   entity: string;
   title?: string;
   zones?: string[];
+  animations?: boolean;
 }
 
 export interface NwsAlert {

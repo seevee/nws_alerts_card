@@ -39,6 +39,19 @@ export class NwsAlertsCardEditor extends LitElement {
     this._fireConfigChanged(newConfig);
   }
 
+  private _animationsChanged(ev: Event): void {
+    const target = ev.target as HTMLInputElement;
+    const animations = target.checked;
+    if (animations === (this._config.animations !== false)) return;
+    const newConfig = { ...this._config };
+    if (animations) {
+      delete newConfig.animations;
+    } else {
+      newConfig.animations = false;
+    }
+    this._fireConfigChanged(newConfig);
+  }
+
   private _zonesChanged(ev: Event): void {
     const target = ev.target as HTMLInputElement;
     const raw = target.value;
@@ -80,6 +93,13 @@ export class NwsAlertsCardEditor extends LitElement {
           .helperPersistent=${true}
           @change=${this._zonesChanged}
         ></ha-textfield>
+
+        <ha-formfield .label=${'Enable animations'}>
+          <ha-switch
+            .checked=${this._config.animations !== false}
+            @change=${this._animationsChanged}
+          ></ha-switch>
+        </ha-formfield>
       </div>
     `;
   }

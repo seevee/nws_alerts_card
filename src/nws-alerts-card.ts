@@ -76,9 +76,10 @@ export class NwsAlertsCard extends LitElement {
     }
 
     const alerts = this._getAlerts();
+    const animClass = this._config.animations === false ? 'no-animations' : '';
 
     return html`
-      <ha-card .header=${this._config.title || ''}>
+      <ha-card .header=${this._config.title || ''} class=${animClass}>
         ${alerts.length === 0
         ? this._renderNoAlerts()
         : alerts.map(alert => this._renderAlert(alert))}
@@ -197,8 +198,11 @@ export class NwsAlertsCard extends LitElement {
   private _renderProgressSection(alert: NwsAlert, progress: AlertProgress): TemplateResult {
     const { isActive, progressPct, hasEndTime, onsetMinutes, onsetHours, onsetTs, endsTs, nowTs } = progress;
 
+    const noAnim = this._config.animations === false;
     const fillStyle = isActive && !hasEndTime
-      ? 'width: 100%; left: 0; animation: ongoing-pulse 5s infinite; opacity: 0.8;'
+      ? noAnim
+        ? 'width: 100%; left: 0; opacity: 0.8;'
+        : 'width: 100%; left: 0; animation: ongoing-pulse 5s infinite; opacity: 0.8;'
       : `width: ${100 - progressPct}%; left: ${progressPct}%;`;
 
     return html`
