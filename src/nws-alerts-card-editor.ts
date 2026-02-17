@@ -52,6 +52,19 @@ export class NwsAlertsCardEditor extends LitElement {
     this._fireConfigChanged(newConfig);
   }
 
+  private _layoutChanged(ev: Event): void {
+    const target = ev.target as HTMLInputElement;
+    const compact = target.checked;
+    if (compact === (this._config.layout === 'compact')) return;
+    const newConfig = { ...this._config };
+    if (compact) {
+      newConfig.layout = 'compact';
+    } else {
+      delete newConfig.layout;
+    }
+    this._fireConfigChanged(newConfig);
+  }
+
   private _zonesChanged(ev: Event): void {
     const target = ev.target as HTMLInputElement;
     const raw = target.value;
@@ -98,6 +111,13 @@ export class NwsAlertsCardEditor extends LitElement {
           <ha-switch
             .checked=${this._config.animations !== false}
             @change=${this._animationsChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-formfield .label=${'Compact layout'}>
+          <ha-switch
+            .checked=${this._config.layout === 'compact'}
+            @change=${this._layoutChanged}
           ></ha-switch>
         </ha-formfield>
       </div>
