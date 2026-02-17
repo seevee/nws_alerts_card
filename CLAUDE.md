@@ -91,4 +91,9 @@ The card needs the `sensor.nws_alerts_alerts` entity which comes from the [NWS A
 
 - `hacs.json` — HACS manifest (name, filename).
 - `.github/workflows/release.yml` — on GitHub Release publish: builds and attaches `dist/nws-alerts-card.js` to the release.
-- To release: create a GitHub Release tag; the workflow handles the rest. Users add this repo as a HACS custom repository (Frontend category).
+- To release:
+  1. Update `CHANGELOG.md` — add a new section at the top with the version, date, and categorized changes (Added, Changed, Fixed, Removed).
+  2. Bump version in `package.json` via `npm version <major|minor|patch> --no-git-tag-version`.
+  3. Run `npm run build`.
+  4. Commit, tag, push, and create a GitHub Release; the workflow attaches the built JS.
+- Users add this repo as a HACS custom repository (Frontend category).
