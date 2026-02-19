@@ -36,6 +36,54 @@ export function getCertaintyIcon(certainty: string): string {
   return 'mdi:bullseye-arrow';
 }
 
+// Priority-ordered: more specific phrases before broad fallbacks
+const NWS_EVENT_COLORS: [readonly string[], string, string][] = [
+  [['tornado warning'],                          '#FF0000', '255, 0, 0'],
+  [['tornado watch'],                            '#FFFF00', '255, 255, 0'],
+  [['extreme wind warning'],                     '#FF8C00', '255, 140, 0'],
+  [['hurricane warning'],                        '#DC143C', '220, 20, 60'],
+  [['excessive heat warning'],                   '#C71585', '199, 21, 133'],
+  [['flash flood warning', 'flash flood stmt'],  '#8B0000', '139, 0, 0'],
+  [['flash flood watch'],                        '#2E8B57', '46, 139, 87'],
+  [['flash flood advisory'],                     '#00FF7F', '0, 255, 127'],
+  [['severe thunderstorm warning'],              '#FFA500', '255, 165, 0'],
+  [['severe thunderstorm watch'],                '#DB7093', '219, 112, 147'],
+  [['blizzard warning'],                         '#FF4500', '255, 69, 0'],
+  [['ice storm warning'],                        '#8B008B', '139, 0, 139'],
+  [['winter storm warning'],                     '#FF69B4', '255, 105, 180'],
+  [['winter storm watch'],                       '#4682B4', '70, 130, 180'],
+  [['high wind warning'],                        '#DAA520', '218, 165, 32'],
+  [['wind chill warning'],                       '#B0C4DE', '176, 196, 222'],
+  [['red flag warning', 'fire weather watch'],   '#FF4500', '255, 69, 0'],
+  [['tsunami warning'],                          '#FD6347', '253, 99, 71'],
+  [['heat advisory'],                            '#FF7F50', '255, 127, 80'],
+  [['dense fog advisory'],                       '#708090', '112, 128, 144'],
+  [['frost advisory'],                           '#6495ED', '100, 149, 237'],
+  [['freeze warning'],                           '#483D8B', '72, 61, 139'],
+  [['wind advisory'],                            '#D2B48C', '210, 180, 140'],
+  [['winter weather advisory'],                  '#7B68EE', '123, 104, 238'],
+  // Broad fallbacks
+  [['tornado'],                                  '#FF0000', '255, 0, 0'],
+  [['hurricane', 'typhoon', 'tropical storm'],   '#DC143C', '220, 20, 60'],
+  [['flood'],                                    '#228B22', '34, 139, 34'],
+  [['blizzard', 'ice storm'],                    '#FF4500', '255, 69, 0'],
+  [['snow', 'winter', 'blizzard'],               '#1E90FF', '30, 144, 255'],
+  [['freeze', 'frost', 'ice'],                   '#6495ED', '100, 149, 237'],
+  [['wind'],                                     '#D2B48C', '210, 180, 140'],
+  [['heat'],                                     '#FF7F50', '255, 127, 80'],
+  [['fire', 'red flag'],                         '#FF4500', '255, 69, 0'],
+  [['fog'],                                      '#708090', '112, 128, 144'],
+  [['tsunami'],                                  '#FD6347', '253, 99, 71'],
+];
+
+export function getNwsEventColor(event: string): { color: string; rgb: string } {
+  const e = event.toLowerCase();
+  for (const [patterns, color, rgb] of NWS_EVENT_COLORS) {
+    if (patterns.some(p => e.includes(p))) return { color, rgb };
+  }
+  return { color: '#808080', rgb: '128, 128, 128' };
+}
+
 function parseTimestamp(raw: string | undefined | null): number {
   if (!raw || raw === 'None' || raw.trim() === '') return 0;
   const d = new Date(raw.trim());

@@ -10,6 +10,7 @@ import {
   normalizeSeverity,
   sortAlerts,
   alertMatchesZones,
+  getNwsEventColor,
 } from './utils';
 import { cardStyles } from './styles';
 import './nws-alerts-card-editor';
@@ -60,6 +61,13 @@ export class NwsAlertsCard extends LitElement {
 
   private get _animationsEnabled(): boolean { return this._config?.animations !== false; }
   private get _isCompact(): boolean { return this._config?.layout === 'compact'; }
+  private get _colorTheme(): 'severity' | 'nws' { return this._config?.colorTheme || 'severity'; }
+
+  private _alertColorStyle(event: string): string {
+    if (this._colorTheme !== 'nws') return '';
+    const { color, rgb } = getNwsEventColor(event);
+    return `--color: ${color}; --color-rgb: ${rgb};`;
+  }
   private _normalizeText(text: string | undefined): string {
     return (text || '').replace(/\n{2,}/g, '\n\n').trim();
   }
@@ -137,7 +145,7 @@ export class NwsAlertsCard extends LitElement {
     progress: AlertProgress, expanded: boolean,
   ): TemplateResult {
     return html`
-      <div class="alert-card ${className} ${phaseClass}">
+      <div class="alert-card ${className} ${phaseClass}" style=${this._alertColorStyle(alert.Event)}>
         <div
           class="alert-header-row compact-row"
           @click=${() => this._toggleDetails(alert.ID)}
@@ -192,7 +200,7 @@ export class NwsAlertsCard extends LitElement {
     progress: AlertProgress, expanded: boolean,
   ): TemplateResult {
     return html`
-      <div class="alert-card ${className} ${phaseClass}">
+      <div class="alert-card ${className} ${phaseClass}" style=${this._alertColorStyle(alert.Event)}>
         <div class="alert-header-row">
           <div class="icon-box">
             <ha-icon icon=${getWeatherIcon(alert.Event)}></ha-icon>

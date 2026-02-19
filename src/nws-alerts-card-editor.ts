@@ -89,6 +89,18 @@ export class NwsAlertsCardEditor extends LitElement {
     this._fireConfigChanged(newConfig);
   }
 
+  private _colorThemeChanged(ev: CustomEvent): void {
+    const value = (ev.target as HTMLSelectElement).value as 'severity' | 'nws';
+    if (value === (this._config.colorTheme || 'severity')) return;
+    const newConfig = { ...this._config };
+    if (value === 'severity') {
+      delete newConfig.colorTheme;
+    } else {
+      newConfig.colorTheme = value;
+    }
+    this._fireConfigChanged(newConfig);
+  }
+
   protected render(): TemplateResult {
     if (!this.hass || !this._config) return html``;
 
@@ -130,6 +142,18 @@ export class NwsAlertsCardEditor extends LitElement {
           <ha-list-item value="default">Default</ha-list-item>
           <ha-list-item value="onset">Onset time</ha-list-item>
           <ha-list-item value="severity">Severity</ha-list-item>
+        </ha-select>
+
+        <ha-select
+          .label=${'Color theme'}
+          .value=${this._config.colorTheme || 'severity'}
+          @selected=${this._colorThemeChanged}
+          @closed=${(ev: Event) => ev.stopPropagation()}
+          fixedMenuPosition
+          naturalMenuWidth
+        >
+          <ha-list-item value="severity">Severity-based</ha-list-item>
+          <ha-list-item value="nws">NWS Official</ha-list-item>
         </ha-select>
 
         <ha-formfield .label=${'Enable animations'}>

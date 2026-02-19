@@ -21,6 +21,7 @@ export interface NwsAlertsCardConfig {
   sortOrder?: 'default' | 'onset' | 'severity';
   animations?: boolean;
   layout?: 'default' | 'compact';
+  colorTheme?: 'severity' | 'nws';
 }
 
 export interface NwsAlert {
