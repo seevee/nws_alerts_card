@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.6.0] - 2026-02-18
+
+### Changed
+
+- `animations` config option now respects the OS `prefers-reduced-motion` accessibility setting when unset (omitted). Setting `animations: true` overrides OS preference and always animates; `animations: false` always disables animations. Users who have not set this option will now have animations automatically suppressed when their OS accessibility settings request reduced motion.
+
 ## [v1.5.0] - 2026-02-18
 
 ### Added
@@ -72,6 +78,7 @@ All notable changes to this project will be documented in this file.
 - Card picker integration
 - Shadow DOM with full HA theme support
 
+[v1.6.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.6.0
 [v1.5.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.5.0
 [v1.4.1]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.4.1
 [v1.4.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.4.0

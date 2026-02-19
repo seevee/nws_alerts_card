@@ -19,7 +19,7 @@ export interface NwsAlertsCardConfig {
   title?: string;
   zones?: string[];
   sortOrder?: 'default' | 'onset' | 'severity';
-  animations?: boolean;
+  animations?: boolean;  // undefined: respects prefers-reduced-motion; true: always animate; false: never animate
   layout?: 'default' | 'compact';
   colorTheme?: 'severity' | 'nws';
 }

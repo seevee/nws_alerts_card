@@ -23,6 +23,19 @@ export class NwsAlertsCard extends LitElement {
   @state() private _config!: NwsAlertsCardConfig;
   @state() private _expandedAlerts: Map<string, boolean> = new Map();
 
+  private _motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  private _onMotionChange = () => this.requestUpdate();
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._motionQuery.addEventListener('change', this._onMotionChange);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._motionQuery.removeEventListener('change', this._onMotionChange);
+  }
+
   public setConfig(config: NwsAlertsCardConfig): void {
     if (!config.entity) {
       throw new Error('You need to define an entity');
@@ -59,7 +72,11 @@ export class NwsAlertsCard extends LitElement {
     return sortAlerts(filtered, this._config.sortOrder || 'default');
   }
 
-  private get _animationsEnabled(): boolean { return this._config?.animations !== false; }
+  private get _animationsEnabled(): boolean {
+    if (this._config?.animations === true) return true;
+    if (this._config?.animations === false) return false;
+    return !this._motionQuery.matches; // undefined → respect OS prefers-reduced-motion
+  }
   private get _isCompact(): boolean { return this._config?.layout === 'compact'; }
   private get _colorTheme(): 'severity' | 'nws' { return this._config?.colorTheme || 'severity'; }
 
