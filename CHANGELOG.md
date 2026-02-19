@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.5.0] - 2026-02-18
+
+### Added
+
+- `colorTheme` config option to choose between `'severity'` (default — HA theme colors mapped to severity brackets) and `'nws'` (NWS official hazard-map colors keyed by event type, e.g. Tornado Warning → red, Flash Flood Warning → dark red)
+- Color theme dropdown in the visual configuration editor
+
 ## [v1.4.1] - 2026-02-18
 
 ### Fixed
@@ -65,6 +72,7 @@ All notable changes to this project will be documented in this file.
 - Card picker integration
 - Shadow DOM with full HA theme support
 
+[v1.5.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.5.0
 [v1.4.1]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.4.1
 [v1.4.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.4.0
 [v1.3.1]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.3.1
