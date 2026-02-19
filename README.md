@@ -10,9 +10,13 @@ A custom Home Assistant Lovelace card for displaying NWS (National Weather Servi
 ## Features
 
 - Severity-based color coding with animated borders for extreme/severe alerts
+- Optional NWS official hazard-map colors keyed by event type
 - Progress bars showing elapsed/remaining time for each alert
 - Expandable details with description, instructions, and NWS source link
+- Compact layout — collapsed single-row view that expands on tap
 - Zone-based alert filtering
+- Configurable sort order (default, onset time, or severity)
+- Visual configuration editor (no YAML required)
 - Card picker integration (add from HA UI)
 - Shadow DOM — no style conflicts, full HA theme support
 
@@ -40,14 +44,15 @@ A custom Home Assistant Lovelace card for displaying NWS (National Weather Servi
 
 ## Configuration
 
-| Option   | Type     | Required | Default | Description                        |
-|----------|----------|----------|---------|------------------------------------|
-| `entity` | string   | yes      | —       | Entity ID (e.g. `sensor.nws_alerts_alerts`) |
-| `title`  | string   | no       | —       | Card header title                  |
-| `zones`  | string[] | no       | —       | Filter alerts to specific NWS zone codes (omit to use all configured zones) |
-| `sortOrder` | string | no | `'default'` | Sort alerts: `'default'` (as returned by integration), `'onset'` (soonest first), `'severity'` (most severe first) |
-| `animations` | boolean | no    | `true`  | Enable animated borders, progress bars, and other visual animations |
-| `layout` | string | no | `'default'` | Card layout: `'default'` (full detail) or `'compact'` (collapsed single-row alerts) |
+| Option       | Type     | Required | Default      | Description                        |
+|--------------|----------|----------|--------------|------------------------------------|
+| `entity`     | string   | yes      | —            | Entity ID (e.g. `sensor.nws_alerts_alerts`) |
+| `title`      | string   | no       | —            | Card header title                  |
+| `zones`      | string[] | no       | —            | Filter alerts to specific NWS zone codes (omit to show all configured zones) |
+| `sortOrder`  | string   | no       | `'default'`  | Sort alerts: `'default'` (integration order), `'onset'` (soonest first), `'severity'` (most severe first) |
+| `colorTheme` | string   | no       | `'severity'` | Color scheme: `'severity'` (HA theme colors by severity bracket) or `'nws'` (NWS official hazard-map colors by event type) |
+| `animations` | boolean  | no       | `true`       | Enable animated borders, progress bar animations, and ongoing-pulse effects |
+| `layout`     | string   | no       | `'default'`  | Card layout: `'default'` (full detail) or `'compact'` (collapsed single-row alerts that expand on tap) |
 
 ### Basic
 
@@ -66,6 +71,16 @@ zones:
   - COC059
   - COZ039
   - COZ239
+```
+
+### NWS official colors, compact layout, sorted by severity
+
+```yaml
+type: custom:nws-alerts-card
+entity: sensor.nws_alerts_alerts
+colorTheme: nws
+layout: compact
+sortOrder: severity
 ```
 
 ## NWS Alerts Integration Setup
