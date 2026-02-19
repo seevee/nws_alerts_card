@@ -32,7 +32,7 @@ export const cardStyles = css`
   }
 
   /* --- COLOR MAPPING --- */
-  .severity-extreme { --color: var(--error-color); --color-rgb: 244, 67, 54; }
+  .severity-extreme,
   .severity-severe { --color: var(--error-color); --color-rgb: 244, 67, 54; }
   .severity-moderate { --color: var(--warning-color); --color-rgb: 255, 152, 0; }
   .severity-minor { --color: var(--info-color); --color-rgb: 33, 150, 243; }

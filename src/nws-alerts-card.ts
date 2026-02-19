@@ -31,7 +31,7 @@ export class NwsAlertsCard extends LitElement {
 
   public getCardSize(): number {
     const alerts = this._getAlerts();
-    const perAlert = this._config?.layout === 'compact' ? 1 : 3;
+    const perAlert = this._isCompact ? 1 : 3;
     return Math.max(1, alerts.length * perAlert);
   }
 
@@ -56,6 +56,12 @@ export class NwsAlertsCard extends LitElement {
     }
 
     return sortAlerts(filtered, this._config.sortOrder || 'default');
+  }
+
+  private get _animationsEnabled(): boolean { return this._config?.animations !== false; }
+  private get _isCompact(): boolean { return this._config?.layout === 'compact'; }
+  private _normalizeText(text: string | undefined): string {
+    return (text || '').replace(/\n{2,}/g, '\n\n').trim();
   }
 
   private _toggleDetails(alertId: string): void {
@@ -91,8 +97,8 @@ export class NwsAlertsCard extends LitElement {
     }
 
     const alerts = this._getAlerts();
-    const animClass = this._config.animations === false ? 'no-animations' : '';
-    const layoutClass = this._config.layout === 'compact' ? 'compact' : '';
+    const animClass = this._animationsEnabled ? '' : 'no-animations';
+    const layoutClass = this._isCompact ? 'compact' : '';
 
     return html`
       <ha-card .header=${this._config.title || ''} class="${animClass} ${layoutClass}">
@@ -119,7 +125,7 @@ export class NwsAlertsCard extends LitElement {
     const phaseClass = progress.phaseText.toLowerCase();
     const expanded = this._expandedAlerts.get(alert.ID) || false;
 
-    if (this._config.layout === 'compact') {
+    if (this._isCompact) {
       return this._renderCompactAlert(alert, className, phaseClass, progress, expanded);
     }
 
@@ -151,24 +157,13 @@ export class NwsAlertsCard extends LitElement {
   }
 
   private _renderExpandedContent(alert: NwsAlert, progress: AlertProgress): TemplateResult {
-    const desc = (alert.Description || '').replace(/\n{2,}/g, '\n\n').trim();
-    const instr = (alert.Instruction || '').replace(/\n{2,}/g, '\n\n').trim();
-    const expanded = true;
+    const desc = this._normalizeText(alert.Description);
+    const instr = this._normalizeText(alert.Instruction);
 
     return html`
       <div class="alert-expanded">
         <div class="badges-row" style="padding: 0 12px 8px;">
-          <span class="badge severity-badge">${alert.Severity}</span>
-          <span class="badge certainty-badge">
-            <ha-icon
-              icon=${getCertaintyIcon(alert.Certainty)}
-              style="--mdc-icon-size: 14px; width: 14px; height: 14px;"
-            ></ha-icon>
-            ${alert.Certainty}
-          </span>
-          ${progress.isActive
-        ? html`<span class="badge active-badge">Active</span>`
-        : html`<span class="badge prep-badge">In Prep</span>`}
+          ${this._renderBadgesRow(alert, progress)}
         </div>
 
         ${this._renderProgressSection(alert, progress)}
@@ -207,17 +202,7 @@ export class NwsAlertsCard extends LitElement {
               <span class="alert-title">${alert.Event || 'Unknown'}</span>
             </div>
             <div class="badges-row">
-              <span class="badge severity-badge">${alert.Severity}</span>
-              <span class="badge certainty-badge">
-                <ha-icon
-                  icon=${getCertaintyIcon(alert.Certainty)}
-                  style="--mdc-icon-size: 14px; width: 14px; height: 14px;"
-                ></ha-icon>
-                ${alert.Certainty}
-              </span>
-              ${progress.isActive
-        ? html`<span class="badge active-badge">Active</span>`
-        : html`<span class="badge prep-badge">In Prep</span>`}
+              ${this._renderBadgesRow(alert, progress)}
             </div>
           </div>
         </div>
@@ -241,9 +226,35 @@ export class NwsAlertsCard extends LitElement {
     `;
   }
 
+  private _renderBadgesRow(alert: NwsAlert, progress: AlertProgress): TemplateResult {
+    return html`
+      <span class="badge severity-badge">${alert.Severity}</span>
+      <span class="badge certainty-badge">
+        <ha-icon
+          icon=${getCertaintyIcon(alert.Certainty)}
+          style="--mdc-icon-size: 14px; width: 14px; height: 14px;"
+        ></ha-icon>
+        ${alert.Certainty}
+      </span>
+      ${progress.isActive
+        ? html`<span class="badge active-badge">Active</span>`
+        : html`<span class="badge prep-badge">In Prep</span>`}
+    `;
+  }
+
+  private _renderTextBlock(label: string, text: string): TemplateResult | typeof nothing {
+    if (!text) return nothing;
+    return html`
+      <div class="text-block">
+        <div class="text-label">${label}</div>
+        <div class="text-body">${text}</div>
+      </div>
+    `;
+  }
+
   private _renderDetailsContent(alert: NwsAlert, progress: AlertProgress): TemplateResult {
-    const desc = (alert.Description || '').replace(/\n{2,}/g, '\n\n').trim();
-    const instr = (alert.Instruction || '').replace(/\n{2,}/g, '\n\n').trim();
+    const desc = this._normalizeText(alert.Description);
+    const instr = this._normalizeText(alert.Instruction);
 
     return html`
       <div class="details-content">
@@ -262,23 +273,8 @@ export class NwsAlertsCard extends LitElement {
           </div>
         </div>
 
-        ${desc
-        ? html`
-              <div class="text-block">
-                <div class="text-label">Description</div>
-                <div class="text-body">${desc}</div>
-              </div>
-            `
-        : nothing}
-
-        ${instr
-        ? html`
-              <div class="text-block">
-                <div class="text-label">Instructions</div>
-                <div class="text-body">${instr}</div>
-              </div>
-            `
-        : nothing}
+        ${this._renderTextBlock('Description', desc)}
+        ${this._renderTextBlock('Instructions', instr)}
 
         <div class="footer-link">
           <a href=${alert.URL || '#'} target="_blank">
@@ -293,7 +289,7 @@ export class NwsAlertsCard extends LitElement {
   private _renderProgressSection(alert: NwsAlert, progress: AlertProgress): TemplateResult {
     const { isActive, progressPct, hasEndTime, onsetMinutes, onsetHours, onsetTs, endsTs, nowTs } = progress;
 
-    const noAnim = this._config.animations === false;
+    const noAnim = !this._animationsEnabled;
     const fillStyle = isActive && !hasEndTime
       ? noAnim
         ? 'width: 100%; left: 0; opacity: 0.8;'

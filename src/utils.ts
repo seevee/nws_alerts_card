@@ -1,26 +1,38 @@
 import { NwsAlert, AlertProgress } from './types';
 
+const WEATHER_ICONS: [readonly string[], string][] = [
+  [['tornado'], 'mdi:weather-tornado'],
+  [['thunderstorm', 't-storm'], 'mdi:weather-lightning'],
+  [['flood', 'hydrologic'], 'mdi:home-flood'],
+  [['snow', 'blizzard', 'winter'], 'mdi:weather-snowy-heavy'],
+  [['ice', 'freeze', 'frost'], 'mdi:snowflake'],
+  [['landslide', 'avalanche'], 'mdi:landslide'],
+  [['wind'], 'mdi:weather-windy'],
+  [['fire', 'red flag'], 'mdi:fire'],
+  [['heat'], 'mdi:weather-sunny-alert'],
+  [['fog'], 'mdi:weather-fog'],
+  [['hurricane', 'tropical'], 'mdi:weather-hurricane'],
+];
+
 export function getWeatherIcon(event: string): string {
   const e = event.toLowerCase();
-  if (e.includes('tornado')) return 'mdi:weather-tornado';
-  if (e.includes('thunderstorm') || e.includes('t-storm')) return 'mdi:weather-lightning';
-  if (e.includes('flood') || e.includes('hydrologic')) return 'mdi:home-flood';
-  if (e.includes('snow') || e.includes('blizzard') || e.includes('winter')) return 'mdi:weather-snowy-heavy';
-  if (e.includes('ice') || e.includes('freeze') || e.includes('frost')) return 'mdi:snowflake';
-  if (e.includes('landslide') || e.includes('avalanche')) return 'mdi:landslide';
-  if (e.includes('wind')) return 'mdi:weather-windy';
-  if (e.includes('fire') || e.includes('red flag')) return 'mdi:fire';
-  if (e.includes('heat')) return 'mdi:weather-sunny-alert';
-  if (e.includes('fog')) return 'mdi:weather-fog';
-  if (e.includes('hurricane') || e.includes('tropical')) return 'mdi:weather-hurricane';
+  for (const [patterns, icon] of WEATHER_ICONS) {
+    if (patterns.some(p => e.includes(p))) return icon;
+  }
   return 'mdi:alert-circle-outline';
 }
 
+const CERTAINTY_ICONS: [readonly string[], string][] = [
+  [['likely'], 'mdi:check-decagram'],
+  [['observed'], 'mdi:eye-check'],
+  [['possible', 'unlikely'], 'mdi:help-circle-outline'],
+];
+
 export function getCertaintyIcon(certainty: string): string {
   const c = certainty.toLowerCase();
-  if (c.includes('likely')) return 'mdi:check-decagram';
-  if (c.includes('observed')) return 'mdi:eye-check';
-  if (c.includes('possible') || c.includes('unlikely')) return 'mdi:help-circle-outline';
+  for (const [patterns, icon] of CERTAINTY_ICONS) {
+    if (patterns.some(p => c.includes(p))) return icon;
+  }
   return 'mdi:bullseye-arrow';
 }
 
@@ -122,14 +134,18 @@ function formatDate(d: Date, locale?: HaLocale): string {
   }
 }
 
+function formatTime(d: Date, locale: HaLocale | undefined, hour: '2-digit' | 'numeric'): string {
+  const fmt = timeFormatOptions(locale);
+  const opts: Intl.DateTimeFormatOptions = { hour, minute: '2-digit' };
+  if (fmt.hour12 !== undefined) opts.hour12 = fmt.hour12;
+  return d.toLocaleTimeString(fmt.locale, opts);
+}
+
 export function formatProgressTimestamp(ts: number, locale?: HaLocale): string {
   if (ts <= 0) return 'N/A';
   const d = new Date(ts * 1000);
   const now = new Date();
-  const fmt = timeFormatOptions(locale);
-  const timeOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
-  if (fmt.hour12 !== undefined) timeOpts.hour12 = fmt.hour12;
-  const time = d.toLocaleTimeString(fmt.locale, timeOpts);
+  const time = formatTime(d, locale, '2-digit');
   const sameDay =
     d.getFullYear() === now.getFullYear() &&
     d.getMonth() === now.getMonth() &&
@@ -141,10 +157,7 @@ export function formatProgressTimestamp(ts: number, locale?: HaLocale): string {
 export function formatLocalTimestamp(ts: number, locale?: HaLocale): string {
   if (ts <= 100) return 'N/A';
   const d = new Date(ts * 1000);
-  const fmt = timeFormatOptions(locale);
-  const timeOpts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
-  if (fmt.hour12 !== undefined) timeOpts.hour12 = fmt.hour12;
-  const time = d.toLocaleTimeString(fmt.locale, timeOpts);
+  const time = formatTime(d, locale, 'numeric');
   return `${formatDate(d, locale)}, ${time}`;
 }
 
