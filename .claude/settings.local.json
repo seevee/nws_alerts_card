@@ -19,7 +19,9 @@
       "Bash(gh repo view:*)",
       "Bash(gh workflow run:*)",
       "Bash(gh release view:*)",
-      "WebFetch(domain:gist.github.com)"
+      "WebFetch(domain:gist.github.com)",
+      "Bash(npm version:*)",
+      "WebFetch(domain:www.weather.gov)"
     ]
   }
 }

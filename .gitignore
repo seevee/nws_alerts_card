@@ -9,7 +9,6 @@ tsconfig.tsbuildinfo
 
 # AI tools
 .aider*
-.claude/
 
 # Home Assistant dev container state
 config/.storage/
