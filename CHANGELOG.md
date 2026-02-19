@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.4.1] - 2026-02-18
+
+### Fixed
+
+- Show a clean in-card message when the NWS Alerts sensor is `unavailable` or `unknown` instead of rendering a broken card
+
+### Changed
+
+- Internal refactor: icon lookups, timestamp formatting, and repeated template blocks consolidated into shared helpers (no behavior change)
+
 ## [v1.4.0] - 2026-02-17
 
 ### Added
@@ -55,6 +65,7 @@ All notable changes to this project will be documented in this file.
 - Card picker integration
 - Shadow DOM with full HA theme support
 
+[v1.4.1]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.4.1
 [v1.4.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.4.0
 [v1.3.1]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.3.1
 [v1.3.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.3.0
