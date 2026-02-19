@@ -78,6 +78,18 @@ export class NwsAlertsCard extends LitElement {
       `;
     }
 
+    const stateVal = entity.state;
+    if (stateVal === 'unavailable' || stateVal === 'unknown') {
+      return html`
+        <ha-card .header=${this._config.title || ''}>
+          <div class="sensor-unavailable">
+            <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+            NWS Alerts sensor is ${stateVal}.
+          </div>
+        </ha-card>
+      `;
+    }
+
     const alerts = this._getAlerts();
     const animClass = this._config.animations === false ? 'no-animations' : '';
     const layoutClass = this._config.layout === 'compact' ? 'compact' : '';

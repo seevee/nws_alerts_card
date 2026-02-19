@@ -58,6 +58,15 @@ const ct=t=>(e,i)=>{void 0!==i?i.addInitializer(()=>{customElements.define(t,e)}
     color: var(--error-color, red);
   }
 
+  .sensor-unavailable {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--secondary-text-color);
+    font-style: italic;
+  }
+
   /* --- COLOR MAPPING --- */
   .severity-extreme { --color: var(--error-color); --color-rgb: 244, 67, 54; }
   .severity-severe { --color: var(--error-color); --color-rgb: 244, 67, 54; }
@@ -429,15 +438,22 @@ const ct=t=>(e,i)=>{void 0!==i?i.addInitializer(()=>{customElements.define(t,e)}
       gap: 16px;
       padding: 16px 0;
     }
-  `,t([ht({attribute:!1})],Ct.prototype,"hass",void 0),t([pt()],Ct.prototype,"_config",void 0),Ct=t([ct("nws-alerts-card-editor")],Ct);let Et=class extends nt{constructor(){super(...arguments),this._expandedAlerts=new Map}setConfig(t){if(!t.entity)throw new Error("You need to define an entity");this._config=t}getCardSize(){const t=this._getAlerts(),e="compact"===this._config?.layout?1:3;return Math.max(1,t.length*e)}static getConfigElement(){return document.createElement("nws-alerts-card-editor")}static getStubConfig(){return{entity:"sensor.nws_alerts_alerts"}}_getAlerts(){if(!this.hass||!this._config)return[];const t=this.hass.states[this._config.entity];if(!t)return[];const e=t.attributes.Alerts||[];let i=e;if(this._config.zones&&this._config.zones.length>0){const t=new Set(this._config.zones.map(t=>t.toUpperCase()));i=e.filter(e=>function(t,e){if(t.AffectedZones)for(const i of t.AffectedZones)if(e.has(At(i)))return!0;if(t.Geocode?.UGC)for(const i of t.Geocode.UGC)if(e.has(i.toUpperCase()))return!0;return!1}(e,t))}return function(t,e){return"onset"===e?[...t].sort((t,e)=>xt(t)-xt(e)):"severity"===e?[...t].sort((t,e)=>{const i=(yt[bt(t.Severity)]??4)-(yt[bt(e.Severity)]??4);return 0!==i?i:xt(t)-xt(e)}):t}(i,this._config.sortOrder||"default")}_toggleDetails(t){const e=new Map(this._expandedAlerts);e.set(t,!e.get(t)),this._expandedAlerts=e}render(){if(!this._config||!this.hass)return B``;if(!this.hass.states[this._config.entity])return B`
+  `,t([ht({attribute:!1})],Ct.prototype,"hass",void 0),t([pt()],Ct.prototype,"_config",void 0),Ct=t([ct("nws-alerts-card-editor")],Ct);let Et=class extends nt{constructor(){super(...arguments),this._expandedAlerts=new Map}setConfig(t){if(!t.entity)throw new Error("You need to define an entity");this._config=t}getCardSize(){const t=this._getAlerts(),e="compact"===this._config?.layout?1:3;return Math.max(1,t.length*e)}static getConfigElement(){return document.createElement("nws-alerts-card-editor")}static getStubConfig(){return{entity:"sensor.nws_alerts_alerts"}}_getAlerts(){if(!this.hass||!this._config)return[];const t=this.hass.states[this._config.entity];if(!t)return[];const e=t.attributes.Alerts||[];let i=e;if(this._config.zones&&this._config.zones.length>0){const t=new Set(this._config.zones.map(t=>t.toUpperCase()));i=e.filter(e=>function(t,e){if(t.AffectedZones)for(const i of t.AffectedZones)if(e.has(At(i)))return!0;if(t.Geocode?.UGC)for(const i of t.Geocode.UGC)if(e.has(i.toUpperCase()))return!0;return!1}(e,t))}return function(t,e){return"onset"===e?[...t].sort((t,e)=>xt(t)-xt(e)):"severity"===e?[...t].sort((t,e)=>{const i=(yt[bt(t.Severity)]??4)-(yt[bt(e.Severity)]??4);return 0!==i?i:xt(t)-xt(e)}):t}(i,this._config.sortOrder||"default")}_toggleDetails(t){const e=new Map(this._expandedAlerts);e.set(t,!e.get(t)),this._expandedAlerts=e}render(){if(!this._config||!this.hass)return B``;const t=this.hass.states[this._config.entity];if(!t)return B`
         <ha-card .header=${this._config.title||""}>
           <div class="error">
             Entity not found: ${this._config.entity}
           </div>
         </ha-card>
-      `;const t=this._getAlerts(),e=!1===this._config.animations?"no-animations":"",i="compact"===this._config.layout?"compact":"";return B`
-      <ha-card .header=${this._config.title||""} class="${e} ${i}">
-        ${0===t.length?this._renderNoAlerts():t.map(t=>this._renderAlert(t))}
+      `;const e=t.state;if("unavailable"===e||"unknown"===e)return B`
+        <ha-card .header=${this._config.title||""}>
+          <div class="sensor-unavailable">
+            <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
+            NWS Alerts sensor is ${e}.
+          </div>
+        </ha-card>
+      `;const i=this._getAlerts(),s=!1===this._config.animations?"no-animations":"",r="compact"===this._config.layout?"compact":"";return B`
+      <ha-card .header=${this._config.title||""} class="${s} ${r}">
+        ${0===i.length?this._renderNoAlerts():i.map(t=>this._renderAlert(t))}
       </ha-card>
     `}_renderNoAlerts(){return B`
       <div class="no-alerts">

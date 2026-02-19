@@ -22,6 +22,15 @@ export const cardStyles = css`
     color: var(--error-color, red);
   }
 
+  .sensor-unavailable {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--secondary-text-color);
+    font-style: italic;
+  }
+
   /* --- COLOR MAPPING --- */
   .severity-extreme { --color: var(--error-color); --color-rgb: 244, 67, 54; }
   .severity-severe { --color: var(--error-color); --color-rgb: 244, 67, 54; }
