@@ -101,7 +101,7 @@ function getBadgeTextColor(hex: string): string {
   const b = parseInt(hex.slice(5, 7), 16) / 255;
   const lin = (c: number) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-  return L > 0.18 ? 'var(--primary-text-color)' : 'var(--text-primary-color, white)';
+  return L > 0.18 ? '#1a1a1a' : 'var(--text-primary-color, white)';
 }
 
 export function getNwsEventColor(event: string): { color: string; rgb: string; textColor: string } {

@@ -304,8 +304,8 @@ export class NwsAlertsCard extends LitElement {
             <span class="meta-label">Expires</span>
             <span class="meta-value">${formatLocalTimestamp(progress.endsTs, this._locale)}</span>
             ${progress.hasEndTime
-              ? html`<span class="meta-relative">${formatRelativeTime(progress.endsTs, progress.nowTs)}</span>`
-              : nothing}
+        ? html`<span class="meta-relative">${formatRelativeTime(progress.endsTs, progress.nowTs)}</span>`
+        : nothing}
           </div>
         </div>
 
