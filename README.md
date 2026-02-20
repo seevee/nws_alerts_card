@@ -11,8 +11,8 @@ A custom Home Assistant Lovelace card for displaying NWS (National Weather Servi
 
 - Severity-based color coding with animated borders for extreme/severe alerts
 - Optional NWS official hazard-map colors keyed by event type
-- Progress bars showing elapsed/remaining time for each alert
-- Expandable details with description, instructions, and NWS source link
+- Progress bars showing elapsed/remaining time for each alert with relative ("in 2h 30m") and absolute timestamps in the HA user's configured timezone
+- Expandable details with description, instructions, and NWS source link — HTML content is sanitized before rendering
 - Compact layout — collapsed single-row view that expands on tap
 - Zone-based alert filtering
 - Configurable sort order (default, onset time, or severity)

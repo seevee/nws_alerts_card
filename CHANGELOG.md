@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.7.0] - 2026-02-19
+
+### Added
+
+- Relative time ("in 2h 30m", "in 45m") displayed beneath absolute timestamps for Onset and Expires in alert details
+- Timezone abbreviation (e.g. "MST", "EST") appended to all displayed timestamps
+
+### Changed
+
+- Timestamps now display in the Home Assistant user's configured timezone (`hass.config.time_zone`) instead of the browser's local timezone — eliminates confusion when the browser and HA server are in different zones
+- Progress bar center label now shows relative time to onset/expiry ("starts in 45m", "expires in 2h") instead of percentage elapsed
+
+### Fixed
+
+- Alert description and instruction HTML is now sanitized with DOMPurify before rendering, preventing potential XSS from malformed NWS alert content
+
 ## [v1.6.0] - 2026-02-18
 
 ### Changed
@@ -78,6 +94,7 @@ All notable changes to this project will be documented in this file.
 - Card picker integration
 - Shadow DOM with full HA theme support
 
+[v1.7.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.7.0
 [v1.6.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.6.0
 [v1.5.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.5.0
 [v1.4.1]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.4.1
