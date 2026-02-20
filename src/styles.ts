@@ -251,6 +251,11 @@ export const cardStyles = css`
     font-weight: 500;
     color: var(--primary-text-color);
   }
+  .meta-relative {
+    font-size: 0.75rem;
+    color: var(--secondary-text-color);
+    font-style: italic;
+  }
 
   .text-block { margin-bottom: 16px; }
   .text-label {

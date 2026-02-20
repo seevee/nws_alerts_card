@@ -167,6 +167,7 @@ interface HaLocale {
   language: string;
   time_format: 'language' | '12' | '24';
   date_format?: 'language' | 'DMY' | 'MDY' | 'YMD';
+  timeZone?: string;  // IANA tz name, e.g. "America/Denver"
 }
 
 function timeFormatOptions(locale?: HaLocale): { locale: string | undefined; hour12?: boolean } {
@@ -177,16 +178,36 @@ function timeFormatOptions(locale?: HaLocale): { locale: string | undefined; hou
   return { locale: lang };
 }
 
+function isSameDay(d1: Date, d2: Date, timeZone?: string): boolean {
+  // en-CA gives YYYY-MM-DD, reliable for equality without string parsing
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone,
+  });
+  return fmt.format(d1) === fmt.format(d2);
+}
+
+function getTzAbbr(d: Date, locale?: HaLocale): string {
+  if (!locale?.timeZone) return '';
+  const parts = new Intl.DateTimeFormat(locale.language, {
+    timeZoneName: 'short',
+    timeZone: locale.timeZone,
+  }).formatToParts(d);
+  return parts.find(p => p.type === 'timeZoneName')?.value ?? '';
+}
+
 function formatDate(d: Date, locale?: HaLocale): string {
   const lang = locale?.language;
   const fmt = locale?.date_format;
+  const tz = locale?.timeZone;
 
   if (!fmt || fmt === 'language') {
-    return d.toLocaleDateString(lang);
+    return d.toLocaleDateString(lang, { timeZone: tz });
   }
 
   const parts = new Intl.DateTimeFormat(lang, {
     day: 'numeric', month: 'numeric', year: 'numeric',
+    timeZone: tz,
   }).formatToParts(d);
 
   const day = parts.find(p => p.type === 'day')?.value ?? '';
@@ -197,13 +218,13 @@ function formatDate(d: Date, locale?: HaLocale): string {
     case 'DMY': return `${day}/${month}/${year}`;
     case 'MDY': return `${month}/${day}/${year}`;
     case 'YMD': return `${year}/${month}/${day}`;
-    default: return d.toLocaleDateString(lang);
+    default: return d.toLocaleDateString(lang, { timeZone: tz });
   }
 }
 
 function formatTime(d: Date, locale: HaLocale | undefined, hour: '2-digit' | 'numeric'): string {
   const fmt = timeFormatOptions(locale);
-  const opts: Intl.DateTimeFormatOptions = { hour, minute: '2-digit' };
+  const opts: Intl.DateTimeFormatOptions = { hour, minute: '2-digit', timeZone: locale?.timeZone };
   if (fmt.hour12 !== undefined) opts.hour12 = fmt.hour12;
   return d.toLocaleTimeString(fmt.locale, opts);
 }
@@ -212,20 +233,40 @@ export function formatProgressTimestamp(ts: number, locale?: HaLocale): string {
   if (ts <= 0) return 'N/A';
   const d = new Date(ts * 1000);
   const now = new Date();
+  const tzAbbr = getTzAbbr(d, locale);
   const time = formatTime(d, locale, '2-digit');
-  const sameDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate();
-  if (sameDay) return time;
-  return `${time} (${formatDate(d, locale)})`;
+  const timeWithTz = tzAbbr ? `${time} ${tzAbbr}` : time;
+  if (isSameDay(d, now, locale?.timeZone)) return timeWithTz;
+  return `${timeWithTz} (${formatDate(d, locale)})`;
 }
 
 export function formatLocalTimestamp(ts: number, locale?: HaLocale): string {
   if (ts <= 100) return 'N/A';
   const d = new Date(ts * 1000);
+  const tzAbbr = getTzAbbr(d, locale);
   const time = formatTime(d, locale, 'numeric');
-  return `${formatDate(d, locale)}, ${time}`;
+  const timeStr = tzAbbr ? `${time} ${tzAbbr}` : time;
+  return `${formatDate(d, locale)}, ${timeStr}`;
+}
+
+export function formatRelativeTime(ts: number, nowTs: number = Date.now() / 1000): string {
+  const diff = ts - nowTs;
+  const abs = Math.abs(diff);
+  const past = diff < 0;
+
+  if (abs < 60) return past ? 'just now' : 'in <1m';
+  if (abs < 3600) {
+    const m = Math.round(abs / 60);
+    return past ? `${m}m ago` : `in ${m}m`;
+  }
+  if (abs < 86400) {
+    const h = Math.floor(abs / 3600);
+    const m = Math.round((abs % 3600) / 60);
+    const dur = m > 0 ? `${h}h ${m}m` : `${h}h`;
+    return past ? `${dur} ago` : `in ${dur}`;
+  }
+  const d = Math.round(abs / 86400);
+  return past ? `${d}d ago` : `in ${d}d`;
 }
 
 export function normalizeSeverity(severity: string | undefined): string {

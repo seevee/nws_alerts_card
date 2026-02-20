@@ -8,6 +8,7 @@ import {
   computeAlertProgress,
   formatProgressTimestamp,
   formatLocalTimestamp,
+  formatRelativeTime,
   normalizeSeverity,
   sortAlerts,
   alertMatchesZones,
@@ -72,6 +73,10 @@ export class NwsAlertsCard extends LitElement {
     }
 
     return sortAlerts(filtered, this._config.sortOrder || 'default');
+  }
+
+  private get _locale() {
+    return { ...this.hass.locale, timeZone: this.hass.config?.time_zone };
   }
 
   private get _animationsEnabled(): boolean {
@@ -288,15 +293,19 @@ export class NwsAlertsCard extends LitElement {
         <div class="meta-grid">
           <div class="meta-item">
             <span class="meta-label">Issued</span>
-            <span class="meta-value">${formatLocalTimestamp(progress.sentTs, this.hass.locale)}</span>
+            <span class="meta-value">${formatLocalTimestamp(progress.sentTs, this._locale)}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Onset</span>
-            <span class="meta-value">${formatLocalTimestamp(progress.onsetTs, this.hass.locale)}</span>
+            <span class="meta-value">${formatLocalTimestamp(progress.onsetTs, this._locale)}</span>
+            <span class="meta-relative">${formatRelativeTime(progress.onsetTs, progress.nowTs)}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Expires</span>
-            <span class="meta-value">${formatLocalTimestamp(progress.endsTs, this.hass.locale)}</span>
+            <span class="meta-value">${formatLocalTimestamp(progress.endsTs, this._locale)}</span>
+            ${progress.hasEndTime
+              ? html`<span class="meta-relative">${formatRelativeTime(progress.endsTs, progress.nowTs)}</span>`
+              : nothing}
           </div>
         </div>
 
@@ -314,7 +323,7 @@ export class NwsAlertsCard extends LitElement {
   }
 
   private _renderProgressSection(alert: NwsAlert, progress: AlertProgress): TemplateResult {
-    const { isActive, progressPct, hasEndTime, onsetMinutes, onsetHours, onsetTs, endsTs, nowTs } = progress;
+    const { isActive, progressPct, hasEndTime, onsetTs, endsTs, nowTs } = progress;
 
     const noAnim = !this._animationsEnabled;
     const fillStyle = isActive && !hasEndTime
@@ -328,18 +337,18 @@ export class NwsAlertsCard extends LitElement {
         <div class="progress-labels">
           <div class="label-left">
             <span class="label-sub">${isActive ? 'Start' : 'Now'}</span><br>
-            ${formatProgressTimestamp(isActive ? onsetTs : nowTs, this.hass.locale)}
+            ${formatProgressTimestamp(isActive ? onsetTs : nowTs, this._locale)}
           </div>
           <div class="label-center">
             ${!hasEndTime
         ? html`<span style="color: var(--color);"><b>Ongoing</b></span>`
         : isActive
-          ? html`${Math.round(progressPct)}% Elapsed`
-          : html`starts in <b>${onsetMinutes < 60 ? onsetMinutes : onsetHours}</b> ${onsetMinutes < 60 ? 'min' : 'hrs'}`}
+          ? html`expires <b>${formatRelativeTime(endsTs, nowTs)}</b>`
+          : html`starts <b>${formatRelativeTime(onsetTs, nowTs)}</b>`}
           </div>
           <div class="label-right">
             <span class="label-sub">End</span><br>
-            ${hasEndTime ? formatProgressTimestamp(endsTs, this.hass.locale) : 'TBD'}
+            ${hasEndTime ? formatProgressTimestamp(endsTs, this._locale) : 'TBD'}
           </div>
         </div>
         <div class="progress-track">

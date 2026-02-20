@@ -6,6 +6,9 @@ export interface HomeAssistant {
     time_format: 'language' | '12' | '24';
     date_format: 'language' | 'DMY' | 'MDY' | 'YMD';
   };
+  config?: {
+    time_zone?: string;  // IANA tz name, e.g. "America/Denver"
+  };
 }
 
 export interface HassEntity {
