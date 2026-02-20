@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.8.0] - 2026-02-20
+
+### Changed
+
+- Severity badge text now adapts to HA theme mode: white text in light mode, dark text in dark mode (via `prefers-color-scheme`), replacing the previous always-white text that failed WCAG contrast on bright severity colors
+- NWS theme badge text is now selected per-color using WCAG luminance — dark (`#1a1a1a`) on light NWS colors (tan, goldenrod, orange, hot pink) and white on dark NWS colors (dark red, dark magenta, slate) — works correctly in both light and dark mode regardless of HA theme settings
+- Active badge now uses body text color (`--primary-text-color`) with a colored border accent instead of colored text on a tinted background, eliminating near-invisible badge labels in light mode for moderate and minor severity alerts
+
 ## [v1.7.0] - 2026-02-19
 
 ### Added
@@ -94,6 +102,7 @@ All notable changes to this project will be documented in this file.
 - Card picker integration
 - Shadow DOM with full HA theme support
 
+[v1.8.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.8.0
 [v1.7.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.7.0
 [v1.6.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.6.0
 [v1.5.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.5.0
