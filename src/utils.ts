@@ -1,4 +1,23 @@
+import DOMPurify from 'dompurify';
 import { NwsAlert, AlertProgress } from './types';
+
+const ALERT_HTML_TAGS = ['a', 'b', 'br', 'em', 'i', 'li', 'ol', 'p', 'strong', 'ul'];
+
+// Enforce safe link attributes after sanitization
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener noreferrer');
+  }
+});
+
+export function sanitizeAlertHtml(text: string): string {
+  if (!text) return '';
+  return DOMPurify.sanitize(text, {
+    ALLOWED_TAGS: ALERT_HTML_TAGS,
+    ALLOWED_ATTR: ['href'],
+  }) as string;
+}
 
 const WEATHER_ICONS: [readonly string[], string][] = [
   [['tornado'], 'mdi:weather-tornado'],

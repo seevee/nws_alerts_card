@@ -1,5 +1,6 @@
 import { LitElement, html, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { HomeAssistant, NwsAlertsCardConfig, NwsAlert, AlertProgress } from './types';
 import {
   getWeatherIcon,
@@ -11,6 +12,7 @@ import {
   sortAlerts,
   alertMatchesZones,
   getNwsEventColor,
+  sanitizeAlertHtml,
 } from './utils';
 import { cardStyles } from './styles';
 import './nws-alerts-card-editor';
@@ -272,7 +274,7 @@ export class NwsAlertsCard extends LitElement {
     return html`
       <div class="text-block">
         <div class="text-label">${label}</div>
-        <div class="text-body">${text}</div>
+        <div class="text-body">${unsafeHTML(sanitizeAlertHtml(text))}</div>
       </div>
     `;
   }
@@ -302,7 +304,7 @@ export class NwsAlertsCard extends LitElement {
         ${this._renderTextBlock('Instructions', instr)}
 
         <div class="footer-link">
-          <a href=${alert.URL || '#'} target="_blank">
+          <a href=${alert.URL || '#'} target="_blank" rel="noopener noreferrer">
             Open NWS Source
             <ha-icon icon="mdi:open-in-new" style="width:14px;"></ha-icon>
           </a>
