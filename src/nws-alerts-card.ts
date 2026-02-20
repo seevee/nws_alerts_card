@@ -89,8 +89,8 @@ export class NwsAlertsCard extends LitElement {
 
   private _alertColorStyle(event: string): string {
     if (this._colorTheme !== 'nws') return '';
-    const { color, rgb } = getNwsEventColor(event);
-    return `--color: ${color}; --color-rgb: ${rgb};`;
+    const { color, rgb, textColor } = getNwsEventColor(event);
+    return `--color: ${color}; --color-rgb: ${rgb}; --badge-text: ${textColor};`;
   }
   private _normalizeText(text: string | undefined): string {
     return (text || '').replace(/\n{2,}/g, '\n\n').trim();

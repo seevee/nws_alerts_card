@@ -95,12 +95,21 @@ const NWS_EVENT_COLORS: [readonly string[], string, string][] = [
   [['tsunami'],                                  '#FD6347', '253, 99, 71'],
 ];
 
-export function getNwsEventColor(event: string): { color: string; rgb: string } {
+function getBadgeTextColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const lin = (c: number) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return L > 0.18 ? 'var(--primary-text-color)' : 'var(--text-primary-color, white)';
+}
+
+export function getNwsEventColor(event: string): { color: string; rgb: string; textColor: string } {
   const e = event.toLowerCase();
   for (const [patterns, color, rgb] of NWS_EVENT_COLORS) {
-    if (patterns.some(p => e.includes(p))) return { color, rgb };
+    if (patterns.some(p => e.includes(p))) return { color, rgb, textColor: getBadgeTextColor(color) };
   }
-  return { color: '#808080', rgb: '128, 128, 128' };
+  return { color: '#808080', rgb: '128, 128, 128', textColor: getBadgeTextColor('#808080') };
 }
 
 function parseTimestamp(raw: string | undefined | null): number {
