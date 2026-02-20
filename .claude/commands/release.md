@@ -42,6 +42,6 @@ Run `npm run build` and verify it succeeds.
 
 Use `gh release create` with:
 - Title: `vX.Y.Z`
-- Body: the changelog entry for this version (the content under the new `## [vX.Y.Z]` heading).
+- Notes: the changelog entry for this version (the content under the new `## [vX.Y.Z]` heading).
 
 The release workflow will automatically build and attach the JS artifact.
