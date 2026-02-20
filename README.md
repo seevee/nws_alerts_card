@@ -30,7 +30,7 @@ A custom Home Assistant Lovelace card for displaying NWS (National Weather Servi
 
 1. Open HACS in Home Assistant
 2. Go to **Frontend** → three-dot menu → **Custom repositories**
-3. Add this repository URL, category **Lovelace**
+3. Add this repository URL, category **Dashboard**
 4. Search for "NWS Alerts Card" and install
 5. Refresh your browser
 
