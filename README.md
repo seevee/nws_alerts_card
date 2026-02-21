@@ -4,8 +4,7 @@ A custom Home Assistant Lovelace card for displaying NWS (National Weather Servi
 
 | | Light | Dark |
 |:---|:---:|:---:|
-| **Default layout** — severity colors | ![Default layout, severity colors, light mode](img/severity-light-open.png) | ![Default layout, severity colors, dark mode](img/severity-dark-open.png) |
-| **Expanded details** | ![Expanded details, light mode](img/severity-light-details.png) | ![Expanded details, dark mode](img/severity-dark-details.png) |
+| **Default Layout** | ![Expanded details, severity colors, light mode](img/severity-light-details.png) | ![Expanded details, severity colors, dark mode](img/severity-dark-details.png) |
 | **Compact layout** — NWS colors | ![Compact layout, NWS colors, light mode](img/nws-light-compact.png) | ![Compact layout, NWS colors, dark mode](img/nws-dark-compact.png) |
 
 ## Features

@@ -25,33 +25,33 @@ const {
 } = require('@mdi/js');
 
 const MDI_ICONS = {
-  'mdi:weather-tornado':     mdiWeatherTornado,
-  'mdi:weather-lightning':   mdiWeatherLightning,
-  'mdi:home-flood':          mdiHomeFlood,
+  'mdi:weather-tornado': mdiWeatherTornado,
+  'mdi:weather-lightning': mdiWeatherLightning,
+  'mdi:home-flood': mdiHomeFlood,
   'mdi:weather-snowy-heavy': mdiWeatherSnowyHeavy,
-  'mdi:snowflake':           mdiSnowflake,
-  'mdi:landslide':           mdiLandslide,
-  'mdi:weather-windy':       mdiWeatherWindy,
-  'mdi:fire':                mdiFire,
+  'mdi:snowflake': mdiSnowflake,
+  'mdi:landslide': mdiLandslide,
+  'mdi:weather-windy': mdiWeatherWindy,
+  'mdi:fire': mdiFire,
   'mdi:weather-sunny-alert': mdiWeatherSunnyAlert,
-  'mdi:weather-fog':         mdiWeatherFog,
-  'mdi:weather-hurricane':   mdiWeatherHurricane,
-  'mdi:alert-circle-outline':mdiAlertCircleOutline,
-  'mdi:weather-sunny':       mdiWeatherSunny,
-  'mdi:chevron-down':        mdiChevronDown,
-  'mdi:open-in-new':         mdiOpenInNew,
-  'mdi:check-decagram':      mdiCheckDecagram,
-  'mdi:eye-check':           mdiEyeCheck,
+  'mdi:weather-fog': mdiWeatherFog,
+  'mdi:weather-hurricane': mdiWeatherHurricane,
+  'mdi:alert-circle-outline': mdiAlertCircleOutline,
+  'mdi:weather-sunny': mdiWeatherSunny,
+  'mdi:chevron-down': mdiChevronDown,
+  'mdi:open-in-new': mdiOpenInNew,
+  'mdi:check-decagram': mdiCheckDecagram,
+  'mdi:eye-check': mdiEyeCheck,
   'mdi:help-circle-outline': mdiHelpCircleOutline,
-  'mdi:bullseye-arrow':      mdiBullseyeArrow,
+  'mdi:bullseye-arrow': mdiBullseyeArrow,
 };
 
 // ---- Static file server ----
 const MIME = {
   '.html': 'text/html; charset=utf-8',
-  '.js':   'application/javascript; charset=utf-8',
-  '.css':  'text/css',
-  '.png':  'image/png',
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css',
+  '.png': 'image/png',
   '.json': 'application/json',
 };
 
@@ -81,12 +81,12 @@ function startServer(port) {
 //                       with "Read Details" expanded (via Playwright click).
 //   card-nws-compact:   compact layout, NWS event colors, all alerts collapsed.
 const ALL_SCENARIOS = [
-  { cardId: 'card-severity-open', colorScheme: 'light', label: 'severity light open   ', out: 'img/severity-light-open.png'    },
-  { cardId: 'card-severity-open', colorScheme: 'dark',  label: 'severity dark  open   ', out: 'img/severity-dark-open.png'     },
+  //{ cardId: 'card-severity-open', colorScheme: 'light', label: 'severity light open   ', out: 'img/severity-light-open.png' },
+  //{ cardId: 'card-severity-open', colorScheme: 'dark', label: 'severity dark  open   ', out: 'img/severity-dark-open.png' },
   { cardId: 'card-severity-open', colorScheme: 'light', label: 'severity light details', out: 'img/severity-light-details.png', expand: true },
-  { cardId: 'card-severity-open', colorScheme: 'dark',  label: 'severity dark  details', out: 'img/severity-dark-details.png',  expand: true },
-  { cardId: 'card-nws-compact',   colorScheme: 'light', label: 'nws     light compact ', out: 'img/nws-light-compact.png'      },
-  { cardId: 'card-nws-compact',   colorScheme: 'dark',  label: 'nws     dark  compact ', out: 'img/nws-dark-compact.png'       },
+  { cardId: 'card-severity-open', colorScheme: 'dark', label: 'severity dark  details', out: 'img/severity-dark-details.png', expand: true },
+  { cardId: 'card-nws-compact', colorScheme: 'light', label: 'nws     light compact ', out: 'img/nws-light-compact.png' },
+  { cardId: 'card-nws-compact', colorScheme: 'dark', label: 'nws     dark  compact ', out: 'img/nws-dark-compact.png' },
 ];
 
 // Filter by SCREENSHOT_THEMES env var if set (e.g. "nws" or "severity,nws")
