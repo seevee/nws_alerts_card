@@ -7,7 +7,9 @@
   "scripts": {
     "build": "rollup -c",
     "watch": "rollup -c --watch",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "screenshot": "node scripts/screenshot.js",
+    "screenshot:update": "npm run build && npm run screenshot"
   },
   "keywords": [
     "home-assistant",
@@ -19,10 +21,12 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@mdi/js": "^7.4.47",
     "@rollup/plugin-commonjs": "^28.0.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-terser": "^0.4.0",
     "@types/dompurify": "^3.0.5",
+    "playwright": "^1.58.2",
     "rollup": "^4.0.0",
     "rollup-plugin-typescript2": "^0.36.0",
     "typescript": "^5.0.0"

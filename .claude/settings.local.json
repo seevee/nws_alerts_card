@@ -21,7 +21,14 @@
       "Bash(gh release view:*)",
       "WebFetch(domain:gist.github.com)",
       "Bash(npm version:*)",
-      "WebFetch(domain:www.weather.gov)"
+      "WebFetch(domain:www.weather.gov)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(npm run screenshot:*)",
+      "Bash(node scripts/debug-screenshot.js:*)",
+      "Bash(du:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(node:*)"
     ]
   }
 }
