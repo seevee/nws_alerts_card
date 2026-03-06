@@ -12,7 +12,7 @@ See [AGENTS.md](AGENTS.md) for full architecture details and dev container instr
 ## Workflow
 
 1. Create a feature branch from `main`
-2. Make changes, run `npm run lint` and `npm run build`
+2. Make changes, run `npm run lint`, `npm run test`, and `npm run build`
 3. Open a PR targeting `main`
 4. PRs are squash-merged after review and passing CI
 
@@ -20,6 +20,7 @@ See [AGENTS.md](AGENTS.md) for full architecture details and dev container instr
 
 All PRs must pass:
 - `npm run lint` — TypeScript type-check
+- `npm run test` — Vitest unit tests
 - `npm run build` — Rollup bundle
 - HACS validation
 

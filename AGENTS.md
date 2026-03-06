@@ -11,10 +11,12 @@ A standalone custom Home Assistant Lovelace card for displaying NWS (National We
 ```bash
 npm run build     # Rollup bundle → dist/nws-alerts-card.js (single ES module, ~31KB minified)
 npm run watch     # Rollup in watch mode
-npm run lint      # TypeScript type-check (tsc --noEmit), no linter configured
+npm run lint      # TypeScript type-check (tsc --noEmit)
+npm run test      # Vitest unit tests (jsdom environment)
+npm run test:watch # Vitest in watch mode
 ```
 
-Always run `npm run lint` before committing to catch type errors.
+Always run `npm run lint` and `npm run test` before committing.
 
 ## Source Architecture
 
@@ -89,13 +91,21 @@ The card needs the `sensor.nws_alerts_alerts` entity which comes from the [NWS A
 
    **Important**: zone codes must be comma-delimited with **no spaces** (e.g. `COC059,COZ039,COZ239`). Adding spaces after commas (e.g. `COC059, COZ039`) causes the integration to silently return no alerts. Find your zone codes at https://alerts.weather.gov/.
 
+## Workflow
+
+- `main` is protected: all changes go through PRs with required status checks (build, lint, test, HACS validation).
+- Only squash merges are allowed — one commit per PR on `main`.
+- Feature branches: `feat/<name>`, `fix/<name>`, `chore/<name>`, etc.
+- Use the `/release` skill to perform releases (creates a release branch, PR, tag, and GitHub Release).
+
 ## HACS Distribution
 
 - `hacs.json` — HACS manifest (name, filename).
 - `.github/workflows/release.yml` — on GitHub Release publish: builds and attaches `dist/nws-alerts-card.js` to the release.
-- To release:
-  1. Update `CHANGELOG.md` — add a new section at the top with the version, date, and categorized changes (Added, Changed, Fixed, Removed).
-  2. Bump version in `package.json` via `npm version <major|minor|patch> --no-git-tag-version`.
-  3. Run `npm run build`.
-  4. Commit, tag, push, and create a GitHub Release; the workflow attaches the built JS.
+- To release, use the `/release` skill or follow its steps manually:
+  1. Create `release/vX.Y.Z` branch from `main`.
+  2. Update `CHANGELOG.md`, bump version in `package.json`, run `npm run build`.
+  3. Commit, push, and open a PR to `main`.
+  4. After merge: tag `main` as `vX.Y.Z`, push tag, create GitHub Release with `gh release create`.
+  5. The release workflow attaches the built JS artifact.
 - Users add this repo as a HACS custom repository (Frontend category).
