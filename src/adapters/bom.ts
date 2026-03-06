@@ -36,9 +36,7 @@ function bomUrl(warning: BomWarning): string {
     const typePath = warning.type.replace(/_/g, '-');
     return `https://www.bom.gov.au/warning/${typePath}/${productCode}`;
   }
-  const state = (warning.state || '').toLowerCase();
-  if (state) return `https://www.bom.gov.au/${state}/warnings/`;
-  return 'https://www.bom.gov.au/australia/warnings/';
+  return 'https://www.bom.gov.au/weather-and-climate/warnings-and-alerts';
 }
 
 const PHASE_LABELS: Record<string, string> = {

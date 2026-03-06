@@ -143,10 +143,10 @@ describe('BomAdapter', () => {
       expect(alerts[0].url).toBe('https://www.bom.gov.au/warning/flood-watch/IDN36503');
     });
 
-    it('falls back to state warnings URL when area_id is absent', () => {
+    it('falls back to warnings landing page when area_id is absent', () => {
       const attrs = makeBomAttributes([{ area_id: undefined, state: 'NSW' }]);
       const alerts = adapter.parseAlerts(attrs);
-      expect(alerts[0].url).toBe('https://www.bom.gov.au/nsw/warnings/');
+      expect(alerts[0].url).toBe('https://www.bom.gov.au/weather-and-climate/warnings-and-alerts');
     });
 
     it('handles missing expiry_time', () => {
