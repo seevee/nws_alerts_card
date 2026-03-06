@@ -90,7 +90,7 @@ export class BomAdapter implements AlertAdapter {
       url: bomUrl(w),
       headline: w.short_title || title,
       areaDesc: w.state || '',
-      zones: [],        // BoM warnings are location-based (geohash), no zone codes
+      zones: w.area_id ? [w.area_id.toUpperCase()] : [],
       provider: 'bom',
       phase: bomPhaseLabel(w.phase),
     };

@@ -5,6 +5,7 @@ import type { BomWarning } from '../../src/types';
 function makeBomAttributes(warnings: Partial<BomWarning>[] = []): Record<string, unknown> {
   const defaults: BomWarning = {
     id: 'NSW_IDN12345',
+    area_id: 'NSW_ME001',
     type: 'severe_thunderstorm_warning',
     title: 'Severe Thunderstorm Warning for Metropolitan',
     short_title: 'Severe Thunderstorm',
@@ -146,6 +147,18 @@ describe('BomAdapter', () => {
 
     it('returns empty array for missing warnings attribute', () => {
       expect(adapter.parseAlerts({})).toEqual([]);
+    });
+
+    it('maps area_id to uppercase zones array', () => {
+      const attrs = makeBomAttributes([{ area_id: 'NSW_FL049' }]);
+      const alerts = adapter.parseAlerts(attrs);
+      expect(alerts[0].zones).toEqual(['NSW_FL049']);
+    });
+
+    it('produces empty zones when area_id is absent', () => {
+      const attrs = makeBomAttributes([{ area_id: undefined }]);
+      const alerts = adapter.parseAlerts(attrs);
+      expect(alerts[0].zones).toEqual([]);
     });
 
     it('uses title fallback chain', () => {
