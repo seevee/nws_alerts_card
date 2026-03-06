@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.9.0-alpha.3] - 2026-03-06
+
+### Added
+
+- Support for the [ha_bom_australia](https://github.com/safepay/ha_bom_australia) integration (same warning data as bureau_of_meteorology — works out of the box)
+- Zone filtering for BoM warnings using `area_id` values (e.g. `NSW_FL049`)
+- Direct links to individual BoM warning pages instead of the generic state warnings list
+
+### Changed
+
+- BoM fallback URL updated to the warnings landing page (`bom.gov.au/weather-and-climate/warnings-and-alerts`)
+
 ## [v1.9.0-alpha.2] - 2026-03-06
 
 ### Fixed
@@ -127,6 +139,7 @@ All notable changes to this project will be documented in this file.
 - Card picker integration
 - Shadow DOM with full HA theme support
 
+[v1.9.0-alpha.3]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.9.0-alpha.3
 [v1.9.0-alpha.2]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.9.0-alpha.2
 [v1.9.0-alpha.1]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.9.0-alpha.1
 [v1.8.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.8.0
