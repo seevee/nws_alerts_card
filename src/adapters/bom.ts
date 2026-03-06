@@ -29,6 +29,13 @@ function bomTitle(warning: BomWarning): string {
 }
 
 function bomUrl(warning: BomWarning): string {
+  // Direct link: https://www.bom.gov.au/warning/{type-hyphenated}/{product_code}
+  // Product code is the id with the area_id prefix stripped (e.g. NSW_FL049_IDN36503 → IDN36503)
+  if (warning.area_id && warning.id.startsWith(warning.area_id + '_')) {
+    const productCode = warning.id.slice(warning.area_id.length + 1);
+    const typePath = warning.type.replace(/_/g, '-');
+    return `https://www.bom.gov.au/warning/${typePath}/${productCode}`;
+  }
   const state = (warning.state || '').toLowerCase();
   if (state) return `https://www.bom.gov.au/${state}/warnings/`;
   return 'https://www.bom.gov.au/australia/warnings/';
