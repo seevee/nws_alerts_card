@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.9.2] - 2026-03-09
+
+### Fixed
+
+- Editor dropdown selections not registering on HA 2026.02+ — `ha-select` children migrated from removed MWC `ha-list-item` to WebAwesome `ha-dropdown-item`, and selected value read from `ev.detail.value`
+- Removed obsolete `fixedMenuPosition` and `naturalMenuWidth` attributes from editor dropdowns
+
 ## [v1.9.1] - 2026-03-09
 
 ### Fixed
@@ -130,6 +137,7 @@ All notable changes to this project will be documented in this file.
 - Card picker integration
 - Shadow DOM with full HA theme support
 
+[v1.9.2]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.9.2
 [v1.9.1]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.9.1
 [v1.9.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.9.0
 [v1.8.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.8.0
