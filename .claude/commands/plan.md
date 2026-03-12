@@ -1,88 +1,47 @@
-# Plan — Implementation Planning
+# Plan
 
-Produce a **complete implementation plan** for a feature or change. This skill **never writes code**.
+Produce a complete implementation plan. Never write code.
 
-The plan must be detailed enough for `/implement` to execute without additional design decisions.
+The plan must be sufficient for `/implement` to execute with zero additional design decisions.
 
----
+$ARGUMENTS describes the feature or change.
 
-# Input
+## Constraints
+- Only reference files confirmed to exist (read first)
+- Every design decision must evaluate ≥2 options with rationale
+- Every affected file must appear in Files to Change (trace: implementation → callers → exports)
+- Ambiguity in the request must be surfaced as explicit assumptions
 
-`$ARGUMENTS` contains the feature request (free text).
+## Output → plans/<feature-slug>.md
 
----
+### Feature Interpretation
+User-visible behavior, internal behavior changes, inputs/outputs, assumptions.
 
-# Rules
+### Architecture Summary
+Relevant modules and how they relate to the change.
 
-1. Do not invent architecture that doesn't exist in the repository.
-2. Only reference files confirmed to exist.
-3. Read files before referencing them.
-4. All decisions must be justified.
-5. The plan must eliminate ambiguity for implementers.
+### Impact Analysis
+Every part of the repository affected, grouped by: core logic, public APIs, UI, configuration.
 
----
+### Design Decisions
+Decision | Options | Chosen | Rationale
 
-# Execution
+### Implementation Steps
+Step | Files | Description | Acceptance Criteria
 
-## 1 — Orient
+### Files to Change
+New: Path | Purpose
+Modified: Path | Change
 
-Read `AGENTS.md` and scan `src/` to build working context. Determine project type, architecture, and relevant modules.
+### Public Interface Changes
+Any changes to exports, props, config schemas, or custom elements.
 
-## 2 — Analyze
+### Risk Assessment
+API compatibility, UI regressions, performance, build breakage. Mitigation if applicable.
 
-Interpret the feature request. Output:
+### Test Strategy
+New tests required, existing tests impacted. State explicitly if no tests exist.
 
-- User-visible behavior
-- Internal behavior changes
-- Expected inputs and outputs
-- Assumptions (if request is ambiguous)
-
-Trace dependencies: `implementation → callers → exported interface`. Every affected file must appear in **Files to Change**.
-
-## 3 — Design
-
-For each major decision, evaluate at least two options:
-
-```
-Decision: <what>
-Options: <A, B, ...>
-Chosen: <which>
-Rationale: <why>
-```
-
-## 4 — Plan
-
-Produce an ordered implementation plan. Each step:
-
-```
-Step N
-Files: <paths>
-Description: <what to do>
-Acceptance: <how to verify>
-```
-
----
-
-# Output Format
-
-The plan must contain these sections in order:
-
-1. **Feature Interpretation**
-2. **Architecture Summary**
-3. **Impact Analysis**
-4. **Design Decisions**
-5. **Implementation Steps**
-6. **Files to Change** — tables for New Files and Modified Files
-7. **Public Interface Changes**
-8. **Risk Assessment**
-9. **Test Strategy**
-
-Save the plan to `plans/<feature-slug>.md` and present it for approval.
-
-Do **not** begin implementation. The `/implement` skill executes the plan after approval.
-
----
-
-# Begin
+Save to `plans/<feature-slug>.md`. Present for approval. Do not implement.
 
 $ARGUMENTS
