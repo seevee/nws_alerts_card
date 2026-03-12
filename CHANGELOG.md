@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.10.0] - 2026-03-11
+
+### Added
+
+- `minSeverity` config option to filter alerts by minimum severity threshold
+- Severity ranking system (extreme > severe > moderate > minor > unknown)
+- Severity filter dropdown in the card visual configuration editor
+- Server-side filtering of alerts based on `minSeverity` setting before sorting
+
 ## [v1.9.2] - 2026-03-09
 
 ### Fixed
@@ -137,6 +146,7 @@ All notable changes to this project will be documented in this file.
 - Card picker integration
 - Shadow DOM with full HA theme support
 
+[v1.10.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.10.0
 [v1.9.2]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.9.2
 [v1.9.1]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.9.1
 [v1.9.0]: https://github.com/seevee/nws_alerts_card/releases/tag/v1.9.0
