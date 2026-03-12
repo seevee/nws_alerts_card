@@ -25,6 +25,7 @@ A custom Home Assistant Lovelace card for displaying weather alerts with severit
 - Compact layout — collapsed single-row view that expands on tap
 - Zone-based alert filtering
 - Configurable sort order (default, onset time, or severity)
+- Minimum severity threshold filter
 - Visual configuration editor (no YAML required)
 - Card picker integration (add from HA UI)
 - Shadow DOM — no style conflicts, full HA theme support

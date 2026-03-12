@@ -106,7 +106,10 @@ The card needs the `sensor.nws_alerts_alerts` entity which comes from the [NWS A
 - `main` is protected: all changes go through PRs with required status checks (build, lint, test, HACS validation).
 - Only squash merges are allowed — one commit per PR on `main`.
 - Feature branches: `feat/<name>`, `fix/<name>`, `chore/<name>`, etc.
-- Use the `/release` skill to perform releases (creates a release branch, PR, tag, and GitHub Release).
+- Use the `/release` skill to perform releases (creates a release branch, PR, tag, and GitHub Release)
+- New release workflow with deterministic releases:
+  - Prereleases (alpha/beta/rc) auto-promote to GA versions when no new commits exist
+  - Dry-run mode uses `origin/main` as base; actual releases validate strict conditions
 
 ## HACS Distribution
 
