@@ -61,6 +61,7 @@ One of the following alert integrations:
 | `title`      | string   | no       | —            | Card header title                  |
 | `zones`      | string[] | no       | —            | Filter alerts to specific zone codes (NWS zone/county codes or BoM `area_id` values; omit to show all) |
 | `sortOrder`  | string   | no       | `'default'`  | Sort alerts: `'default'` (integration order), `'onset'` (soonest first), `'severity'` (most severe first) |
+| `minSeverity`| string   | no       | —            | Minimum severity threshold: `'minor'`, `'moderate'`, `'severe'`, `'extreme'` (show alerts at or above this level) |
 | `colorTheme` | string   | no       | `'severity'` | Color scheme: `'severity'` (HA theme colors by severity bracket) or `'nws'` (NWS official hazard-map colors by event type) |
 | `animations` | boolean  | no       | —            | `true`: always animate; `false`: never animate; omit to respect the OS `prefers-reduced-motion` accessibility setting |
 | `layout`     | string   | no       | `'default'`  | Card layout: `'default'` (full detail) or `'compact'` (collapsed single-row alerts that expand on tap) |
