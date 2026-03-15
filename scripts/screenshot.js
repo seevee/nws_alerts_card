@@ -193,6 +193,17 @@ const PORT = 3742;
       });
       await page.evaluate(() => new Promise(r => requestAnimationFrame(r)));
 
+      // Expand the last compact alert (Winter Storm Watch) so the hero image
+      // showcases the expanded details view and balances the vertical height.
+      await page.locator('#card-nws .compact-row').last().click();
+      await page.evaluate(id => document.getElementById(id).updateComplete, 'card-nws');
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(r)));
+
+      // Also expand its "Read Details" section to show the full description
+      await page.locator('#card-nws .details-summary').last().click();
+      await page.evaluate(id => document.getElementById(id).updateComplete, 'card-nws');
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(r)));
+
       await page.locator('#hero-canvas').screenshot({ path: resolve(ROOT, out), type: 'png' });
     }
   }
