@@ -96,6 +96,11 @@ const SCENARIOS = themeFilter.length
   ? ALL_SCENARIOS.filter(s => themeFilter.some(t => s.cardId.startsWith(`card-${t}`)))
   : ALL_SCENARIOS;
 
+// Fixed timestamp anchor — must match SCREENSHOT_NOW in screenshot-fixtures.js.
+// Injected into the browser so Date.now() returns a stable value and all
+// rendered timestamps / progress bars are deterministic across runs.
+const SCREENSHOT_NOW = Date.UTC(2025, 5, 15, 20, 0, 0);
+
 const PORT = 3742;
 
 (async () => {
@@ -113,6 +118,9 @@ const PORT = 3742;
 
   // Inject MDI icon map before any page script runs (persists across navigations)
   await page.addInitScript(icons => { window.__MDI_ICONS__ = icons; }, MDI_ICONS);
+
+  // Freeze Date.now() so rendered timestamps and progress bars are deterministic
+  await page.addInitScript(now => { Date.now = () => now; }, SCREENSHOT_NOW);
 
   const URL = `http://127.0.0.1:${PORT}/scripts/screenshot-harness.html`;
 
@@ -150,6 +158,43 @@ const PORT = 3742;
 
     // Screenshot the wrapper (parent) so the ha-card shadow and page bg are visible
     await page.locator(`#${cardId}`).locator('xpath=..').screenshot({ path: resolve(ROOT, out), type: 'png' });
+  }
+
+  // ---- Hero images (light + dark) ----
+  // Two clean screenshots — README uses <picture> + prefers-color-scheme
+  // so each viewer sees the version matching their OS theme.
+  const HERO_VARIANTS = [
+    { theme: 'theme-light', label: 'hero light', out: 'img/hero-light.png' },
+    { theme: 'theme-dark',  label: 'hero dark ', out: 'img/hero-dark.png' },
+  ];
+  if (!themeFilter.length || themeFilter.includes('hero')) {
+    // Hero needs a wider viewport for the horizontal banner
+    await page.setViewportSize({ width: 1100, height: 900 });
+
+    const heroURL = `http://127.0.0.1:${PORT}/scripts/screenshot-hero.html`;
+
+    for (const { theme, label, out } of HERO_VARIANTS) {
+      console.log(`  ${label}            → ${out}`);
+
+      await page.goto(heroURL);
+
+      // Wait for both card instances to render
+      await page.waitForFunction(() => {
+        const ids = ['card-severity', 'card-nws'];
+        return ids.every(id => document.getElementById(id)?.shadowRoot?.querySelector('.alert-card') !== null);
+      }, { timeout: 10000 });
+
+      // Apply theme class to the canvas
+      await page.evaluate(cls => document.getElementById('hero-canvas').classList.add(cls), theme);
+
+      // Disable animations
+      await page.addStyleTag({
+        content: '*, *::before, *::after { animation: none !important; transition: none !important; }',
+      });
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(r)));
+
+      await page.locator('#hero-canvas').screenshot({ path: resolve(ROOT, out), type: 'png' });
+    }
   }
 
   await browser.close();
