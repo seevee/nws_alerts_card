@@ -41,6 +41,20 @@ describe('getAdapter', () => {
     expect(adapter.provider).toBe('meteoalarm');
   });
 
+  it('returns PirateWeather adapter for explicit pirateweather provider', () => {
+    const adapter = getAdapter('pirateweather', {});
+    expect(adapter.provider).toBe('pirateweather');
+  });
+
+  it('auto-detects PirateWeather from attribution', () => {
+    const adapter = getAdapter(undefined, {
+      attribution: 'Data provided by Pirate Weather',
+      title: 'Wind Advisory',
+      severity: 'Moderate',
+    });
+    expect(adapter.provider).toBe('pirateweather');
+  });
+
   it('defaults to NWS when attributes are ambiguous', () => {
     const adapter = getAdapter(undefined, {});
     expect(adapter.provider).toBe('nws');

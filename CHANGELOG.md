@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- Add PirateWeather adapter for weather alerts via the PirateWeather HA integration (#44)
 - Display human-readable severity label on badge instead of internal enum value (#45)
 
 ## 2.1.0 — 2026-03-15

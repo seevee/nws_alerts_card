@@ -46,7 +46,7 @@ export class WeatherAlertsCardEditor extends LitElement {
     if (value === 'auto') {
       delete newConfig.provider;
     } else {
-      newConfig.provider = value as 'nws' | 'bom' | 'meteoalarm';
+      newConfig.provider = value as 'nws' | 'bom' | 'meteoalarm' | 'pirateweather';
     }
     this._fireConfigChanged(newConfig);
   }
@@ -169,6 +169,7 @@ export class WeatherAlertsCardEditor extends LitElement {
           <ha-dropdown-item value="nws">NWS (United States)</ha-dropdown-item>
           <ha-dropdown-item value="bom">BoM (Australia)</ha-dropdown-item>
           <ha-dropdown-item value="meteoalarm">MeteoAlarm (Europe)</ha-dropdown-item>
+          <ha-dropdown-item value="pirateweather">PirateWeather</ha-dropdown-item>
         </ha-select>
 
         <ha-textfield

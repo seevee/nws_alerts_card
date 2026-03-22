@@ -17,7 +17,7 @@ export interface HassEntity {
 }
 
 export type AlertSeverity = 'extreme' | 'severe' | 'moderate' | 'minor' | 'unknown';
-export type AlertProvider = 'nws' | 'bom' | 'meteoalarm';
+export type AlertProvider = 'nws' | 'bom' | 'meteoalarm' | 'pirateweather';
 
 export interface WeatherAlertsCardConfig {
   type: string;

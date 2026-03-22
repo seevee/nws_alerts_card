@@ -1,12 +1,12 @@
 # Weather Alerts Card
 
-A custom Home Assistant Lovelace card for displaying weather alerts with severity indicators, progress bars, and expandable details. Supports NWS (US), BoM (Australia), and MeteoAlarm (Europe).
+A custom Home Assistant Lovelace card for displaying weather alerts with severity indicators, progress bars, and expandable details. Supports NWS (US), BoM (Australia), MeteoAlarm (Europe), and PirateWeather.
 
 ![NWS Alerts Card](https://raw.githubusercontent.com/seevee/nws_alerts_card/main/img/hero-adaptive.svg)
 
 ## Features
 
-- **Multi-provider** — NWS (US), BoM (Australia), and MeteoAlarm (Europe) with auto-detection
+- **Multi-provider** — NWS (US), BoM (Australia), MeteoAlarm (Europe), and PirateWeather with auto-detection
 - **Severity colors** — HA theme colors or NWS official hazard-map colors by event type
 - **Time progress bars** — elapsed/remaining time with relative and absolute timestamps
 - **Expandable details** — sanitized description, instructions, and source link
@@ -19,7 +19,7 @@ A custom Home Assistant Lovelace card for displaying weather alerts with severit
 
 ## Quick Start
 
-1. Install the [NWS Alerts](https://github.com/finity69x2/nws_alerts) integration (US), [Bureau of Meteorology](https://github.com/bremor/bureau_of_meteorology) integration (Australia), or [MeteoAlarm](https://www.home-assistant.io/integrations/meteoalarm/) integration (Europe, built-in)
+1. Install the [NWS Alerts](https://github.com/finity69x2/nws_alerts) integration (US), [Bureau of Meteorology](https://github.com/bremor/bureau_of_meteorology) integration (Australia), [MeteoAlarm](https://www.home-assistant.io/integrations/meteoalarm/) integration (Europe, built-in), or [PirateWeather](https://github.com/Pirate-Weather/pirate-weather-ha) integration
 2. Install this card via HACS: search "Weather Alerts Card"
 3. Add to your dashboard and select your alert entity
 
@@ -27,8 +27,8 @@ A custom Home Assistant Lovelace card for displaying weather alerts with severit
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `entity` | string | — | Alert sensor entity (e.g., `sensor.nws_alerts_alerts`, `sensor.sydney_warnings`, or `binary_sensor.meteoalarm`) |
-| `provider` | string | auto | `'nws'`, `'bom'`, `'meteoalarm'`, or omit for auto-detect |
+| `entity` | string | — | Alert sensor entity (e.g., `sensor.nws_alerts_alerts`, `sensor.sydney_warnings`, `binary_sensor.meteoalarm`, or `sensor.pirateweather_alerts`) |
+| `provider` | string | auto | `'nws'`, `'bom'`, `'meteoalarm'`, `'pirateweather'`, or omit for auto-detect |
 | `title` | string | — | Card header title |
 | `zones` | string[] | — | Zone codes to filter (NWS zones or BoM `area_id`) |
 | `sortOrder` | string | `'default'` | `'default'`, `'onset'`, `'severity'` |
@@ -78,6 +78,12 @@ entity: sensor.sydney_warnings
 provider: bom
 ```
 
+**PirateWeather alerts**
+```yaml
+type: custom:weather-alerts-card
+entity: sensor.pirateweather_alerts
+```
+
 ## Installation
 
 ### HACS (recommended)
@@ -94,6 +100,19 @@ provider: bom
 The [MeteoAlarm integration](https://www.home-assistant.io/integrations/meteoalarm/) is built into Home Assistant. It creates a `binary_sensor.meteoalarm` entity that exposes a single active weather alert per configured province. You will need to configure this in `configuration.yml`.
 
 > **Note**: The MeteoAlarm integration only reports one alert at a time per entity. If your region has multiple concurrent alerts, only the first one is shown. This is a limitation of the upstream library, not the card.
+
+### PirateWeather
+
+The [PirateWeather HA integration](https://github.com/Pirate-Weather/pirate-weather-ha) provides weather alerts as sensor entity attributes. To get the alerts entity:
+
+1. Add the PirateWeather integration (Settings → Integrations → Add Integration → Pirate Weather)
+2. Under **PW Platform**, check **Sensor**
+3. Under **Monitored Conditions**, check **Alerts**
+4. Restart Home Assistant — `sensor.pirateweather_alerts` will appear
+
+The card auto-detects PirateWeather entities from the `attribution` attribute, or you can set `provider: pirateweather` explicitly.
+
+> **Note**: PirateWeather alerts are sourced from WMO CAP feeds. Alert text may use WMO terminology rather than local language.
 
 ## Migrating from v1.x
 
