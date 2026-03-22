@@ -2,8 +2,9 @@ import { AlertAdapter, AlertProvider } from '../types';
 import { NwsAdapter } from './nws';
 import { BomAdapter } from './bom';
 import { MeteoAlarmAdapter } from './meteoalarm';
+import { PirateWeatherAdapter } from './pirateweather';
 
-const adapters: AlertAdapter[] = [new NwsAdapter(), new BomAdapter(), new MeteoAlarmAdapter()];
+const adapters: AlertAdapter[] = [new NwsAdapter(), new BomAdapter(), new MeteoAlarmAdapter(), new PirateWeatherAdapter()];
 
 export function getAdapter(
   provider: AlertProvider | undefined,
