@@ -42,18 +42,16 @@ Or manually: Open HACS → Search "Weather Alerts Card" → Install → Refresh 
 
 ## Configuration
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `entity` | string | — | Alert sensor entity (e.g., `sensor.nws_alerts_alerts`, `sensor.sydney_warnings`, `binary_sensor.meteoalarm`, or `sensor.pirateweather_alerts`) |
-| `provider` | string | auto | `'nws'`, `'bom'`, `'meteoalarm'`, `'pirateweather'`, or omit for auto-detect |
-| `title` | string | — | Card header title |
-| `zones` | string[] | — | Zone codes to filter (NWS zones or BoM `area_id`) |
-| `sortOrder` | string | `'default'` | `'default'`, `'onset'`, `'severity'` |
-| `minSeverity` | string | — | `'minor'`, `'moderate'`, `'severe'`, `'extreme'` |
-| `colorTheme` | string | `'severity'` | `'severity'` or `'nws'` |
-| `deduplicate` | boolean | `true` | Collapse alerts sharing event, severity, and time window into one card |
-| `animations` | boolean | system | `true`, `false`, or respect `prefers-reduced-motion` |
-| `layout` | string | `'default'` | `'default'` or `'compact'` |
+- **`entity`** — Alert sensor entity
+- **`provider`** — `'nws'`, `'bom'`, `'meteoalarm'`, `'pirateweather'`, or omit for auto-detect
+- **`title`** — Card header title
+- **`zones`** — Zone codes to filter (NWS zones or BoM `area_id`)
+- **`sortOrder`** — `'default'`, `'onset'`, `'severity'`
+- **`minSeverity`** — `'minor'`, `'moderate'`, `'severe'`, `'extreme'`
+- **`colorTheme`** — `'severity'` (default) or `'nws'`
+- **`deduplicate`** — Collapse matching alerts into one card (default: `true`)
+- **`animations`** — `true`, `false`, or respect `prefers-reduced-motion` (default: system)
+- **`layout`** — `'default'` or `'compact'`
 
 <details>
 <summary><strong>Examples</strong></summary>
