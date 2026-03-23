@@ -165,6 +165,9 @@ export class WeatherAlertsCard extends LitElement {
   }
 
   private get _locale() {
+    if (!this.hass) {
+      return { language: navigator.language || 'en', time_format: 'language' as const, date_format: 'language' as const, timeZone: undefined };
+    }
     return { ...this.hass.locale, timeZone: this.hass.config?.time_zone };
   }
 
@@ -197,7 +200,11 @@ export class WeatherAlertsCard extends LitElement {
   }
 
   protected render(): TemplateResult {
-    if (!this._config || !this.hass) return html``;
+    if (!this._config) return html``;
+
+    if (!this.hass) {
+      return this._renderPreview();
+    }
 
     const entity = this.hass.states[this._config.entity];
     const isPreview = !entity || this._forcePreview;
