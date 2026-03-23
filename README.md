@@ -27,12 +27,7 @@ A custom Home Assistant Lovelace card for displaying weather alerts with severit
 
 ### HACS (recommended)
 
-[![Open HACS and install Weather Alerts Card][hacs-badge]][hacs-link]
-
-Or manually: Open HACS → Search "Weather Alerts Card" → Install → Refresh your browser
-
-[hacs-badge]: https://my.home-assistant.io/badges/hacs_repository.svg
-[hacs-link]: https://my.home-assistant.io/redirect/hacs_repository/?owner=seevee&repository=nws_alerts_card&category=plugin
+Open HACS → Search "Weather Alerts Card" → Install → Refresh your browser
 
 ### Manual
 
