@@ -19,9 +19,26 @@ A custom Home Assistant Lovelace card for displaying weather alerts with severit
 
 ## Quick Start
 
-1. Install the [NWS Alerts](https://github.com/finity69x2/nws_alerts) integration (US), [Bureau of Meteorology](https://github.com/bremor/bureau_of_meteorology) integration (Australia), [MeteoAlarm](https://www.home-assistant.io/integrations/meteoalarm/) integration (Europe, built-in), or [PirateWeather](https://github.com/Pirate-Weather/pirate-weather-ha) integration
+1. Install a weather alerts integration for your region (see [Supported Providers](#supported-providers))
 2. Install this card via HACS: search "Weather Alerts Card"
 3. Add to your dashboard and select your alert entity
+
+## Installation
+
+### HACS (recommended)
+
+[![Open HACS and install Weather Alerts Card][hacs-badge]][hacs-link]
+
+Or manually: Open HACS → Search "Weather Alerts Card" → Install → Refresh your browser
+
+[hacs-badge]: https://my.home-assistant.io/badges/hacs_repository.svg
+[hacs-link]: https://my.home-assistant.io/redirect/hacs_repository/?owner=seevee&repository=nws_alerts_card&category=plugin
+
+### Manual
+
+1. Download `weather-alerts-card.js` from the [latest release](../../releases/latest)
+2. Copy to `config/www/weather-alerts-card.js`
+3. Add as resource: **Settings → Dashboards → Resources** → URL: `/local/weather-alerts-card.js`, Type: JavaScript Module
 
 ## Configuration
 
@@ -38,7 +55,8 @@ A custom Home Assistant Lovelace card for displaying weather alerts with severit
 | `animations` | boolean | system | `true`, `false`, or respect `prefers-reduced-motion` |
 | `layout` | string | `'default'` | `'default'` or `'compact'` |
 
-### Examples
+<details>
+<summary><strong>Examples</strong></summary>
 
 **Basic**
 ```yaml
@@ -84,24 +102,35 @@ type: custom:weather-alerts-card
 entity: sensor.pirateweather_alerts
 ```
 
-## Installation
+</details>
 
-### HACS (recommended)
-1. Open HACS → Search "Weather Alerts Card" → Install
-2. Refresh your browser
+## Supported Providers
 
-### Manual
-1. Download `weather-alerts-card.js` from the [latest release](../../releases/latest)
-2. Copy to `config/www/weather-alerts-card.js`
-3. Add as resource: **Settings → Dashboards → Resources** → URL: `/local/weather-alerts-card.js`, Type: JavaScript Module
+<details>
+<summary><strong>NWS (United States)</strong></summary>
 
-### MeteoAlarm (Europe)
+Install the [NWS Alerts](https://github.com/finity69x2/nws_alerts) integration. The card auto-detects NWS entities from `attributes.Alerts`.
+
+</details>
+
+<details>
+<summary><strong>Bureau of Meteorology (Australia)</strong></summary>
+
+Install the [Bureau of Meteorology](https://github.com/bremor/bureau_of_meteorology) integration. The card auto-detects BoM entities from `attributes.warnings`.
+
+</details>
+
+<details>
+<summary><strong>MeteoAlarm (Europe)</strong></summary>
 
 The [MeteoAlarm integration](https://www.home-assistant.io/integrations/meteoalarm/) is built into Home Assistant. It creates a `binary_sensor.meteoalarm` entity that exposes a single active weather alert per configured province. You will need to configure this in `configuration.yml`.
 
 > **Note**: The MeteoAlarm integration only reports one alert at a time per entity. If your region has multiple concurrent alerts, only the first one is shown. This is a limitation of the upstream library, not the card.
 
-### PirateWeather
+</details>
+
+<details>
+<summary><strong>PirateWeather</strong></summary>
 
 The [PirateWeather HA integration](https://github.com/Pirate-Weather/pirate-weather-ha) provides weather alerts as sensor entity attributes. To get the alerts entity:
 
@@ -114,15 +143,7 @@ The card auto-detects PirateWeather entities from the `attribution` attribute, o
 
 > **Note**: PirateWeather alerts are sourced from WMO CAP feeds. Alert text may use WMO terminology rather than local language.
 
-## Migrating from v1.x
-
-The card was renamed from "NWS Alerts Card" to "Weather Alerts Card" in v2.0 to reflect multi-provider support. **Your existing dashboards will continue to work.** The old `custom:nws-alerts-card` element name is still supported but deprecated. To migrate:
-
-1. Update your dashboard YAML: change `type: custom:nws-alerts-card` to `type: custom:weather-alerts-card`
-2. Update your resource URL:
-   - **HACS users:** HACS updates the resource path automatically — no action needed.
-   - **Manual install:** In Settings → Dashboards → Resources, change `/local/nws-alerts-card.js` to `/local/weather-alerts-card.js`
-3. The old names will be removed in v3.
+</details>
 
 ## Development
 
@@ -132,6 +153,19 @@ npm run build     # bundle → dist/weather-alerts-card.js
 npm run watch     # bundle with file watching
 npm run lint      # TypeScript type-check
 ```
+
+<details>
+<summary><strong>Migrating from v1.x</strong></summary>
+
+The card was renamed from "NWS Alerts Card" to "Weather Alerts Card" in v2.0 to reflect multi-provider support. **Your existing dashboards will continue to work.** The old `custom:nws-alerts-card` element name is still supported but deprecated. To migrate:
+
+1. Update your dashboard YAML: change `type: custom:nws-alerts-card` to `type: custom:weather-alerts-card`
+2. Update your resource URL:
+   - **HACS users:** HACS updates the resource path automatically — no action needed.
+   - **Manual install:** In Settings → Dashboards → Resources, change `/local/nws-alerts-card.js` to `/local/weather-alerts-card.js`
+3. The old names will be removed in v3.
+
+</details>
 
 ---
 
