@@ -411,6 +411,9 @@ export class WeatherAlertsCard extends LitElement {
       ${progress.isActive
         ? html`<span class="badge active-badge">Active</span>`
         : html`<span class="badge prep-badge">In Prep</span>`}
+      ${alert.eventCode ? html`
+        <span class="badge event-code-badge">${alert.eventCode}</span>
+      ` : nothing}
       ${alert.mergedCount && alert.mergedCount > 1
         ? html`<span class="badge zones-badge">${alert.mergedCount} zones</span>`
         : nothing}
