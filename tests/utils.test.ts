@@ -55,6 +55,78 @@ describe('getWeatherIcon', () => {
   it('returns wave icon for marine/surf events', () => {
     expect(getWeatherIcon('Hazardous Surf Warning')).toBe('mdi:waves');
   });
+
+  it('returns tsunami icon', () => {
+    expect(getWeatherIcon('Tsunami Warning')).toBe('mdi:tsunami');
+  });
+
+  it('returns hurricane icon for typhoon', () => {
+    expect(getWeatherIcon('Typhoon Warning')).toBe('mdi:weather-hurricane');
+  });
+
+  it('returns hail icon', () => {
+    expect(getWeatherIcon('Hail Storm Warning')).toBe('mdi:weather-hail');
+  });
+
+  it('returns rain icon for rain events', () => {
+    expect(getWeatherIcon('Heavy Rain Warning')).toBe('mdi:weather-pouring');
+  });
+
+  it('returns sleet icon', () => {
+    expect(getWeatherIcon('Sleet Advisory')).toBe('mdi:weather-snowy-rainy');
+  });
+
+  it('returns thermometer icon for wind chill (not wind)', () => {
+    expect(getWeatherIcon('Wind Chill Warning')).toBe('mdi:thermometer-low');
+  });
+
+  it('returns thermometer icon for extreme cold', () => {
+    expect(getWeatherIcon('Extreme Cold Warning')).toBe('mdi:thermometer-low');
+  });
+
+  it('returns dust icon', () => {
+    expect(getWeatherIcon('Dust Storm Warning')).toBe('mdi:weather-dust');
+  });
+
+  it('returns smoke icon', () => {
+    expect(getWeatherIcon('Dense Smoke Advisory')).toBe('mdi:smoke');
+  });
+
+  it('returns volcano icon', () => {
+    expect(getWeatherIcon('Ashfall Advisory')).toBe('mdi:volcano');
+  });
+
+  it('returns air filter icon for air quality', () => {
+    expect(getWeatherIcon('Air Quality Alert')).toBe('mdi:air-filter');
+  });
+
+  it('returns sailboat icon for small craft advisory', () => {
+    expect(getWeatherIcon('Small Craft Advisory')).toBe('mdi:sail-boat');
+  });
+
+  it('returns wave icon for rip current', () => {
+    expect(getWeatherIcon('Rip Current Statement')).toBe('mdi:wave');
+  });
+
+  it('returns waves icon for hazardous seas', () => {
+    expect(getWeatherIcon('Hazardous Seas Warning')).toBe('mdi:waves');
+  });
+
+  it('returns flood icon for storm surge', () => {
+    expect(getWeatherIcon('Storm Surge Warning')).toBe('mdi:home-flood');
+  });
+
+  it('returns wind icon for gale', () => {
+    expect(getWeatherIcon('Gale Warning')).toBe('mdi:weather-windy');
+  });
+
+  it('returns drought icon', () => {
+    expect(getWeatherIcon('Drought Warning')).toBe('mdi:water-off');
+  });
+
+  it('returns hurricane icon for cyclone', () => {
+    expect(getWeatherIcon('Severe Cyclone Warning')).toBe('mdi:weather-hurricane');
+  });
 });
 
 describe('getCertaintyIcon', () => {

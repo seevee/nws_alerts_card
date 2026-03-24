@@ -20,20 +20,40 @@ export function sanitizeAlertHtml(text: string): string {
 }
 
 const WEATHER_ICONS: [readonly string[], string][] = [
+  // Severe — specific phrases first
   [['tornado'], 'mdi:weather-tornado'],
+  [['tsunami'], 'mdi:tsunami'],
+  [['hurricane', 'tropical', 'typhoon', 'cyclone'], 'mdi:weather-hurricane'],
   [['thunderstorm', 't-storm'], 'mdi:weather-lightning'],
-  [['flood', 'hydrologic'], 'mdi:home-flood'],
+  [['hail'], 'mdi:weather-hail'],
+  // Flooding & rain
+  [['flood', 'hydrologic', 'storm surge'], 'mdi:home-flood'],
+  [['rain', 'shower', 'precipitation'], 'mdi:weather-pouring'],
+  // Winter weather
   [['snow', 'blizzard', 'winter'], 'mdi:weather-snowy-heavy'],
+  [['sleet'], 'mdi:weather-snowy-rainy'],
   [['ice', 'freeze', 'frost'], 'mdi:snowflake'],
+  [['cold', 'chill'], 'mdi:thermometer-low'],
+  // Geologic
   [['landslide', 'avalanche'], 'mdi:landslide'],
-  [['wind'], 'mdi:weather-windy'],
+  [['volcano', 'ashfall', 'vog'], 'mdi:volcano'],
+  // Airborne hazards
+  [['dust', 'sand'], 'mdi:weather-dust'],
+  [['smoke'], 'mdi:smoke'],
+  [['air quality', 'air stagnation'], 'mdi:air-filter'],
+  // Fire & heat
   [['fire', 'red flag'], 'mdi:fire'],
   [['heat'], 'mdi:weather-sunny-alert'],
+  [['drought'], 'mdi:water-off'],
   [['fog'], 'mdi:weather-fog'],
-  [['hurricane', 'tropical'], 'mdi:weather-hurricane'],
+  // Wind — "cold"/"chill" must precede "wind" so "Wind Chill" gets thermometer
   [['sheep', 'grazier'], 'mdi:weather-windy-variant'],
-  [['surf', 'marine', 'coastal'], 'mdi:waves'],
-  [['cyclone'], 'mdi:weather-hurricane'],
+  [['gale', 'squall'], 'mdi:weather-windy'],
+  [['wind'], 'mdi:weather-windy'],
+  // Marine & coastal
+  [['small craft'], 'mdi:sail-boat'],
+  [['rip current'], 'mdi:wave'],
+  [['surf', 'marine', 'coastal', 'seas'], 'mdi:waves'],
 ];
 
 export function getWeatherIcon(event: string): string {
