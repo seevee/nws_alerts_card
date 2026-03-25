@@ -13,26 +13,33 @@ fi
 git checkout main
 git pull origin main
 
-# Generate notes before tagging so --unreleased can find the commits
+if git rev-parse "$TAG" >/dev/null 2>&1; then
+  echo "Tag $TAG already exists locally, skipping"
+else
+  git tag "$TAG"
+fi
+
+if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+  echo "Tag $TAG already exists on remote, skipping push"
+else
+  git push origin "$TAG"
+fi
+
+# Generate notes after tag exists so --latest works on re-runs too
 # Prerelease: notes for just this tag's commits
 # GA release: collapse all commits since last stable tag into one section
 if [ "$PRERELEASE" = true ]; then
   NOTES=$(npx git-cliff \
     --config cliff.toml \
-    --tag "$TAG" \
-    --unreleased \
+    --latest \
     --strip header)
 else
   NOTES=$(npx git-cliff \
     --config cliff.toml \
-    --tag "$TAG" \
     --tag-pattern "^v[0-9]+\.[0-9]+\.[0-9]+$" \
-    --unreleased \
+    --latest \
     --strip header)
 fi
-
-git tag "$TAG"
-git push origin "$TAG"
 
 MIGRATION_NOTICE="
 ---
@@ -55,9 +62,12 @@ if [ "$PRERELEASE" = false ]; then
 $MIGRATION_NOTICE"
 fi
 
-gh release create "$TAG" \
-  --title "$TAG" \
-  --notes "$NOTES" \
-  $([ "$PRERELEASE" = true ] && echo "--prerelease")
-
-echo "Release $TAG published"
+if gh release view "$TAG" >/dev/null 2>&1; then
+  echo "Release $TAG already exists, skipping"
+else
+  gh release create "$TAG" \
+    --title "$TAG" \
+    --notes "$NOTES" \
+    $([ "$PRERELEASE" = true ] && echo "--prerelease")
+  echo "Release $TAG published"
+fi
