@@ -98,11 +98,10 @@ export const cardStyles = css`
     background: rgba(var(--color-rgb), 0.12);
   }
 
-  /* Temporal state: preparation — icon dims, dashed ring */
+  /* Temporal state: preparation — dashed ring, neutral background */
   .preparation .icon-box {
     border: 2px dashed var(--divider-color);
     background: var(--secondary-background-color);
-    color: var(--secondary-text-color);
   }
   .icon-box ha-icon { --mdc-icon-size: 26px; }
 
