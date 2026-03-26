@@ -14,6 +14,7 @@ import {
   alertMatchesZones,
   deduplicateAlerts,
   getNwsEventColor,
+  getMeteoAlarmColor,
   sanitizeAlertHtml,
   getDisplayHeadline,
 } from './utils';
@@ -207,12 +208,18 @@ export class WeatherAlertsCard extends LitElement {
     return !this._motionQuery.matches; // undefined → respect OS prefers-reduced-motion
   }
   private get _isCompact(): boolean { return this._config?.layout === 'compact'; }
-  private get _colorTheme(): 'severity' | 'nws' { return this._config?.colorTheme || 'severity'; }
+  private get _colorTheme(): 'severity' | 'nws' | 'meteoalarm' { return this._config?.colorTheme || 'severity'; }
 
   private _alertColorStyle(alert: WeatherAlert): string {
-    if (this._colorTheme !== 'nws' || alert.provider !== 'nws') return '';
-    const { color, rgb } = getNwsEventColor(alert.event);
-    return `--color: ${color}; --color-rgb: ${rgb};`;
+    if (this._colorTheme === 'nws') {
+      const { color, rgb } = getNwsEventColor(alert.event);
+      return `--color: ${color}; --color-rgb: ${rgb};`;
+    }
+    if (this._colorTheme === 'meteoalarm') {
+      const { color, rgb } = getMeteoAlarmColor(alert.severity);
+      return `--color: ${color}; --color-rgb: ${rgb};`;
+    }
+    return '';
   }
   private _normalizeText(text: string | undefined): string {
     return (text || '').replace(/\n{2,}/g, '\n\n').trim();

@@ -173,7 +173,7 @@ export class WeatherAlertsCardEditor extends LitElement {
   }
 
   private _colorThemeChanged(ev: CustomEvent): void {
-    const value = ev.detail.value as 'severity' | 'nws';
+    const value = ev.detail.value as 'severity' | 'nws' | 'meteoalarm';
     if (value === (this._config.colorTheme || 'severity')) return;
     const newConfig = { ...this._config };
     if (value === 'severity') {
@@ -298,6 +298,7 @@ export class WeatherAlertsCardEditor extends LitElement {
         >
           <ha-dropdown-item value="severity">${t('editor.color_severity', lang)}</ha-dropdown-item>
           <ha-dropdown-item value="nws">${t('editor.color_nws', lang)}</ha-dropdown-item>
+          <ha-dropdown-item value="meteoalarm">${t('editor.color_meteoalarm', lang)}</ha-dropdown-item>
         </ha-select>
 
         <ha-select

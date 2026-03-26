@@ -136,6 +136,20 @@ export function getNwsEventColor(event: string): { color: string; rgb: string; t
   return { color: '#808080', rgb: '128, 128, 128', textColor: getBadgeTextColor('#808080') };
 }
 
+// MeteoAlarm official awareness level colors
+const METEOALARM_SEVERITY_COLORS: Record<string, [string, string]> = {
+  extreme: ['#D8001E', '216, 0, 30'],   // Red
+  severe:  ['#FF9900', '255, 153, 0'],   // Orange
+  moderate:['#FFC800', '255, 200, 0'],   // Yellow
+  minor:   ['#88C840', '136, 200, 64'],  // Green
+};
+
+export function getMeteoAlarmColor(severity: string): { color: string; rgb: string; textColor: string } {
+  const entry = METEOALARM_SEVERITY_COLORS[severity];
+  if (entry) return { color: entry[0], rgb: entry[1], textColor: getBadgeTextColor(entry[0]) };
+  return { color: '#808080', rgb: '128, 128, 128', textColor: getBadgeTextColor('#808080') };
+}
+
 export function parseTimestamp(raw: string | undefined | null): number {
   if (!raw || raw === 'None' || raw.trim() === '') return 0;
   const d = new Date(raw.trim());
