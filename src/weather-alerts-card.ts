@@ -273,10 +273,11 @@ export class WeatherAlertsCard extends LitElement {
 
   private _renderPreview(): TemplateResult {
     const alerts = getPreviewAlerts();
+    const animClass = this._animationsEnabled ? '' : 'no-animations';
     const layoutClass = this._isCompact ? 'compact' : '';
 
     return html`
-      <ha-card .header=${this._config.title || ''} class="no-animations ${layoutClass}">
+      <ha-card .header=${this._config.title || ''} class="${animClass} ${layoutClass}">
         <div class="preview-label">${t('card.preview', this._lang)}</div>
         ${alerts.map(alert => this._renderAlert(alert))}
       </ha-card>
