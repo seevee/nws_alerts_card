@@ -66,6 +66,7 @@ if [ "$DRY_RUN" = false ]; then
 
   npm run lint
   npm run test
+  npm run screenshot:hero
 
 else
   BASE_REF="origin/main"
@@ -187,7 +188,7 @@ npm version "$VERSION" --no-git-tag-version
 
 npx git-cliff --config cliff.toml --tag "v$VERSION" "${CLIFF_FLAGS[@]}" --output CHANGELOG.md
 
-git add CHANGELOG.md package.json package-lock.json
+git add CHANGELOG.md package.json package-lock.json img/
 
 git commit -m "chore: release v$VERSION"
 
