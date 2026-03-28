@@ -494,6 +494,10 @@ export const cardStyles = css`
     animation: none !important;
     transition: none !important;
   }
+  .no-animations .active .progress-fill,
+  .no-animations.compact .active.alert-card::before {
+    background-position: -33% 0 !important;
+  }
 
   /* --- PREVIEW LABEL --- */
   .preview-label {
