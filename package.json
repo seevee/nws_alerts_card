@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "screenshot": "node scripts/screenshot.js",
     "screenshot:update": "npm run build && npm run screenshot",
-    "screenshot:hero": "npm run build && npm run screenshot && bash scripts/encode-hero-svg.sh"
+    "screenshot:hero": "npm run build && npm run screenshot && bash scripts/encode-adaptive-svgs.sh"
   },
   "keywords": [
     "home-assistant",
