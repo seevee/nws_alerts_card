@@ -2,22 +2,36 @@
 
 A custom Home Assistant Lovelace card for displaying weather alerts with severity indicators, progress bars, and expandable details. Supports NWS (US), BoM (Australia), MeteoAlarm (Europe), and PirateWeather.
 
-![NWS Alerts Card](https://raw.githubusercontent.com/seevee/weather_alerts_card/main/img/hero-adaptive.svg)
+[![Weather Alerts Card](https://raw.githubusercontent.com/seevee/weather_alerts_card/main/img/hero-adaptive.svg)](https://raw.githubusercontent.com/seevee/weather_alerts_card/main/img/hero-light.png)
 
 ## Features
 
 - **Multi-provider** — NWS (US), BoM (Australia), MeteoAlarm (Europe), and PirateWeather with auto-detection
-- **Severity colors** — HA theme colors or NWS official hazard-map colors by event type
+- **Color themes** — severity-based (default), NWS official event colors, or MeteoAlarm awareness level colors
 - **Time progress bars** — elapsed/remaining time with relative and absolute timestamps
 - **Alert headlines** — contextual subtitle from provider data, with optional redundancy filtering
 - **Expandable details** — sanitized description, instructions, and source link
 - **BoM phase badges** — New, Updated, Renewed lifecycle indicators
-- **Compact layout** — collapsed single-row alerts that expand on tap
+- **Compact layout** — collapsed single-row alerts with progress bars that expand on tap
 - **Zone filtering** — show only alerts for specific zones
 - **Sort order** — default, onset time, or severity
 - **Severity threshold** — minimum severity to display
 - **Localized UI** — English, French, and Spanish; auto-detected from Home Assistant locale
 - **Visual config** — no YAML editing required
+
+## Themes
+
+### Severity (default)
+
+[![Severity color theme](https://raw.githubusercontent.com/seevee/weather_alerts_card/main/img/severity-details-adaptive.svg)](https://raw.githubusercontent.com/seevee/weather_alerts_card/main/img/severity-light-details.png)
+
+### NWS Official
+
+[![NWS color theme, compact layout](https://raw.githubusercontent.com/seevee/weather_alerts_card/main/img/nws-compact-adaptive.svg)](https://raw.githubusercontent.com/seevee/weather_alerts_card/main/img/nws-light-compact.png)
+
+### MeteoAlarm Awareness
+
+[![MeteoAlarm color theme](https://raw.githubusercontent.com/seevee/weather_alerts_card/main/img/meteoalarm-details-adaptive.svg)](https://raw.githubusercontent.com/seevee/weather_alerts_card/main/img/meteoalarm-light-details.png)
 
 ## Quick Start
 
@@ -41,21 +55,23 @@ Then click the Download button, and click Reload when prompted.
 
 ## Configuration
 
-- **`entity`** — Alert sensor entity
-- **`provider`** — `'nws'`, `'bom'`, `'meteoalarm'`, `'pirateweather'`, or omit for auto-detect
-- **`title`** — Card header title
-- **`zones`** — Zone codes to filter (NWS zones or BoM `area_id`)
-- **`sortOrder`** — `'default'`, `'onset'`, `'severity'`
-- **`minSeverity`** — `'minor'`, `'moderate'`, `'severe'`, `'extreme'`
-- **`colorTheme`** — `'severity'` (default) or `'nws'`
-- **`eventCodes`** — NWS event codes to include, e.g. `['SVR', 'TOR']` — omit for all events
-- **`excludeEventCodes`** — NWS event codes to hide, e.g. `['SCY', 'SCW']`
-- **`timezone`** — `'server'` (default) or `'browser'` to use the client's local timezone
-- **`deduplicateHeadlines`** — Deduplicate headlines (default: `true`). When `true`, suppresses headlines that repeat the event name or add only boilerplate. Set to `false` to show all headlines verbatim.
-- **`deduplicate`** — Collapse matching alerts into one card (default: `true`)
-- **`animations`** — `true`, `false`, or respect `prefers-reduced-motion` (default: system)
-- **`showSourceLink`** — Show the "Open Source" link in alert details (default: `true`). Set to `false` for kiosk/tablet deployments where navigation should be prevented.
-- **`layout`** — `'default'` or `'compact'`
+| Option | Default | Description |
+|--------|---------|-------------|
+| `entity` | *(required)* | Alert sensor entity |
+| `provider` | auto-detect | `'nws'`, `'bom'`, `'meteoalarm'`, `'pirateweather'` |
+| `title` | — | Card header title |
+| `zones` | — | Zone codes to filter (NWS zones or BoM `area_id`) |
+| `sortOrder` | `'default'` | `'default'`, `'onset'`, `'severity'` |
+| `minSeverity` | `'all'` | `'all'`, `'minor'`, `'moderate'`, `'severe'`, `'extreme'` |
+| `colorTheme` | `'severity'` | `'severity'`, `'nws'`, `'meteoalarm'` |
+| `eventCodes` | — | NWS event codes to include, e.g. `['SVR', 'TOR']` |
+| `excludeEventCodes` | — | NWS event codes to exclude, e.g. `['SCY']` |
+| `timezone` | `'server'` | `'server'` or `'browser'` (client's local time) |
+| `deduplicateHeadlines` | `true` | Suppress headlines that repeat the event name |
+| `deduplicate` | `true` | Collapse matching alerts across zones |
+| `animations` | system | `true`, `false`, or respect `prefers-reduced-motion` |
+| `showSourceLink` | `true` | Show "Open Source" link (`false` for kiosk mode) |
+| `layout` | `'default'` | `'default'` or `'compact'` |
 
 <details>
 <summary><strong>Examples</strong></summary>
@@ -95,10 +111,11 @@ eventCodes:
 timezone: browser
 ```
 
-**European MeteoAlarm warnings**
+**European MeteoAlarm warnings with awareness colors**
 ```yaml
 type: custom:weather-alerts-card
 entity: binary_sensor.meteoalarm
+colorTheme: meteoalarm
 ```
 
 **Australian BoM warnings**

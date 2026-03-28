@@ -4,7 +4,7 @@
 //          npm run screenshot:update  (rebuilds first)
 //
 // Env: PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH  override Playwright's managed Chromium with a system binary
-//      SCREENSHOT_THEMES  comma-separated subset: severity,nws  (default: both)
+//      SCREENSHOT_THEMES  comma-separated subset: severity,nws,meteoalarm  (default: all)
 
 'use strict';
 
@@ -88,6 +88,8 @@ const ALL_SCENARIOS = [
   { cardId: 'card-severity-open', colorScheme: 'dark', label: 'severity dark  details', out: 'img/severity-dark-details.png', expand: true },
   { cardId: 'card-nws-compact', colorScheme: 'light', label: 'nws     light compact ', out: 'img/nws-light-compact.png' },
   { cardId: 'card-nws-compact', colorScheme: 'dark', label: 'nws     dark  compact ', out: 'img/nws-dark-compact.png' },
+  { cardId: 'card-meteoalarm-details', colorScheme: 'light', label: 'meteoalarm light details', out: 'img/meteoalarm-light-details.png', expand: true },
+  { cardId: 'card-meteoalarm-details', colorScheme: 'dark', label: 'meteoalarm dark  details', out: 'img/meteoalarm-dark-details.png', expand: true },
 ];
 
 // Filter by SCREENSHOT_THEMES env var if set (e.g. "nws" or "severity,nws")
@@ -136,7 +138,7 @@ const PORT = 3742;
 
     // Wait for both card instances to finish their initial Lit render
     await page.waitForFunction(() => {
-      const ids = ['card-severity-open', 'card-nws-compact'];
+      const ids = ['card-severity-open', 'card-nws-compact', 'card-meteoalarm-details'];
       return ids.every(id => document.getElementById(id)?.shadowRoot?.querySelector('.alert-card') !== null);
     }, { timeout: 10000 });
 

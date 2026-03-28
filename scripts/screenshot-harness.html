@@ -70,6 +70,9 @@
   <div class="card-wrapper">
     <nws-alerts-card id="card-nws-compact"></nws-alerts-card>
   </div>
+  <div class="card-wrapper">
+    <nws-alerts-card id="card-meteoalarm-details"></nws-alerts-card>
+  </div>
 
   <script type="module">
     import '/dist/weather-alerts-card.js';
@@ -154,6 +157,11 @@
     const nwsCompact = document.getElementById('card-nws-compact');
     nwsCompact.setConfig({ type: 'custom:nws-alerts-card', entity: 'sensor.nws_alerts_alerts', animations: false, colorTheme: 'nws', layout: 'compact' });
     nwsCompact.hass = MOCK_HASS;
+
+    // Default layout, MeteoAlarm awareness colors.
+    const meteoalarmDetails = document.getElementById('card-meteoalarm-details');
+    meteoalarmDetails.setConfig({ type: 'custom:nws-alerts-card', entity: 'sensor.nws_alerts_alerts', animations: false, colorTheme: 'meteoalarm' });
+    meteoalarmDetails.hass = MOCK_HASS;
   </script>
 </body>
 </html>
