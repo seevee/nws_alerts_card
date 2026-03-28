@@ -1,9 +1,9 @@
 # Changelog
 
-## Unreleased
+## 2.5.2 — 2026-03-28
 
 ### Fixed
-- Fix "All severities" option not selectable in editor minimum severity dropdown (#87)
+- Allow selecting "All severities" in min severity dropdown (#88) (d37e1c4…)
 
 ## 2.5.1 — 2026-03-27
 
