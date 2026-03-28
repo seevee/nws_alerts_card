@@ -22,6 +22,7 @@ export const ALERT_ID_2 = 'urn:oid:2.49.0.1.840.0.screenshot-2';
 export const ALERT_ID_2B = 'urn:oid:2.49.0.1.840.0.screenshot-2b';
 export const ALERT_ID_2C = 'urn:oid:2.49.0.1.840.0.screenshot-2c';
 export const ALERT_ID_3 = 'urn:oid:2.49.0.1.840.0.screenshot-3';
+export const ALERT_ID_4 = 'urn:oid:2.49.0.1.840.0.screenshot-4';
 
 export const ALERTS = [
   {
@@ -115,3 +116,26 @@ export const ALERTS = [
     Geocode: { UGC: ['SAM005'], SAME: ['000005'] },
   },
 ];
+
+// Extended set with a Minor alert — used by MeteoAlarm theme screenshots
+// to showcase all four awareness level colors.
+export const ALERT_MINOR = {
+  ID: ALERT_ID_4,
+  Event: 'Drizzle Advisory',
+  Severity: 'Minor',
+  Certainty: 'Possible',
+  Urgency: 'Future',
+  Sent: iso(-0.25 * H),
+  Onset: iso(3 * H),
+  Ends: iso(12 * H),
+  Expires: iso(12 * H),
+  Headline: 'OCCASIONAL LIGHT DRIZZLE POSSIBLE TOMORROW MORNING',
+  AreaDesc: 'Greater Exampleville Metro Area',
+  Description: 'A slight chance of light drizzle. Puddles may form. Umbrellas optional.',
+  Instruction: 'Consider bringing a light jacket. This is sample data for demonstration purposes.',
+  URL: 'https://example.com/alerts/screenshot-4',
+  AffectedZones: ['https://api.weather.gov/zones/forecast/SAM006'],
+  Geocode: { UGC: ['SAM006'], SAME: ['000006'] },
+};
+
+export const ALERTS_WITH_MINOR = [...ALERTS, ALERT_MINOR];

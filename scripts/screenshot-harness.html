@@ -76,7 +76,7 @@
 
   <script type="module">
     import '/dist/weather-alerts-card.js';
-    import { ALERTS } from '/scripts/screenshot-fixtures.js';
+    import { ALERTS, ALERTS_WITH_MINOR } from '/scripts/screenshot-fixtures.js';
 
     // ---- ha-card stub ----
     // Shadow DOM with <slot> — matches HA's real <ha-card> structure.
@@ -143,6 +143,10 @@
           state: String(ALERTS.length),
           attributes: { Alerts: ALERTS },
         },
+        'sensor.nws_alerts_all': {
+          state: String(ALERTS_WITH_MINOR.length),
+          attributes: { Alerts: ALERTS_WITH_MINOR },
+        },
       },
     };
 
@@ -158,9 +162,9 @@
     nwsCompact.setConfig({ type: 'custom:nws-alerts-card', entity: 'sensor.nws_alerts_alerts', animations: false, colorTheme: 'nws', layout: 'compact' });
     nwsCompact.hass = MOCK_HASS;
 
-    // Default layout, MeteoAlarm awareness colors.
+    // Default layout, MeteoAlarm awareness colors — uses extended alerts with Minor severity.
     const meteoalarmDetails = document.getElementById('card-meteoalarm-details');
-    meteoalarmDetails.setConfig({ type: 'custom:nws-alerts-card', entity: 'sensor.nws_alerts_alerts', animations: false, colorTheme: 'meteoalarm' });
+    meteoalarmDetails.setConfig({ type: 'custom:nws-alerts-card', entity: 'sensor.nws_alerts_all', animations: false, colorTheme: 'meteoalarm' });
     meteoalarmDetails.hass = MOCK_HASS;
   </script>
 </body>
