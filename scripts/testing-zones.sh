@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# most-alerted-zones.sh — Find zones with the best cross-section of alert conditions
+# testing-zones.sh — Find zones with the best cross-section of alert conditions
 # Providers: NWS (US), BoM (Australia), MeteoAlarm (Europe), ECCC (Canada)
 # Optimizes for testing diversity: mixed severities, prep vs active, multiple
 # alerts per zone, contiguous zone clusters with overlapping alerts.
 #
-# Usage: ./scripts/most-alerted-zones.sh
+# Usage: ./scripts/testing-zones.sh [provider ...]
+#   provider: nws, bom, meteoalarm, eccc, wmo (default: all)
 #
 # API requests per provider:
 #   NWS:       1 (alerts/active) + 1-3 zone geometry lookups
@@ -13,8 +14,16 @@
 #   ECCC:      1 (NAAD atom)
 #   WMO CAP:   1-3 (RSS per source) + 1 (CAP XML)
 #
-# Results are cached in .cache/most-alerted-zones/ for 1 hour to avoid
-# hammering public endpoints on repeated runs.
+# These are public, free government APIs. To avoid abusing them:
+# - Results are cached in .cache/most-alerted-zones/ for 1 hour
+# - Request counts are kept minimal (see per-provider counts above)
+# - A descriptive User-Agent identifies this as testing tooling
+# Do not remove or shorten the cache TTL.
+#
+# NWS zone limits (relevant when configuring HA):
+#   ~850 zones max per API request (URL length limit, undocumented)
+#   500 alerts max per response (documented limit param)
+#   16,384 bytes HA attribute limit — can overflow with many active alerts
 #
 # Dependencies: curl, jq
 
@@ -26,8 +35,9 @@ CACHE_TTL=3600  # seconds
 
 mkdir -p "$CACHE_DIR"
 
+# ─── Shared helpers ──────────────────────────────────────────────────────────
+
 # Fetch with file-level caching. Returns cached content if fresh enough.
-# Optional 3rd arg: extra curl headers.
 cached_fetch() {
   local url="$1" cache_file="$2"
   shift 2
@@ -47,13 +57,44 @@ divider() {
   printf '\n%s\n' "──────────────────────────────────────────────"
 }
 
+# Compute centroid from coordinate strings.
+# georss format (default): "lat lon lat lon ..."
+# cap format:              "lat,lon lat,lon ..."
+polygon_centroid() {
+  local coords="$1" fmt="${2:-georss}"
+  echo "$coords" | awk -v fmt="$fmt" '{
+    if (fmt == "cap") {
+      n = split($0, pairs, " ")
+      for (i = 1; i <= n; i++) {
+        split(pairs[i], c, ",")
+        if (c[1] != "" && c[2] != "") { lat_sum += c[1]; lon_sum += c[2]; count++ }
+      }
+    } else {
+      n = split($0, vals, " ")
+      for (i = 1; i <= n - 1; i += 2) { lat_sum += vals[i]; lon_sum += vals[i+1]; count++ }
+    }
+    if (count > 0) printf "%.6f %.6f\n", lat_sum/count, lon_sum/count
+    else print "null null"
+  }'
+}
+
+# Print a frequency distribution from a newline-separated list of values.
+# Args: $1=label, $2=width (printf left-align), $3=max_items (0=unlimited)
+show_distribution() {
+  local label="$1" width="${2:-12}" max="${3:-0}"
+  echo "  $label:"
+  local cmd="sort | uniq -c | sort -rn"
+  [ "$max" -gt 0 ] && cmd="$cmd | head -$max"
+  eval "$cmd" | while read -r cnt val; do
+    printf "    %-${width}s %s\n" "$val" "$cnt"
+  done
+}
+
 # ─── NWS ─────────────────────────────────────────────────────────────────────
 # Fetch NWS zone details and print them. Args: $1=zone_code, $2=cache_suffix
-# Outputs: zone, name, lat, lon via printed lines.
 nws_zone_details() {
   local zone_code="$1" cache_suffix="${2:-zone}"
 
-  # Determine zone type from 3rd character (e.g. COZ → forecast, COC → county)
   local zone_type="forecast"
   case "${zone_code:2:1}" in
     C) zone_type="county" ;;
@@ -65,7 +106,6 @@ nws_zone_details() {
   zone_info=$(cached_fetch "https://api.weather.gov/zones/$zone_type/$zone_code" "$CACHE_DIR/nws-${cache_suffix}.json" \
     -H "Accept: application/geo+json") || {
     echo "  Could not fetch zone geometry."
-    echo ""
     echo "  zone:  $zone_code"
     return 1
   }
@@ -74,7 +114,6 @@ nws_zone_details() {
   name=$(echo "$zone_info" | jq -r '.properties.name // "unknown"')
   state=$(echo "$zone_info" | jq -r '.properties.state // "unknown"')
 
-  # Centroid: average all coordinate points
   local lat lon
   read -r lat lon < <(echo "$zone_info" | jq -r '
     def flatten_coords:
@@ -95,35 +134,26 @@ nws_zone_details() {
 }
 
 # Find contiguous zone clusters from a newline-separated list of zone codes.
-# Outputs: tab-separated "size \t zone1,zone2,..." for clusters of size >= 2,
-# sorted by size descending.
 find_contiguous_clusters() {
   sort | awk '
   {
-    code = $0
-    prefix = substr(code, 1, 3)
-    num = int(substr(code, 4))
-    codes[NR] = code
-    prefixes[NR] = prefix
-    nums[NR] = num
+    codes[NR] = $0
+    prefixes[NR] = substr($0, 1, 3)
+    nums[NR] = int(substr($0, 4))
     n = NR
   }
   END {
-    # Find runs of consecutive numbers within the same prefix
     if (n == 0) exit
     cluster_start = 1
     for (i = 2; i <= n; i++) {
-      if (prefixes[i] == prefixes[i-1] && nums[i] == nums[i-1] + 1) {
-        continue
-      } else {
-        size = i - cluster_start
-        if (size >= 2) {
-          s = codes[cluster_start]
-          for (j = cluster_start + 1; j < i; j++) s = s "," codes[j]
-          print size "\t" s
-        }
-        cluster_start = i
+      if (prefixes[i] == prefixes[i-1] && nums[i] == nums[i-1] + 1) continue
+      size = i - cluster_start
+      if (size >= 2) {
+        s = codes[cluster_start]
+        for (j = cluster_start + 1; j < i; j++) s = s "," codes[j]
+        print size "\t" s
       }
+      cluster_start = i
     }
     size = n - cluster_start + 1
     if (size >= 2) {
@@ -153,9 +183,7 @@ nws() {
     return 0
   fi
 
-  # ── Per-zone diversity analysis ──
-  # For each zone: count alerts, unique severities, prep vs active, ongoing.
-  # Score zones by testing diversity.
+  # Per-zone diversity analysis
   local zone_analysis
   zone_analysis=$(echo "$alerts" | jq '
     now as $now |
@@ -192,16 +220,10 @@ nws() {
     ) | sort_by(-.score, -.count)
   ')
 
-  # ── Best testing zone ──
+  # Best testing zone (single jq call for all fields)
   local best_zone best_score best_count best_sevs best_events best_prep best_active best_ongoing
-  best_zone=$(echo "$zone_analysis" | jq -r '.[0].zone')
-  best_score=$(echo "$zone_analysis" | jq -r '.[0].score')
-  best_count=$(echo "$zone_analysis" | jq -r '.[0].count')
-  best_sevs=$(echo "$zone_analysis" | jq -r '.[0].severities | join(", ")')
-  best_events=$(echo "$zone_analysis" | jq -r '.[0].events | join(", ")')
-  best_prep=$(echo "$zone_analysis" | jq -r '.[0].has_prep')
-  best_active=$(echo "$zone_analysis" | jq -r '.[0].has_active')
-  best_ongoing=$(echo "$zone_analysis" | jq -r '.[0].has_ongoing')
+  IFS=$'\t' read -r best_zone best_score best_count best_sevs best_events best_prep best_active best_ongoing \
+    <<< "$(echo "$zone_analysis" | jq -r '.[0] | [.zone, .score, .count, (.severities|join(", ")), (.events|join(", ")), .has_prep, .has_active, .has_ongoing] | @tsv')"
 
   echo ""
   echo "  ── Best testing zone (score: $best_score) ──"
@@ -215,8 +237,7 @@ nws() {
   echo ""
   echo "  HA config: zone_id = $best_zone"
 
-  # ── Runner-up zones ──
-  # Show top 5 zones by score for reference
+  # Top zones by diversity score
   echo ""
   echo "  ── Top zones by diversity score ──"
   echo "$zone_analysis" | jq -r '
@@ -224,8 +245,7 @@ nws() {
     "    \(.zone)  score=\(.score)  alerts=\(.count)  sev=\(.severities | join(","))  prep=\(.has_prep)  active=\(.has_active)  ongoing=\(.has_ongoing)"
   '
 
-  # ── Contiguous zone clusters ──
-  # Find groups of numerically adjacent zone codes that all have active alerts.
+  # Contiguous zone clusters
   local all_zones clusters
   all_zones=$(echo "$zone_analysis" | jq -r '.[].zone')
   clusters=$(echo "$all_zones" | find_contiguous_clusters)
@@ -236,26 +256,12 @@ nws() {
 
     local shown=0
     while IFS=$'\t' read -r cluster_size cluster_zones; do
-      # Compute aggregate stats for this cluster
-      local cluster_stats
-      cluster_stats=$(echo "$zone_analysis" | jq -r --arg zones "$cluster_zones" '
-        ($zones | split(",")) as $zlist |
-        [.[] | select(.zone as $z | $zlist | any(. == $z))] |
-        {
-          total_alerts: (map(.count) | add),
-          all_sevs: ([.[].severities[]] | unique | sort | join(", ")),
-          any_prep: (any(.has_prep)),
-          any_active: (any(.has_active)),
-          any_ongoing: (any(.has_ongoing))
-        } |
-        "\(.total_alerts)\t\(.all_sevs)\t\(.any_prep)\t\(.any_active)\t\(.any_ongoing)"
-      ')
       local cl_alerts cl_sevs cl_prep cl_active cl_ongoing
-      cl_alerts=$(echo "$cluster_stats" | cut -f1)
-      cl_sevs=$(echo "$cluster_stats" | cut -f2)
-      cl_prep=$(echo "$cluster_stats" | cut -f3)
-      cl_active=$(echo "$cluster_stats" | cut -f4)
-      cl_ongoing=$(echo "$cluster_stats" | cut -f5)
+      IFS=$'\t' read -r cl_alerts cl_sevs cl_prep cl_active cl_ongoing \
+        <<< "$(echo "$zone_analysis" | jq -r --arg zones "$cluster_zones" '
+          ($zones | split(",")) as $zlist |
+          [.[] | select(.zone as $z | $zlist | any(. == $z))] |
+          [(map(.count) | add), ([.[].severities[]] | unique | sort | join(", ")), any(.has_prep), any(.has_active), any(.has_ongoing)] | @tsv')"
 
       echo "    ${cluster_zones} (${cluster_size} adjacent zones)"
       echo "      alerts: $cl_alerts  sev: $cl_sevs"
@@ -265,14 +271,13 @@ nws() {
       [ "$shown" -ge 3 ] && break
     done <<< "$clusters"
 
-    # Recommend the cluster with best combined diversity
     local best_cluster
     best_cluster=$(echo "$clusters" | head -1 | cut -f2)
     echo ""
     echo "  HA multi-zone config: zone_id = $(echo "$best_cluster" | tr ',' ', ')"
   fi
 
-  # ── Condition coverage summary ──
+  # Condition coverage
   echo ""
   echo "  ── Condition coverage ──"
   echo "$zone_analysis" | jq -r '
@@ -294,24 +299,15 @@ nws() {
     "  Ongoing (no end) zones: \(.ongoing)"
   '
 
-  # Severity distribution
   echo ""
   echo "  Severity distribution:"
-  echo "$alerts" | jq -r '
-    [.features[].properties.severity // "Unknown"] |
-    group_by(.) | map({sev: .[0], count: length}) | sort_by(-.count) | .[] |
-    "    \(.sev): \(.count) alerts"
-  '
+  echo "$alerts" | jq -r '[.features[].properties.severity // "Unknown"] | .[]' | show_distribution "Severity" 12
 }
 
 # ─── BoM ──────────────────────────────────────────────────────────────────────
-# 1 request: GET /v1/warnings (all active warnings across Australia)
-# 1 request: GET /v1/locations?search={place} (resolve place name → geohash)
 # BoM warnings have no geometry — we extract a place name from the warning
-# title, resolve it via the BoM locations API, and decode the geohash locally
-# to get coordinates that fall within the actual alerted area.
+# title, resolve it via the BoM locations API, and decode the geohash locally.
 
-# Decode a geohash to lat/lon (pure awk, no external dependencies).
 decode_geohash() {
   echo "$1" | awk '
   BEGIN {
@@ -320,21 +316,13 @@ decode_geohash() {
   }
   {
     hash = $0
-    lat_min = -90; lat_max = 90
-    lon_min = -180; lon_max = 180
-    is_lon = 1
+    lat_min = -90; lat_max = 90; lon_min = -180; lon_max = 180; is_lon = 1
     for (i = 1; i <= length(hash); i++) {
-      c = substr(hash, i, 1)
-      val = base32[c]
+      val = base32[substr(hash, i, 1)]
       for (b = 4; b >= 0; b--) {
         bit = int(val / (2^b)) % 2
-        if (is_lon) {
-          mid = (lon_min + lon_max) / 2
-          if (bit) lon_min = mid; else lon_max = mid
-        } else {
-          mid = (lat_min + lat_max) / 2
-          if (bit) lat_min = mid; else lat_max = mid
-        }
+        if (is_lon) { mid = (lon_min + lon_max) / 2; if (bit) lon_min = mid; else lon_max = mid }
+        else { mid = (lat_min + lat_max) / 2; if (bit) lat_min = mid; else lat_max = mid }
         is_lon = !is_lon
       }
     }
@@ -342,26 +330,17 @@ decode_geohash() {
   }'
 }
 
-# Extract candidate place names from a BoM warning title.
-# Titles look like: "Herbert River at Abergowrie Bridge, Tully River at Euramo"
-# Strategy: pull tokens after " at " (most specific), then try the first
-# comma-segment as a bare search term.
 extract_bom_places() {
   local title="$1"
-  # Prefer "at <Place>" patterns — these are specific localities
   echo "$title" | grep -oP '(?<= at )\w+' || true
-  # Fallback: first comma-segment, stripped of "River", "Creek" etc.
   echo "$title" | cut -d, -f1 | sed 's/\b\(River\|Creek\|Bay\|Lake\|Range\)\b//g; s/^ *//; s/ *$//'
 }
 
-# Search BoM locations API for a place name within a given state.
-# Returns "geohash\tname" or empty string.
 bom_search_place() {
   local place="$1" target_state="$2"
   local result
   result=$(curl -sf --max-time 10 -H "User-Agent: $UA" \
     "https://api.weather.bom.gov.au/v1/locations?search=$(echo "$place" | sed 's/ /%20/g')" 2>/dev/null) || return 1
-  # Prefer a match in the target state
   echo "$result" | jq -r --arg st "$target_state" '
     (.data[] | select(.state == $st) | "\(.geohash)\t\(.name)") // empty
   ' | head -1
@@ -385,8 +364,7 @@ bom() {
     return 0
   fi
 
-  # ── Per-state diversity analysis ──
-  # Score states by: warning_group_type mix, phase mix, warning count
+  # Per-state diversity analysis
   local state_analysis
   state_analysis=$(echo "$warnings" | jq '
     [.data[] | select(.phase != "cancelled")] |
@@ -396,11 +374,8 @@ bom() {
         state: $arr[0].state,
         count: ($arr | length),
         phases: ([$arr[].phase] | unique | sort),
-        phase_count: ([$arr[].phase] | unique | length),
         groups: ([$arr[].warning_group_type] | unique | sort),
-        group_count: ([$arr[].warning_group_type] | unique | length),
         types: ([$arr[].type] | unique | sort),
-        type_count: ([$arr[].type] | unique | length),
         score: (
           ([$arr[].warning_group_type] | unique | length) * 20
           + ([$arr[].phase] | unique | length) * 15
@@ -411,14 +386,10 @@ bom() {
     ) | sort_by(-.score, -.count)
   ')
 
-  # ── Best testing state ──
+  # Best testing state (single jq call)
   local best_state best_score best_count best_phases best_groups best_types
-  best_state=$(echo "$state_analysis" | jq -r '.[0].state')
-  best_score=$(echo "$state_analysis" | jq -r '.[0].score')
-  best_count=$(echo "$state_analysis" | jq -r '.[0].count')
-  best_phases=$(echo "$state_analysis" | jq -r '.[0].phases | join(", ")')
-  best_groups=$(echo "$state_analysis" | jq -r '.[0].groups | join(", ")')
-  best_types=$(echo "$state_analysis" | jq -r '.[0].types | join(", ")')
+  IFS=$'\t' read -r best_state best_score best_count best_phases best_groups best_types \
+    <<< "$(echo "$state_analysis" | jq -r '.[0] | [.state, .score, .count, (.phases|join(", ")), (.groups|join(", ")), (.types|join(", "))] | @tsv')"
 
   echo ""
   echo "  ── Best testing state (score: $best_score) ──"
@@ -429,7 +400,6 @@ bom() {
   echo "  groups:         $best_groups"
   echo "  warning types:  $best_types"
 
-  # ── Top states by diversity ──
   echo ""
   echo "  ── Top states by diversity score ──"
   echo "$state_analysis" | jq -r '
@@ -437,7 +407,7 @@ bom() {
     "    \(.state)  score=\(.score)  warnings=\(.count)  phases=\(.phases | join(","))  groups=\(.groups | join(","))"
   '
 
-  # ── Sample warnings from best state ──
+  # Sample warnings from best state
   echo ""
   echo "  ── Sample warnings from $best_state ──"
   echo "$warnings" | jq -r --arg st "$best_state" '
@@ -497,7 +467,7 @@ bom() {
   echo "  HA integration: bureau_of_meteorology"
   echo "  Configure for a location near $resolved_name, $best_state to pick up warnings"
 
-  # ── Condition coverage summary ──
+  # Condition coverage
   echo ""
   echo "  ── Condition coverage ──"
   echo "$warnings" | jq -r '
@@ -514,15 +484,10 @@ bom() {
 }
 
 # ─── MeteoAlarm ───────────────────────────────────────────────────────────────
-# 1 request: GET /feeds/meteoalarm-legacy-rss-europe (aggregate RSS — country ranking)
-# 1 request: GET /feeds/meteoalarm-legacy-atom-{country} (province/region details)
 # Ref: https://www.home-assistant.io/integrations/meteoalarm/
 
-# Map RSS title "MeteoAlarm {Name}" → feed slug used by both the atom URL and
-# the HA meteoalarm integration's `country:` config key.
 country_to_slug() {
-  local name="$1"
-  echo "$name" | tr '[:upper:]' '[:lower:]' | sed 's/ /-/g'
+  echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/ /-/g'
 }
 
 meteoalarm() {
@@ -534,32 +499,22 @@ meteoalarm() {
     echo "  FAIL: could not reach feeds.meteoalarm.org"; return 1
   }
 
-  # Parse RSS: each <item><title>MeteoAlarm {Country}</title> contains
-  # <td data-awareness-level="N"> elements — count per level per country.
-  # Output: count \t country \t level_2_count \t level_3_count \t level_4_count
+  # Parse RSS: count awareness levels per country, score by level diversity
   local counts
   counts=$(echo "$feed" | awk '
     /<title>MeteoAlarm / {
       gsub(/.*<title>MeteoAlarm /, ""); gsub(/<\/title>.*/, "");
-      country = $0;
-      lvl2 = 0; lvl3 = 0; lvl4 = 0;
+      country = $0; lvl2 = 0; lvl3 = 0; lvl4 = 0;
     }
     /data-awareness-level="2"/ { lvl2 += gsub(/data-awareness-level="2"/, "&"); }
     /data-awareness-level="3"/ { lvl3 += gsub(/data-awareness-level="3"/, "&"); }
     /data-awareness-level="4"/ { lvl4 += gsub(/data-awareness-level="4"/, "&"); }
     /<\/item>/ {
-      total = lvl2 + lvl3 + lvl4;
-      levels = 0;
-      if (lvl2 > 0) levels++;
-      if (lvl3 > 0) levels++;
-      if (lvl4 > 0) levels++;
-      if (country != "" && total > 0) {
-        # Score: level diversity * 20 + count, prefer mixed levels
-        score = levels * 20 + total;
-        printf "%d\t%s\t%d\t%d\t%d\t%d\n", score, country, total, lvl2, lvl3, lvl4;
-      }
-      country = "";
-      lvl2 = 0; lvl3 = 0; lvl4 = 0;
+      total = lvl2 + lvl3 + lvl4; levels = 0;
+      if (lvl2 > 0) levels++; if (lvl3 > 0) levels++; if (lvl4 > 0) levels++;
+      if (country != "" && total > 0)
+        printf "%d\t%s\t%d\t%d\t%d\t%d\n", levels * 20 + total, country, total, lvl2, lvl3, lvl4;
+      country = ""; lvl2 = 0; lvl3 = 0; lvl4 = 0;
     }
   ' | sort -t$'\t' -k1 -nr)
 
@@ -572,29 +527,22 @@ meteoalarm() {
   total_countries=$(echo "$counts" | wc -l | tr -d ' ')
   echo "  Countries with alerts: $total_countries"
 
-  # ── Top countries by diversity ──
   echo ""
   echo "  ── Top countries by diversity ──"
-  echo "$counts" | head -8 | while IFS=$'\t' read -r score name total l2 l3 l4; do
+  echo "$counts" | head -8 | while IFS=$'\t' read -r _score name total l2 l3 l4; do
     printf "    %-20s total=%-3s  yellow=%-3s orange=%-3s red=%s\n" "$name" "$total" "$l2" "$l3" "$l4"
   done
 
-  local top_score top_country top_total top_l2 top_l3 top_l4
-  top_score=$(echo "$counts" | head -1 | cut -f1)
-  top_country=$(echo "$counts" | head -1 | cut -f2)
-  top_total=$(echo "$counts" | head -1 | cut -f3)
-  top_l2=$(echo "$counts" | head -1 | cut -f4)
-  top_l3=$(echo "$counts" | head -1 | cut -f5)
-  top_l4=$(echo "$counts" | head -1 | cut -f6)
+  local top_score top_country top_total
+  IFS=$'\t' read -r top_score top_country top_total _ _ _ <<< "$(echo "$counts" | head -1)"
 
   local country_slug
   country_slug=$(country_to_slug "$top_country")
 
   echo ""
-  echo "  Best testing country: $top_country (score: $top_score)"
-  echo "  Alerts: $top_total (yellow=$top_l2, orange=$top_l3, red=$top_l4)"
+  echo "  Best testing country: $top_country (score: $top_score, alerts: $top_total)"
 
-  # Fetch the country's atom feed for province-level analysis.
+  # Fetch the country's atom feed for province-level analysis
   echo ""
   echo "  Fetching atom feed for $top_country..."
   local atom
@@ -610,13 +558,11 @@ meteoalarm() {
     return 0
   }
 
-  # Extract areaDesc + awareness_level per entry for province diversity scoring
   local province_data
   province_data=$(echo "$atom" | grep -oP '(<cap:areaDesc>[^<]+</cap:areaDesc>|<cap:severity>[^<]+</cap:severity>)' | \
     paste - - 2>/dev/null | sed 's/<[^>]*>//g' | sort)
 
   if [ -n "$province_data" ]; then
-    # Count alerts per province and find one with best diversity
     echo ""
     echo "  ── Top provinces ──"
     echo "$atom" | grep -oP '(?<=<cap:areaDesc>)[^<]+' | sort | uniq -c | sort -rn | head -5 | \
@@ -640,23 +586,9 @@ meteoalarm() {
 }
 
 # ─── ECCC ─────────────────────────────────────────────────────────────────────
-# 1 request: GET / from NAAD (National Alert Aggregation & Dissemination) Atom feed
 # Atom entries use <category term="key=value"/> for CAP fields, <georss:polygon>
-# for coordinates (space-separated alternating lat lon), and area names in <summary>.
+# for coordinates, and area names in <summary>.
 # Ref: https://rss.naad-adna.pelmorex.com/
-
-# Compute centroid of a georss:polygon string ("lat lon lat lon ...").
-georss_centroid() {
-  echo "$1" | awk '{
-    n = split($0, vals, " ")
-    lat_sum = 0; lon_sum = 0; count = 0
-    for (i = 1; i <= n - 1; i += 2) {
-      lat_sum += vals[i]; lon_sum += vals[i+1]; count++
-    }
-    if (count > 0) printf "%.6f %.6f\n", lat_sum/count, lon_sum/count
-    else print "null null"
-  }'
-}
 
 eccc() {
   echo "ECCC — Environment and Climate Change Canada"
@@ -667,53 +599,24 @@ eccc() {
     echo "  FAIL: could not reach rss.naad-adna.pelmorex.com"; return 1
   }
 
-  # Parse each entry's category terms for language/status/severity/urgency/event
-  # and extract the area list from the <summary> "Area: ..." field.
-  # Output: area \t severity \t event \t polygon \t urgency
+  # Parse entries into TSV: area \t severity \t event \t polygon \t urgency
   local parsed
   parsed=$(echo "$feed" | sed 's/<entry>/\n<entry>/g' | awk '
-    /<entry>/ {
-      lang = ""; status = ""; msg_type = ""; sev = ""; evt = ""; poly = ""; area = ""; urg = ""
-    }
-    /term="language=/ {
-      match($0, /term="language=([^"]*)"/, m)
-      lang = m[1]
-    }
-    /term="status=/ {
-      match($0, /term="status=([^"]*)"/, m)
-      status = m[1]
-    }
-    /term="msgType=/ {
-      match($0, /term="msgType=([^"]*)"/, m)
-      msg_type = m[1]
-    }
-    /term="severity=/ {
-      match($0, /term="severity=([^"]*)"/, m)
-      sev = m[1]
-    }
-    /term="urgency=/ {
-      match($0, /term="urgency=([^"]*)"/, m)
-      urg = m[1]
-    }
-    /term="event=/ {
-      match($0, /term="event=([^"]*)"/, m)
-      evt = m[1]
-    }
-    /<georss:polygon>/ && poly == "" {
-      match($0, /<georss:polygon>([^<]+)</, m)
-      poly = m[1]
-    }
+    /<entry>/ { lang = ""; status = ""; msg_type = ""; sev = ""; evt = ""; poly = ""; area = ""; urg = "" }
+    /term="language=/ { match($0, /term="language=([^"]*)"/, m); lang = m[1] }
+    /term="status=/   { match($0, /term="status=([^"]*)"/, m); status = m[1] }
+    /term="msgType=/  { match($0, /term="msgType=([^"]*)"/, m); msg_type = m[1] }
+    /term="severity=/ { match($0, /term="severity=([^"]*)"/, m); sev = m[1] }
+    /term="urgency=/  { match($0, /term="urgency=([^"]*)"/, m); urg = m[1] }
+    /term="event=/    { match($0, /term="event=([^"]*)"/, m); evt = m[1] }
+    /<georss:polygon>/ && poly == "" { match($0, /<georss:polygon>([^<]+)</, m); poly = m[1] }
     /Area:/ {
-      match($0, /Area: ([^<]*)/, m)
-      area = m[1]
-      gsub(/&amp;/, "\\&", area)
-      gsub(/&lt;/, "<", area)
-      gsub(/&gt;/, ">", area)
+      match($0, /Area: ([^<]*)/, m); area = m[1]
+      gsub(/&amp;/, "\\&", area); gsub(/&lt;/, "<", area); gsub(/&gt;/, ">", area)
     }
     /<\/entry>/ {
-      if (lang == "en-CA" && status == "Actual" && msg_type != "Cancel" && area != "") {
+      if (lang == "en-CA" && status == "Actual" && msg_type != "Cancel" && area != "")
         print area "\t" sev "\t" evt "\t" poly "\t" urg
-      }
     }
   ')
 
@@ -726,18 +629,14 @@ eccc() {
   total=$(echo "$parsed" | wc -l | tr -d ' ')
   echo "  Active alert entries: $total"
 
-  # ── Per-area diversity analysis ──
-  # Score areas by severity diversity + alert count + urgency mix
+  # Per-area diversity scoring
   local area_analysis
   area_analysis=$(echo "$parsed" | awk -F'\t' '
   {
     area = $1; sev = $2; evt = $3; poly = $4; urg = $5
     count[area]++
-    sevs[area][sev] = 1
-    evts[area][evt] = 1
-    urgs[area][urg] = 1
+    sevs[area][sev] = 1; evts[area][evt] = 1; urgs[area][urg] = 1
     if (!(area in first_poly) && poly != "") first_poly[area] = poly
-    # Track all severities for display
     if (!(area in sev_list)) sev_list[area] = sev
     else if (index(sev_list[area], sev) == 0) sev_list[area] = sev_list[area] "," sev
     if (!(area in evt_list)) evt_list[area] = evt
@@ -745,28 +644,21 @@ eccc() {
   }
   END {
     for (area in count) {
-      sev_count = 0; for (s in sevs[area]) sev_count++
-      evt_count = 0; for (e in evts[area]) evt_count++
-      urg_count = 0; for (u in urgs[area]) urg_count++
-      score = sev_count * 20 + evt_count * 10 + urg_count * 10
-      if (count[area] >= 3) score += 30
-      else if (count[area] >= 2) score += 15
+      sc = 0; for (s in sevs[area]) sc++
+      ec = 0; for (e in evts[area]) ec++
+      uc = 0; for (u in urgs[area]) uc++
+      score = sc * 20 + ec * 10 + uc * 10
+      if (count[area] >= 3) score += 30; else if (count[area] >= 2) score += 15
       printf "%d\t%s\t%d\t%s\t%s\t%s\n", score, area, count[area], sev_list[area], evt_list[area], first_poly[area]
     }
   }' | sort -t$'\t' -k1 -nr)
 
-  # ── Best testing area ──
   local best_score best_area best_count best_sevs best_evts best_poly
-  best_score=$(echo "$area_analysis" | head -1 | cut -f1)
-  best_area=$(echo "$area_analysis" | head -1 | cut -f2)
-  best_count=$(echo "$area_analysis" | head -1 | cut -f3)
-  best_sevs=$(echo "$area_analysis" | head -1 | cut -f4)
-  best_evts=$(echo "$area_analysis" | head -1 | cut -f5)
-  best_poly=$(echo "$area_analysis" | head -1 | cut -f6)
+  IFS=$'\t' read -r best_score best_area best_count best_sevs best_evts best_poly <<< "$(echo "$area_analysis" | head -1)"
 
   local lat="?" lon="?"
   if [ -n "$best_poly" ]; then
-    read -r lat lon < <(georss_centroid "$best_poly")
+    read -r lat lon < <(polygon_centroid "$best_poly" georss)
   fi
 
   echo ""
@@ -779,25 +671,18 @@ eccc() {
   echo "  severities: $best_sevs"
   echo "  events:     $best_evts"
 
-  # ── Top areas by diversity ──
   echo ""
   echo "  ── Top areas by diversity score ──"
   echo "$area_analysis" | head -8 | while IFS=$'\t' read -r score area cnt sevs evts _poly; do
     printf "    score=%-3s alerts=%-2s %-45s sev=%s\n" "$score" "$cnt" "$area" "$sevs"
   done
 
-  # ── Condition coverage ──
+  # Condition coverage
   echo ""
   echo "  ── Condition coverage ──"
   echo "  Total areas:  $(echo "$area_analysis" | wc -l | tr -d ' ')"
-  echo "  Severity distribution:"
-  echo "$parsed" | cut -f2 | sort | uniq -c | sort -rn | while read -r cnt sev; do
-    printf "    %-12s %s alerts\n" "$sev" "$cnt"
-  done
-  echo "  Event types:"
-  echo "$parsed" | cut -f3 | sort | uniq -c | sort -rn | head -8 | while read -r cnt evt; do
-    printf "    %-45s %s\n" "$evt" "$cnt"
-  done
+  echo "$parsed" | cut -f2 | show_distribution "Severity" 12
+  echo "$parsed" | cut -f3 | show_distribution "Event types" 45 8
 
   echo ""
   echo "  Use these coordinates when configuring PirateWeather for Canadian alert testing."
@@ -806,64 +691,23 @@ eccc() {
 # ─── WMO CAP ─────────────────────────────────────────────────────────────────
 # Queries the WMO Severe Weather Information Centre CAP feeds directly.
 # These are the same feeds PirateWeather ingests for non-US alerts.
-# Tries Canada first; falls back to Mexico, then Brazil if no alerts found.
-# 1 request per source tried + 1 request for the CAP XML of the best alert.
 # Ref: https://severeweather.wmo.int/v2/cap-alerts/
 
-# Compute centroid of a CAP polygon string ("lat,lon lat,lon ...").
-cap_polygon_centroid() {
-  echo "$1" | awk '{
-    n = split($0, pairs, " ")
-    lat_sum = 0; lon_sum = 0; count = 0
-    for (i = 1; i <= n; i++) {
-      split(pairs[i], coord, ",")
-      if (coord[1] != "" && coord[2] != "") {
-        lat_sum += coord[1]; lon_sum += coord[2]; count++
-      }
-    }
-    if (count > 0) printf "%.6f %.6f\n", lat_sum/count, lon_sum/count
-    else print "null null"
-  }'
-}
-
-# Parse a WMO RSS feed into tab-separated lines: title \t severity \t event \t areaDesc \t link
-# Filters to English alerts only (skips French/Spanish duplicates by title heuristic).
 wmo_parse_rss() {
-  local feed="$1"
-  echo "$feed" | sed 's/<item>/\n<item>/g' | awk '
+  echo "$1" | sed 's/<item>/\n<item>/g' | awk '
     /<item>/ { title=""; sev=""; evt=""; area=""; link="" }
-    /<title>/ && !/<title>Latest/ {
-      gsub(/.*<title>/, ""); gsub(/<\/title>.*/, "")
-      title = $0
-    }
-    /<cap:severity>/ {
-      gsub(/.*<cap:severity>/, ""); gsub(/<\/cap:severity>.*/, "")
-      sev = $0
-    }
-    /<cap:event>/ {
-      gsub(/.*<cap:event>/, ""); gsub(/<\/cap:event>.*/, "")
-      evt = $0
-    }
-    /<cap:areaDesc>/ {
-      gsub(/.*<cap:areaDesc>/, ""); gsub(/<\/cap:areaDesc>.*/, "")
-      area = $0
-    }
-    /<link>https:\/\/severeweather/ {
-      gsub(/.*<link>/, ""); gsub(/<\/link>.*/, "")
-      link = $0
-    }
-    /<\/item>/ {
-      if (title != "" && sev != "" && sev != "Unknown") {
-        print title "\t" sev "\t" evt "\t" area "\t" link
-      }
-    }
+    /<title>/ && !/<title>Latest/ { gsub(/.*<title>/, ""); gsub(/<\/title>.*/, ""); title = $0 }
+    /<cap:severity>/ { gsub(/.*<cap:severity>/, ""); gsub(/<\/cap:severity>.*/, ""); sev = $0 }
+    /<cap:event>/ { gsub(/.*<cap:event>/, ""); gsub(/<\/cap:event>.*/, ""); evt = $0 }
+    /<cap:areaDesc>/ { gsub(/.*<cap:areaDesc>/, ""); gsub(/<\/cap:areaDesc>.*/, ""); area = $0 }
+    /<link>https:\/\/severeweather/ { gsub(/.*<link>/, ""); gsub(/<\/link>.*/, ""); link = $0 }
+    /<\/item>/ { if (title != "" && sev != "" && sev != "Unknown") print title "\t" sev "\t" evt "\t" area "\t" link }
   '
 }
 
 wmo_cap() {
   echo "WMO CAP — Severe Weather Information Centre (PirateWeather source)"
 
-  # Sources to try in order: Canada, Mexico, Brazil
   local -a source_ids=("ca-msc-xx" "mx-smn-es" "br-inmet-pt")
   local -a source_names=("Canada (MSC)" "Mexico (SMN)" "Brazil (INMET)")
 
@@ -874,10 +718,7 @@ wmo_cap() {
     echo "  Trying $source_name ($source_id)..."
 
     feed=$(cached_fetch "https://severeweather.wmo.int/v2/cap-alerts/$source_id/rss.xml" \
-      "$CACHE_DIR/wmo-$source_id.xml") || {
-      echo "    Could not fetch feed."
-      continue
-    }
+      "$CACHE_DIR/wmo-$source_id.xml") || { echo "    Could not fetch feed."; continue; }
 
     parsed=$(wmo_parse_rss "$feed")
     if [ -n "$parsed" ]; then
@@ -898,14 +739,10 @@ wmo_cap() {
   total=$(echo "$parsed" | wc -l | tr -d ' ')
   echo "  Active alerts: $total"
 
-  # ── Severity distribution ──
   echo ""
-  echo "  Severity distribution:"
-  echo "$parsed" | cut -f2 | sort | uniq -c | sort -rn | while read -r cnt sev; do
-    printf "    %-12s %s alerts\n" "$sev" "$cnt"
-  done
+  echo "$parsed" | cut -f2 | show_distribution "Severity" 12
 
-  # ── Per-area diversity analysis ──
+  # Per-area diversity scoring
   local area_analysis
   area_analysis=$(echo "$parsed" | awk -F'\t' '
   {
@@ -919,22 +756,15 @@ wmo_cap() {
   }
   END {
     for (area in count) {
-      sev_count = 0; for (s in sevs[area]) sev_count++
-      score = sev_count * 20
-      if (count[area] >= 3) score += 30
-      else if (count[area] >= 2) score += 15
+      sc = 0; for (s in sevs[area]) sc++
+      score = sc * 20
+      if (count[area] >= 3) score += 30; else if (count[area] >= 2) score += 15
       printf "%d\t%s\t%d\t%s\t%s\t%s\n", score, area, count[area], sev_list[area], first_evt[area], first_link[area]
     }
   }' | sort -t$'\t' -k1 -nr)
 
-  # Best testing area
   local best_score best_area best_count best_sevs best_evt best_link
-  best_score=$(echo "$area_analysis" | head -1 | cut -f1)
-  best_area=$(echo "$area_analysis" | head -1 | cut -f2)
-  best_count=$(echo "$area_analysis" | head -1 | cut -f3)
-  best_sevs=$(echo "$area_analysis" | head -1 | cut -f4)
-  best_evt=$(echo "$area_analysis" | head -1 | cut -f5)
-  best_link=$(echo "$area_analysis" | head -1 | cut -f6)
+  IFS=$'\t' read -r best_score best_area best_count best_sevs best_evt best_link <<< "$(echo "$area_analysis" | head -1)"
 
   # Fetch CAP XML for polygon coordinates
   local lat="?" lon="?"
@@ -947,12 +777,11 @@ wmo_cap() {
       local polygon
       polygon=$(echo "$cap_xml" | grep -oP '<polygon>[^<]+</polygon>' | head -1 | sed 's/<[^>]*>//g')
       if [ -n "$polygon" ]; then
-        read -r lat lon < <(cap_polygon_centroid "$polygon")
+        read -r lat lon < <(polygon_centroid "$polygon" cap)
       fi
     fi
   fi
 
-  # ── Top areas ──
   echo ""
   echo "  ── Top areas by diversity score ──"
   echo "$area_analysis" | head -5 | while IFS=$'\t' read -r score area cnt sevs _evt _link; do
@@ -974,23 +803,38 @@ wmo_cap() {
 }
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
+VALID_PROVIDERS="nws bom meteoalarm eccc wmo"
+
+run_provider() { case "$1" in nws|bom|meteoalarm|eccc) "$1";; wmo) wmo_cap;; esac; }
+
+providers=()
+if [ $# -eq 0 ]; then
+  providers=($VALID_PROVIDERS)
+else
+  for arg in "$@"; do
+    arg_lower=$(echo "$arg" | tr '[:upper:]' '[:lower:]')
+    if ! echo " $VALID_PROVIDERS " | grep -q " $arg_lower "; then
+      echo "Unknown provider: $arg" >&2
+      echo "Valid providers: $VALID_PROVIDERS" >&2
+      exit 1
+    fi
+    providers+=("$arg_lower")
+  done
+fi
+
 echo "Finding zones with best testing cross-section for each provider..."
 echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 echo "Cache: $CACHE_DIR (TTL ${CACHE_TTL}s)"
 echo ""
+echo "NWS zone limits: ~850/request (URL length), 500 alerts/response, 16KB HA attribute cap"
+echo ""
 echo "Scoring criteria: severity diversity, prep vs active, multiple alerts,"
 echo "contiguous zones, ongoing (no end time)"
 
-divider
-nws || true
-divider
-bom || true
-divider
-meteoalarm || true
-divider
-eccc || true
-divider
-wmo_cap || true
+for p in "${providers[@]}"; do
+  divider
+  run_provider "$p" || true
+done
 divider
 
 echo ""
