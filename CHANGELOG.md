@@ -1,14 +1,9 @@
 # Changelog
 
-## Unreleased
+## 2.7.0-alpha.3 — 2026-03-29
 
 ### Added
-- Add configurable font size with `fontSize` option (`small`, `default`, `large`, `x-large`) and `--wac-scale` CSS custom property for card-mod users
-
-## 2.7.0-alpha.2 — 2026-03-29
-
-### Added
-- Add Italian translations (#99) (11d3edf…)
+- Add configurable font size with fontSize option and --wac-scale CSS property (#101) (cdca6bf…)
 
 ## 2.7.0-alpha.1 — 2026-03-29
 
