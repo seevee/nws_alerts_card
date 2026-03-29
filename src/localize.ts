@@ -82,6 +82,7 @@ const en: TranslationMap = {
   'editor.deduplicate_headlines': 'Deduplicate headlines',
   'editor.show_source_link': 'Show source link',
   'editor.compact': 'Compact layout',
+  'editor.hide_no_alerts': 'Hide card when there are no active alerts',
   'editor.show_preview': 'Show sample data',
   'editor.preview_hint': 'Preview card layout with placeholder alerts',
   'editor.entity_warning': 'Selected entity does not appear to contain weather alert data.',
