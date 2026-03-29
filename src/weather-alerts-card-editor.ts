@@ -186,15 +186,17 @@ export class WeatherAlertsCardEditor extends LitElement {
     entity: string,
     add: boolean,
   ): Record<string, unknown>[] | undefined {
-    // All entity states that mean "no alerts" across providers:
-    // "0" = NWS/BoM/PirateWeather (count), "off" = MeteoAlarm (binary_sensor)
-    const noAlertStates = ['0', 'off', 'unknown', 'unavailable'];
     const isOurs = (c: Record<string, unknown>): boolean =>
       c.condition === 'state' && c.entity === entity
-      && Array.isArray(c.state_not) && c.state_not.includes('0') && c.state_not.includes('off');
+      && ('state_not' in c || 'state' in c);
     const conditions = (existing || []).filter(c => !isOurs(c));
     if (add) {
-      conditions.push({ condition: 'state', entity, state_not: noAlertStates });
+      // binary_sensor (MeteoAlarm) uses "on"/"off"; sensors use numeric count "0","1",...
+      if (entity.startsWith('binary_sensor.')) {
+        conditions.push({ condition: 'state', entity, state: 'on' });
+      } else {
+        conditions.push({ condition: 'state', entity, state_not: '0' });
+      }
     }
     return conditions.length > 0 ? conditions : undefined;
   }
