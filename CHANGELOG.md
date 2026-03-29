@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Add `hideNoAlerts` option to hide the "No active alerts" banner
+
 ## 2.6.0 — 2026-03-28
 
 ### Added

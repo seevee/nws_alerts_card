@@ -36,6 +36,7 @@ export interface WeatherAlertsCardConfig {
   deduplicateHeadlines?: boolean; // undefined/true: filter redundant headlines; false: show all verbatim
   /** @deprecated Use deduplicateHeadlines instead */
   headline?: boolean;
+  hideNoAlerts?: boolean;    // undefined/false: show "No active alerts" banner; true: hide it
   showSourceLink?: boolean;  // undefined/true: show "Open Source" link; false: hide link (kiosk mode)
   timezone?: 'server' | 'browser';  // undefined/'server': HA server tz; 'browser': client tz
   _preview?: boolean;        // transient editor-only key — triggers preview mode in card

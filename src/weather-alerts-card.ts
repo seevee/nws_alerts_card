@@ -265,7 +265,7 @@ export class WeatherAlertsCard extends LitElement {
     return html`
       <ha-card .header=${this._config.title || ''} class="${animClass} ${layoutClass}">
         ${alerts.length === 0
-        ? this._renderNoAlerts()
+        ? (this._config.hideNoAlerts ? nothing : this._renderNoAlerts())
         : alerts.map(alert => this._renderAlert(alert))}
       </ha-card>
     `;
