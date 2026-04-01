@@ -1,9 +1,11 @@
 # Changelog
 
-## Unreleased
+## 2.7.1 — 2026-04-01
 
 ### Fixed
-- Fix shimmer animation pop at loop point by extending travel range off-screen
+- Handle expired alerts and unify rendering pipelines (#106) (3f0b696…)
+- Default hideExpired to true so expired alerts are hidden by default (#107) (28ff8ca…)
+- Extend shimmer travel range so animation resets off-screen (#108) (bbee09f…)
 
 ## 2.7.0 — 2026-03-30
 
@@ -12,8 +14,8 @@
 - Add configurable font size with fontSize option and --wac-scale CSS property (#101) (cdca6bf…)
 - Add severity and certainty data purity indicators (#103) (4ea15ff…)
 
-### Localization
-- Update localization with Italian translations (#99) (11d3edf…)
+### Maintenance
+- Revert cliff.toml to enforce conventional commits via PR titles (74bae4c…)
 
 ## 2.6.0 — 2026-03-28
 
@@ -271,3 +273,6 @@
 - Explicitly set project name in docker-compose.yml to isolate environment (99f697e…)
 - Commit package-lock.json for reproducible CI builds (fe11120…)
 - Commit dist/nws-alerts-card.js for HACS validation (61dba0b…)
+
+### ci
+- Add HACS validation and build workflows (855387e…)
