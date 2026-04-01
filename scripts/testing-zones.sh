@@ -10,7 +10,7 @@
 # API requests per provider:
 #   NWS:       1 (alerts/active) + 1-3 zone geometry lookups
 #   BoM:       1 (warnings) + 0-1 location search
-#   MeteoAlarm: 1 (RSS) + 1 (atom feed)
+#   MeteoAlarm: up to 30 (per-country atom feeds, parallel) — legacy RSS is deprecated
 #   ECCC:      1 (NAAD atom)
 #   WMO CAP:   1-3 (RSS per source) + 1 (CAP XML)
 #   DWD:       1 (warnings.json)
@@ -486,103 +486,125 @@ bom() {
 
 # ─── MeteoAlarm ───────────────────────────────────────────────────────────────
 # Ref: https://www.home-assistant.io/integrations/meteoalarm/
+# The Europe-wide RSS feed was deprecated (returns empty channel) and the
+# Europe-wide Atom feed now returns 404. We query per-country Atom feeds
+# in parallel, parse cap:severity from entries, and rank by diversity.
 
-country_to_slug() {
-  echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/ /-/g'
-}
+# Known MeteoAlarm country slugs (matching feed URL convention).
+# This list covers all countries published by MeteoAlarm as of 2026-04.
+METEOALARM_COUNTRIES=(
+  austria belgium bosnia-herzegovina bulgaria croatia cyprus
+  czechia denmark estonia finland france germany greece
+  hungary iceland ireland israel italy latvia lithuania
+  luxembourg malta moldova montenegro netherlands north-macedonia
+  norway poland portugal romania serbia slovakia slovenia
+  spain sweden switzerland turkey united-kingdom ukraine
+)
 
 meteoalarm() {
   echo "MeteoAlarm — EUMETNET (Europe)"
-  echo "  Fetching aggregate RSS feed..."
+  echo "  Fetching per-country Atom feeds (${#METEOALARM_COUNTRIES[@]} countries)..."
 
-  local feed
-  feed=$(cached_fetch "https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-rss-europe" "$CACHE_DIR/meteoalarm-rss.xml") || {
-    echo "  FAIL: could not reach feeds.meteoalarm.org"; return 1
-  }
+  local tmpdir
+  tmpdir=$(mktemp -d)
 
-  # Parse RSS: count awareness levels per country, score by level diversity
-  local counts
-  counts=$(echo "$feed" | awk '
-    /<title>MeteoAlarm / {
-      gsub(/.*<title>MeteoAlarm /, ""); gsub(/<\/title>.*/, "");
-      country = $0; lvl2 = 0; lvl3 = 0; lvl4 = 0;
-    }
-    /data-awareness-level="2"/ { lvl2 += gsub(/data-awareness-level="2"/, "&"); }
-    /data-awareness-level="3"/ { lvl3 += gsub(/data-awareness-level="3"/, "&"); }
-    /data-awareness-level="4"/ { lvl4 += gsub(/data-awareness-level="4"/, "&"); }
-    /<\/item>/ {
-      total = lvl2 + lvl3 + lvl4; levels = 0;
-      if (lvl2 > 0) levels++; if (lvl3 > 0) levels++; if (lvl4 > 0) levels++;
-      if (country != "" && total > 0)
-        printf "%d\t%s\t%d\t%d\t%d\t%d\n", levels * 20 + total, country, total, lvl2, lvl3, lvl4;
-      country = ""; lvl2 = 0; lvl3 = 0; lvl4 = 0;
-    }
-  ' | sort -t$'\t' -k1 -nr)
+  # Fetch all country feeds in parallel (backgrounded curl jobs)
+  for slug in "${METEOALARM_COUNTRIES[@]}"; do
+    (
+      cached_fetch \
+        "https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-${slug}" \
+        "$CACHE_DIR/meteoalarm-atom-${slug}.xml" \
+        > "$tmpdir/${slug}.xml" 2>/dev/null
+    ) &
+  done
+  wait
+
+  # Parse each country feed: count severities, compute diversity score
+  local counts=""
+  for slug in "${METEOALARM_COUNTRIES[@]}"; do
+    local file="$tmpdir/${slug}.xml"
+    [ -s "$file" ] || continue
+
+    local result
+    result=$(awk '
+      /<cap:severity>/ {
+        gsub(/.*<cap:severity>/, ""); gsub(/<\/cap:severity>.*/, "");
+        sev = $0
+        if (sev == "Moderate") mod++
+        else if (sev == "Severe") sev3++
+        else if (sev == "Extreme") ext++
+      }
+      END {
+        total = mod + sev3 + ext; levels = 0
+        if (mod > 0) levels++; if (sev3 > 0) levels++; if (ext > 0) levels++
+        if (total > 0)
+          printf "%d\t%d\t%d\t%d\t%d", levels * 200 + total, total, mod, sev3, ext
+      }
+    ' "$file")
+
+    if [ -n "$result" ]; then
+      counts="${counts}${result}\t${slug}\n"
+    fi
+  done
+
+  rm -rf "$tmpdir"
 
   if [ -z "$counts" ]; then
-    echo "  No active alerts (awareness level >= 2) across Europe."
+    echo "  No active alerts across Europe."
     return 0
   fi
 
+  # Sort by score (first column) descending
+  local sorted
+  sorted=$(printf '%b' "$counts" | sort -t$'\t' -k1 -nr)
+
   local total_countries
-  total_countries=$(echo "$counts" | wc -l | tr -d ' ')
+  total_countries=$(echo "$sorted" | wc -l | tr -d ' ')
   echo "  Countries with alerts: $total_countries"
 
   echo ""
   echo "  ── Top countries by diversity ──"
-  echo "$counts" | head -8 | while IFS=$'\t' read -r _score name total l2 l3 l4; do
-    printf "    %-20s total=%-3s  yellow=%-3s orange=%-3s red=%s\n" "$name" "$total" "$l2" "$l3" "$l4"
+  echo "$sorted" | head -8 | while IFS=$'\t' read -r _score total mod sev3 ext slug; do
+    local label
+    label=$(echo "$slug" | sed 's/-/ /g; s/\b\(.\)/\u\1/g')
+    printf "    %-20s total=%-3s  moderate=%-3s severe=%-3s extreme=%s\n" "$label" "$total" "$mod" "$sev3" "$ext"
   done
 
-  local top_score top_country top_total
-  IFS=$'\t' read -r top_score top_country top_total _ _ _ <<< "$(echo "$counts" | head -1)"
-
-  local country_slug
-  country_slug=$(country_to_slug "$top_country")
+  local top_slug
+  top_slug=$(echo "$sorted" | head -1 | awk -F'\t' '{print $NF}')
+  local top_label
+  top_label=$(echo "$top_slug" | sed 's/-/ /g; s/\b\(.\)/\u\1/g')
+  local top_score
+  top_score=$(echo "$sorted" | head -1 | awk -F'\t' '{print $1}')
+  local top_total
+  top_total=$(echo "$sorted" | head -1 | awk -F'\t' '{print $2}')
 
   echo ""
-  echo "  Best testing country: $top_country (score: $top_score, alerts: $top_total)"
+  echo "  Best testing country: $top_label (score: $top_score, alerts: $top_total)"
 
-  # Fetch the country's atom feed for province-level analysis
-  echo ""
-  echo "  Fetching atom feed for $top_country..."
-  local atom
-  atom=$(cached_fetch "https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-${country_slug}" \
-    "$CACHE_DIR/meteoalarm-atom.xml") || {
-    echo "  Could not fetch atom feed for $country_slug."
-    echo ""
-    echo "  # configuration.yaml (province unknown — check meteoalarm.org)"
-    echo "  binary_sensor:"
-    echo "    - platform: meteoalarm"
-    echo "      country: \"$country_slug\""
-    echo "      province: \"???\"  # visit meteoalarm.org to find province"
-    return 0
-  }
+  # Province-level analysis from the top country's cached feed
+  local atom_file="$CACHE_DIR/meteoalarm-atom-${top_slug}.xml"
 
-  local province_data
-  province_data=$(echo "$atom" | grep -oP '(<cap:areaDesc>[^<]+</cap:areaDesc>|<cap:severity>[^<]+</cap:severity>)' | \
-    paste - - 2>/dev/null | sed 's/<[^>]*>//g' | sort)
-
-  if [ -n "$province_data" ]; then
+  if [ -s "$atom_file" ]; then
     echo ""
     echo "  ── Top provinces ──"
-    echo "$atom" | grep -oP '(?<=<cap:areaDesc>)[^<]+' | sort | uniq -c | sort -rn | head -5 | \
+    grep -oP '(?<=<cap:areaDesc>)[^<]+' "$atom_file" | sed 's/&amp;amp;/\&/g; s/&amp;/\&/g' | sort | uniq -c | sort -rn | head -5 | \
       while read -r cnt name; do
         printf "    %-35s %s alerts\n" "$name" "$cnt"
       done
   fi
 
   local top_province
-  top_province=$(echo "$atom" | grep -oP '(?<=<cap:areaDesc>)[^<]+' | sort | uniq -c | sort -rn | head -1 | sed 's/^ *[0-9]* *//')
+  top_province=$(grep -oP '(?<=<cap:areaDesc>)[^<]+' "$atom_file" 2>/dev/null | sed 's/&amp;amp;/\&/g; s/&amp;/\&/g' | sort | uniq -c | sort -rn | head -1 | sed 's/^ *[0-9]* *//')
 
   echo ""
-  echo "  country:  $country_slug"
+  echo "  country:  $top_slug"
   echo "  province: $top_province"
   echo ""
   echo "  # configuration.yaml"
   echo "  binary_sensor:"
   echo "    - platform: meteoalarm"
-  echo "      country: \"$country_slug\""
+  echo "      country: \"$top_slug\""
   echo "      province: \"$top_province\""
 }
 
