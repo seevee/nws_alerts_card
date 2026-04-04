@@ -165,8 +165,13 @@ export class WeatherAlertsCard extends LitElement {
 
   protected updated(): void {
     if (this._suppressTransitions) {
-      this._suppressTransitions = false;
-      this.requestUpdate();
+      // Wait two frames so card-mod and other async style injectors have applied
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          this._suppressTransitions = false;
+          this.requestUpdate();
+        });
+      });
     }
   }
 
