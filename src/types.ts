@@ -39,6 +39,10 @@ export interface WeatherAlertsCardConfig {
   headline?: boolean;
   hideExpired?: boolean;     // undefined/true: hide expired alerts; false: show them (dimmed)
   hideNoAlerts?: boolean;    // undefined/false: show "No active alerts" banner; true: hide it
+  showDetails?: boolean;     // undefined/true: show expandable detail panel; false: hide entirely
+  showMetadata?: boolean;    // undefined/true: show metadata grid in details; false: hide
+  showDescription?: boolean; // undefined/true: show description block in details; false: hide
+  showInstructions?: boolean; // undefined/true: show instructions block in details; false: hide
   showSourceLink?: boolean;  // undefined/true: show "Open Source" link; false: hide link (kiosk mode)
   timezone?: 'server' | 'browser';  // undefined/'server': HA server tz; 'browser': client tz
   reformatText?: boolean;    // undefined/true: strip hard line wraps from alert text; false: preserve raw formatting

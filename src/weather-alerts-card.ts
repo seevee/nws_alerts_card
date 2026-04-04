@@ -439,6 +439,7 @@ export class WeatherAlertsCard extends LitElement {
 
         ${this._renderProgressSection(alert, progress)}
 
+        ${this._config?.showDetails !== false ? html`
         <div class="alert-details-section">
           <div
             class="details-summary"
@@ -454,6 +455,7 @@ export class WeatherAlertsCard extends LitElement {
         ? this._renderDetailsContent(alert, progress)
         : nothing}
         </div>
+        ` : nothing}
       </div>
     `;
   }
@@ -487,6 +489,7 @@ export class WeatherAlertsCard extends LitElement {
 
         ${this._renderProgressSection(alert, progress)}
 
+        ${this._config?.showDetails !== false ? html`
         <div class="alert-details-section">
           <div
             class="details-summary"
@@ -500,6 +503,7 @@ export class WeatherAlertsCard extends LitElement {
           </div>
           ${expanded ? this._renderDetailsContent(alert, progress) : nothing}
         </div>
+        ` : nothing}
       </div>
     `;
   }
@@ -569,6 +573,7 @@ export class WeatherAlertsCard extends LitElement {
 
     return html`
       <div class="details-content">
+        ${this._config?.showMetadata !== false ? html`
         <div class="meta-grid">
           <div class="meta-item">
             <span class="meta-label">${t('detail.issued', lang)}</span>
@@ -593,9 +598,10 @@ export class WeatherAlertsCard extends LitElement {
             </div>
           ` : nothing}
         </div>
+        ` : nothing}
 
-        ${this._renderTextBlock(t('detail.description', lang), desc)}
-        ${this._renderTextBlock(t('detail.instructions', lang), instr)}
+        ${this._config?.showDescription !== false ? this._renderTextBlock(t('detail.description', lang), desc) : nothing}
+        ${this._config?.showInstructions !== false ? this._renderTextBlock(t('detail.instructions', lang), instr) : nothing}
 
         ${alert.url && this._config?.showSourceLink !== false ? html`
           <div class="footer-link">

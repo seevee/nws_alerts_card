@@ -60,6 +60,10 @@ Then click the Download button, and click Reload when prompted.
 | `deduplicateHeadlines` | `true` | Suppress headlines that repeat the event name |
 | `deduplicate` | `true` | Collapse matching alerts across zones |
 | `animations` | system | `true`, `false`, or respect `prefers-reduced-motion` |
+| `showDetails` | `true` | Show the expandable detail panel (hides entire "Read Details" section when `false`) |
+| `showMetadata` | `true` | Show issued/onset/expires/area grid in detail panel |
+| `showDescription` | `true` | Show description text in detail panel |
+| `showInstructions` | `true` | Show instructions text in detail panel |
 | `showSourceLink` | `true` | Show "Open Source" link (`false` for kiosk mode) |
 | `hideExpired` | `true` | Hide expired alerts (set `false` to show them dimmed) |
 | `hideNoAlerts` | `false` | Hide the "No active alerts" banner when there are no alerts |

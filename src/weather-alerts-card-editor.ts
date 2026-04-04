@@ -144,6 +144,58 @@ export class WeatherAlertsCardEditor extends LitElement {
     this._fireConfigChanged(newConfig);
   }
 
+  private _showDetailsChanged(ev: Event): void {
+    const target = ev.target as HTMLInputElement;
+    const show = target.checked;
+    if (show === (this._config.showDetails !== false)) return;
+    const newConfig = { ...this._config };
+    if (show) {
+      delete newConfig.showDetails;
+    } else {
+      newConfig.showDetails = false;
+    }
+    this._fireConfigChanged(newConfig);
+  }
+
+  private _showMetadataChanged(ev: Event): void {
+    const target = ev.target as HTMLInputElement;
+    const show = target.checked;
+    if (show === (this._config.showMetadata !== false)) return;
+    const newConfig = { ...this._config };
+    if (show) {
+      delete newConfig.showMetadata;
+    } else {
+      newConfig.showMetadata = false;
+    }
+    this._fireConfigChanged(newConfig);
+  }
+
+  private _showDescriptionChanged(ev: Event): void {
+    const target = ev.target as HTMLInputElement;
+    const show = target.checked;
+    if (show === (this._config.showDescription !== false)) return;
+    const newConfig = { ...this._config };
+    if (show) {
+      delete newConfig.showDescription;
+    } else {
+      newConfig.showDescription = false;
+    }
+    this._fireConfigChanged(newConfig);
+  }
+
+  private _showInstructionsChanged(ev: Event): void {
+    const target = ev.target as HTMLInputElement;
+    const show = target.checked;
+    if (show === (this._config.showInstructions !== false)) return;
+    const newConfig = { ...this._config };
+    if (show) {
+      delete newConfig.showInstructions;
+    } else {
+      newConfig.showInstructions = false;
+    }
+    this._fireConfigChanged(newConfig);
+  }
+
   private _showSourceLinkChanged(ev: Event): void {
     const target = ev.target as HTMLInputElement;
     const showSourceLink = target.checked;
@@ -484,9 +536,41 @@ export class WeatherAlertsCardEditor extends LitElement {
           ></ha-switch>
         </ha-formfield>
 
+        <ha-formfield .label=${t('editor.show_details', lang)}>
+          <ha-switch
+            .checked=${this._config.showDetails !== false}
+            @change=${this._showDetailsChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-formfield .label=${t('editor.show_metadata', lang)}>
+          <ha-switch
+            .checked=${this._config.showMetadata !== false}
+            .disabled=${this._config.showDetails === false}
+            @change=${this._showMetadataChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-formfield .label=${t('editor.show_description', lang)}>
+          <ha-switch
+            .checked=${this._config.showDescription !== false}
+            .disabled=${this._config.showDetails === false}
+            @change=${this._showDescriptionChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        <ha-formfield .label=${t('editor.show_instructions', lang)}>
+          <ha-switch
+            .checked=${this._config.showInstructions !== false}
+            .disabled=${this._config.showDetails === false}
+            @change=${this._showInstructionsChanged}
+          ></ha-switch>
+        </ha-formfield>
+
         <ha-formfield .label=${t('editor.show_source_link', lang)}>
           <ha-switch
             .checked=${this._config.showSourceLink !== false}
+            .disabled=${this._config.showDetails === false}
             @change=${this._showSourceLinkChanged}
           ></ha-switch>
         </ha-formfield>

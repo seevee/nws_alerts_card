@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- Add `showDetails`, `showMetadata`, `showDescription`, and `showInstructions` config toggles to control visibility of the detail panel and its individual sections (all default: on)
 - Add `reformatText` option to strip NWS 69-char hard line wraps from alert descriptions and instructions, producing readable flowing paragraphs while preserving paragraph breaks and bullet structure (default: on)
 
 ### Changed
