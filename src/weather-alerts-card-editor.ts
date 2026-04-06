@@ -61,6 +61,14 @@ export class WeatherAlertsCardEditor extends LitElement {
     return html`<ha-alert alert-type="warning">${t('editor.entity_warning', lang)}</ha-alert>`;
   }
 
+  private _renderNoEntitiesHint(lang: string): TemplateResult | typeof nothing {
+    const ids = this._getMatchingEntityIds();
+    // The list always includes the configured entity as a fallback;
+    // check whether any entry actually exists in HA
+    if (ids.some(id => this.hass?.states[id])) return nothing;
+    return html`<ha-alert alert-type="info">${t('editor.no_entities_hint', lang)} <a href="https://github.com/seevee/weather_alerts_card#supported-providers" target="_blank" rel="noopener">${t('editor.no_entities_hint_link', lang)}</a></ha-alert>`;
+  }
+
   private _entityChanged(ev: CustomEvent): void {
     const entity = ev.detail.value as string;
     if (entity === this._config.entity) return;
@@ -422,6 +430,7 @@ export class WeatherAlertsCardEditor extends LitElement {
           @value-changed=${this._entityChanged}
         ></ha-selector>
         ${this._renderEntityWarning(lang)}
+        ${this._renderNoEntitiesHint(lang)}
 
         <ha-textfield
           .label=${t('editor.title', lang)}
