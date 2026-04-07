@@ -25,7 +25,8 @@ import { cardStyles } from './styles';
 import './weather-alerts-card-editor';
 
 /* eslint-disable no-console */
-const CARD_VERSION = '2.10.0-alpha.1';
+declare const __CARD_VERSION__: string;
+const CARD_VERSION = __CARD_VERSION__;
 console.info(
   `%c  WEATHER-ALERTS-CARD  %c  Version ${CARD_VERSION}  `,
   'color: white; background: #555; font-weight: bold;',
