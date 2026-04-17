@@ -13,7 +13,7 @@ A custom Home Assistant Lovelace card for displaying weather alerts with severit
 - **Expandable details** — sanitized description, instructions, and source link
 - **BoM phase badges** — New, Updated, Renewed lifecycle indicators
 - **Compact layout** — collapsed single-row alerts with progress bars that expand on tap
-- **Zone filtering** — show only alerts for specific zones
+- **Zone filtering (BoM)** — show only alerts for specific `area_id` zones
 - **Sort order** — default, onset time, or severity
 - **Severity threshold** — minimum severity to display
 - **Localized UI** — English, French, Spanish, Italian, and German; auto-detected from Home Assistant locale
@@ -51,7 +51,7 @@ Then click the Download button, and click Reload when prompted.
 | `entities` | — | Additional alert entities to merge (e.g. DWD current + advance) |
 | `provider` | auto-detect | `'nws'`, `'bom'`, `'meteoalarm'`, `'dwd'`, `'pirateweather'` |
 | `title` | — | Card header title |
-| `zones` | — | Zone codes to filter (NWS zones or BoM `area_id`) |
+| `zones` | — | BoM `area_id` codes to filter (e.g. `NSW_FL049`) |
 | `sortOrder` | `'default'` | `'default'`, `'onset'`, `'severity'` |
 | `minSeverity` | `'all'` | `'all'`, `'minor'`, `'moderate'`, `'severe'`, `'extreme'` |
 | `colorTheme` | `'severity'` | `'severity'`, `'nws'`, `'meteoalarm'` |
@@ -83,14 +83,14 @@ type: custom:weather-alerts-card
 entity: sensor.nws_alerts_alerts
 ```
 
-**With title and zone filtering**
+**BoM with title and zone filtering**
 ```yaml
 type: custom:weather-alerts-card
-entity: sensor.nws_alerts_alerts
+entity: sensor.sydney_warnings
+provider: bom
 title: Weather Alerts
 zones:
-  - COC059
-  - COZ039
+  - NSW_FL049
 ```
 
 **NWS official colors, compact, sorted by severity**
