@@ -120,7 +120,12 @@ export class WeatherAlertsCardEditor extends LitElement {
     }
 
     if (newConfig.hideNoAlerts) {
-      newConfig.visibility = this._syncMultiEntityVisibility(newConfig);
+      const visibility = this._syncMultiEntityVisibility(newConfig);
+      if (visibility) {
+        newConfig.visibility = visibility;
+      } else {
+        delete newConfig.visibility;
+      }
     }
     this._fireConfigChanged(newConfig);
   }
@@ -307,10 +312,11 @@ export class WeatherAlertsCardEditor extends LitElement {
     }
     // Sync HA's native visibility conditions so the dashboard layout
     // fully removes the card (no residual gap) when there are no alerts.
-    if (hide) {
-      newConfig.visibility = this._syncMultiEntityVisibility(newConfig);
+    const visibility = this._syncMultiEntityVisibility(newConfig);
+    if (visibility) {
+      newConfig.visibility = visibility;
     } else {
-      newConfig.visibility = this._syncMultiEntityVisibility(newConfig);
+      delete newConfig.visibility;
     }
     this._fireConfigChanged(newConfig);
   }
