@@ -1,6 +1,7 @@
 import DOMPurify from 'dompurify';
 import { WeatherAlert, AlertProgress, AlertProvider } from './types';
 import { t } from './localize';
+import { NWS_EVENT_COLORS } from './nws-colors';
 
 const ALERT_HTML_TAGS = ['a', 'b', 'br', 'em', 'i', 'li', 'ol', 'p', 'strong', 'ul'];
 
@@ -79,75 +80,150 @@ export function getCertaintyIcon(certainty: string): string {
   return 'mdi:bullseye-arrow';
 }
 
-// Priority-ordered: more specific phrases before broad fallbacks
-const NWS_EVENT_COLORS: [readonly string[], string, string][] = [
-  [['tornado warning'],                          '#FF0000', '255, 0, 0'],
-  [['tornado watch'],                            '#FFFF00', '255, 255, 0'],
-  [['extreme wind warning'],                     '#FF8C00', '255, 140, 0'],
-  [['hurricane warning'],                        '#DC143C', '220, 20, 60'],
-  [['excessive heat warning'],                   '#C71585', '199, 21, 133'],
-  [['flash flood warning', 'flash flood stmt'],  '#8B0000', '139, 0, 0'],
-  [['flash flood watch'],                        '#2E8B57', '46, 139, 87'],
-  [['flash flood advisory'],                     '#00FF7F', '0, 255, 127'],
-  [['severe thunderstorm warning'],              '#FFA500', '255, 165, 0'],
-  [['severe thunderstorm watch'],                '#DB7093', '219, 112, 147'],
-  [['blizzard warning'],                         '#FF4500', '255, 69, 0'],
-  [['ice storm warning'],                        '#8B008B', '139, 0, 139'],
-  [['winter storm warning'],                     '#FF69B4', '255, 105, 180'],
-  [['winter storm watch'],                       '#4682B4', '70, 130, 180'],
-  [['high wind warning'],                        '#DAA520', '218, 165, 32'],
-  [['wind chill warning'],                       '#B0C4DE', '176, 196, 222'],
-  [['red flag warning', 'fire weather watch'],   '#FF4500', '255, 69, 0'],
-  [['tsunami warning'],                          '#FD6347', '253, 99, 71'],
-  [['heat advisory'],                            '#FF7F50', '255, 127, 80'],
-  [['dense fog advisory'],                       '#708090', '112, 128, 144'],
-  [['frost advisory'],                           '#6495ED', '100, 149, 237'],
-  [['freeze warning'],                           '#483D8B', '72, 61, 139'],
-  [['wind advisory'],                            '#D2B48C', '210, 180, 140'],
-  [['winter weather advisory'],                  '#7B68EE', '123, 104, 238'],
-  // Broad fallbacks
-  [['tornado'],                                  '#FF0000', '255, 0, 0'],
-  [['hurricane', 'typhoon', 'tropical storm'],   '#DC143C', '220, 20, 60'],
-  [['flood'],                                    '#228B22', '34, 139, 34'],
-  [['blizzard', 'ice storm'],                    '#FF4500', '255, 69, 0'],
-  [['snow', 'winter', 'blizzard'],               '#1E90FF', '30, 144, 255'],
-  [['freeze', 'frost', 'ice'],                   '#6495ED', '100, 149, 237'],
-  [['wind'],                                     '#D2B48C', '210, 180, 140'],
-  [['heat'],                                     '#FF7F50', '255, 127, 80'],
-  [['fire', 'red flag'],                         '#FF4500', '255, 69, 0'],
-  [['fog'],                                      '#708090', '112, 128, 144'],
-  [['tsunami'],                                  '#FD6347', '253, 99, 71'],
+// Broad substring-match fallbacks for NWS event names not present in
+// NWS_EVENT_COLORS (the help-map-sourced lookup in ./nws-colors.ts).
+// Priority-ordered: more specific phrases before broad fallbacks.
+// Used only when the full event name doesn't match a help-map entry.
+const NWS_COLOR_FALLBACKS: [readonly string[], string][] = [
+  [['tornado'],                                '#FF0000'],
+  [['hurricane', 'typhoon', 'tropical storm'], '#DC143C'],
+  [['flood'],                                  '#228B22'],
+  [['blizzard', 'ice storm'],                  '#FF4500'],
+  [['snow', 'winter'],                         '#1E90FF'],
+  [['freeze', 'frost', 'ice'],                 '#6495ED'],
+  [['wind'],                                   '#D2B48C'],
+  [['heat'],                                   '#FF7F50'],
+  [['fire', 'red flag'],                       '#FF4500'],
+  [['fog'],                                    '#708090'],
+  [['tsunami'],                                '#FD6347'],
 ];
 
-function getBadgeTextColor(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
+// Reference HA card backgrounds used for precomputing boost tags.
+// Kept in sync with scripts/generate-nws-colors.mjs.
+const LIGHT_BG = '#ffffff';
+const DARK_BG = '#1c1c1e';
+const CONTRAST_THRESHOLD = 3.0;
+
+function relativeLuminance(hex: string): number {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
   const lin = (c: number) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-  return L > 0.18 ? '#1a1a1a' : 'var(--text-primary-color, white)';
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
-export function getNwsEventColor(event: string): { color: string; rgb: string; textColor: string } {
+function contrastRatio(hexA: string, hexB: string): number {
+  const la = relativeLuminance(hexA);
+  const lb = relativeLuminance(hexB);
+  const light = Math.max(la, lb);
+  const dark = Math.min(la, lb);
+  return (light + 0.05) / (dark + 0.05);
+}
+
+function computeBoostTags(hex: string): { boostLight: boolean; boostDark: boolean } {
+  return {
+    boostLight: contrastRatio(hex, LIGHT_BG) < CONTRAST_THRESHOLD,
+    boostDark: contrastRatio(hex, DARK_BG) < CONTRAST_THRESHOLD,
+  };
+}
+
+function hexToRgbString(hex: string): string {
+  const h = hex.replace('#', '');
+  return `${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)}`;
+}
+
+// Saturated color pills read cleanest when the label inherits the card
+// background color ("knockout" effect) rather than whichever pure black/white
+// happens to win the WCAG luminance match. The only case where that falls
+// apart is when the badge hex and card bg are nearly the same luminance
+// (e.g. yellow on white, dark red on dark), which would collapse the text
+// into the background. This threshold of 1.9 keeps tan (~1.97:1 vs white)
+// and dark red (~1.7:1 vs dark card) on the "use card-bg" side while
+// yanking yellow / near-monochrome cases back to the opposite color.
+const BADGE_CARDBG_THRESHOLD = 1.9;
+
+function pickBadgeText(bgHex: string, cardBg: string, opposite: string): string {
+  return contrastRatio(bgHex, cardBg) >= BADGE_CARDBG_THRESHOLD ? cardBg : opposite;
+}
+
+function getBadgeTextColors(hex: string): { light: string; dark: string } {
+  return {
+    light: pickBadgeText(hex, LIGHT_BG, '#1a1a1a'),
+    dark: pickBadgeText(hex, DARK_BG, '#f5f5f5'),
+  };
+}
+
+export interface EventColor {
+  color: string;
+  rgb: string;
+  textColorLight: string;
+  textColorDark: string;
+  boostLight: boolean;
+  boostDark: boolean;
+}
+
+export function getNwsEventColor(event: string): EventColor {
   const e = event.toLowerCase();
-  for (const [patterns, color, rgb] of NWS_EVENT_COLORS) {
-    if (patterns.some(p => e.includes(p))) return { color, rgb, textColor: getBadgeTextColor(color) };
+  const direct = NWS_EVENT_COLORS[e];
+  if (direct) {
+    const badge = getBadgeTextColors(direct.hex);
+    return {
+      color: direct.hex,
+      rgb: direct.rgb,
+      textColorLight: badge.light,
+      textColorDark: badge.dark,
+      boostLight: direct.boostLight,
+      boostDark: direct.boostDark,
+    };
   }
-  return { color: '#808080', rgb: '128, 128, 128', textColor: getBadgeTextColor('#808080') };
+  for (const [patterns, hex] of NWS_COLOR_FALLBACKS) {
+    if (patterns.some(p => e.includes(p))) {
+      const { boostLight, boostDark } = computeBoostTags(hex);
+      const badge = getBadgeTextColors(hex);
+      return {
+        color: hex,
+        rgb: hexToRgbString(hex),
+        textColorLight: badge.light,
+        textColorDark: badge.dark,
+        boostLight,
+        boostDark,
+      };
+    }
+  }
+  const fallback = '#808080';
+  const { boostLight, boostDark } = computeBoostTags(fallback);
+  const badge = getBadgeTextColors(fallback);
+  return {
+    color: fallback,
+    rgb: hexToRgbString(fallback),
+    textColorLight: badge.light,
+    textColorDark: badge.dark,
+    boostLight,
+    boostDark,
+  };
 }
 
 // MeteoAlarm official awareness level colors
-const METEOALARM_SEVERITY_COLORS: Record<string, [string, string]> = {
-  extreme: ['#D8001E', '216, 0, 30'],   // Red
-  severe:  ['#FF9900', '255, 153, 0'],   // Orange
-  moderate:['#FFC800', '255, 200, 0'],   // Yellow
-  minor:   ['#88C840', '136, 200, 64'],  // Green
+const METEOALARM_SEVERITY_COLORS: Record<string, string> = {
+  extreme: '#D8001E',   // Red
+  severe:  '#FF9900',   // Orange
+  moderate: '#FFC800',  // Yellow
+  minor:   '#88C840',   // Green
 };
 
-export function getMeteoAlarmColor(severity: string): { color: string; rgb: string; textColor: string } {
-  const entry = METEOALARM_SEVERITY_COLORS[severity];
-  if (entry) return { color: entry[0], rgb: entry[1], textColor: getBadgeTextColor(entry[0]) };
-  return { color: '#808080', rgb: '128, 128, 128', textColor: getBadgeTextColor('#808080') };
+export function getMeteoAlarmColor(severity: string): EventColor {
+  const hex = METEOALARM_SEVERITY_COLORS[severity] ?? '#808080';
+  const { boostLight, boostDark } = computeBoostTags(hex);
+  const badge = getBadgeTextColors(hex);
+  return {
+    color: hex,
+    rgb: hexToRgbString(hex),
+    textColorLight: badge.light,
+    textColorDark: badge.dark,
+    boostLight,
+    boostDark,
+  };
 }
 
 export function parseTimestamp(raw: string | undefined | null): number {

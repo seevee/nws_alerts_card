@@ -140,6 +140,45 @@ export const ALERT_MINOR = {
 
 export const ALERTS_WITH_MINOR = [...ALERTS, ALERT_MINOR];
 
+// Contrast demo fixture — real NWS event names so getNwsEventColor hits the
+// help-map lookup directly (not the pattern-match fallback). Mix chosen to
+// exercise both boost directions plus a control:
+//   - Tornado Warning   (#FF0000) control — fine on both themes, never boosted
+//   - Flash Flood, Ice Storm, Freeze  — boostDark only (dark hues fail on dark bg)
+//   - Winter Storm Warning, Tornado Watch, Heat Advisory, Wind Advisory
+//                                       — boostLight only (bright hues fail on white)
+// AreaDesc values are fictional so screenshots read as demos, not real alerts.
+function makeContrastAlert(id, event, severity, areaDesc, { certainty = 'Likely', urgency = 'Expected', onsetOffset = -0.5, endsOffset = 5 } = {}) {
+  return {
+    ID: `urn:oid:${id}`,
+    Event: event,
+    Severity: severity,
+    Certainty: certainty,
+    Urgency: urgency,
+    Sent: iso(-1 * H),
+    Onset: iso(onsetOffset * H),
+    Ends: iso(endsOffset * H),
+    Expires: iso(endsOffset * H),
+    Headline: '',
+    AreaDesc: areaDesc,
+    Description: 'Sample event for contrast demo.',
+    Instruction: 'Sample instruction.',
+    URL: `https://example.com/alerts/${id}`,
+    AffectedZones: [`https://api.weather.gov/zones/forecast/SAMC-${id}`],
+  };
+}
+
+export const ALERTS_CONTRAST_DEMO = [
+  makeContrastAlert('c1', 'Tornado Warning',       'Extreme',  'Control County'),      // neither
+  makeContrastAlert('c2', 'Flash Flood Warning',   'Severe',   'Sampletown'),           // boostDark
+  makeContrastAlert('c3', 'Ice Storm Warning',     'Severe',   'Mockton'),              // boostDark
+  makeContrastAlert('c4', 'Freeze Warning',        'Moderate', 'Pleasantville'),        // boostDark
+  makeContrastAlert('c5', 'Winter Storm Warning',  'Moderate', 'Demoville'),            // boostLight
+  makeContrastAlert('c6', 'Tornado Watch',         'Moderate', 'Exampleville', { certainty: 'Possible', urgency: 'Future', onsetOffset: 2, endsOffset: 8 }), // boostLight
+  makeContrastAlert('c7', 'Heat Advisory',         'Minor',    'Sunnyside'),            // boostLight
+  makeContrastAlert('c8', 'Wind Advisory',         'Minor',    'Testburg'),             // boostLight
+];
+
 // PirateWeather-format duplicates of some NWS alerts (for cross-provider dedup demos).
 // Uses the PirateWeather indexed attribute format (title_0, severity_0, etc.)
 // with matching event names and expiry times so the card's dedup logic merges them.

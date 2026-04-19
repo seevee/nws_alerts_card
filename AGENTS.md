@@ -67,6 +67,7 @@ interface WeatherAlertsCardConfig {
   layout?: 'default' | 'compact';
   fontSize?: 'small' | 'default' | 'large' | 'x-large';
   colorTheme?: 'severity' | 'nws' | 'meteoalarm';
+  enhanceContrast?: boolean;   // undefined/true: per-event/per-theme WCAG boost — only colors that fail 3:1 vs the active card bg get a color-mix toward --primary-text-color (nws + meteoalarm themes); false: raw theme hex
   provider?: AlertProvider;    // 'nws' | 'bom' | 'meteoalarm' | 'pirateweather' | 'dwd' — undefined: auto-detect
   deduplicate?: boolean;       // undefined/true: dedup on; false: off
   deduplicateHeadlines?: boolean; // undefined/true: filter redundant headlines; false: show all

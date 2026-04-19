@@ -1,12 +1,16 @@
 # Changelog
 
-## 2.11.1 — 2026-04-18
+## Unreleased
+
+### Added
+- WCAG contrast-aware colors: NWS and MeteoAlarm theme alerts only boost foreground fills (progress bar, countdown, icon, label, source link, compact accent) for individual events whose raw color fails a 3:1 contrast ratio against the active theme's card background, and only in the direction where it fails. Tornado Warning and other colors that already pass contrast render unchanged; pale hues like Winter Storm Warning are boosted toward the text color on light themes only, while dark hues like Freeze Warning and Ice Storm Warning are boosted on dark themes only. The NWS event color table was backfilled from weather.gov/help-map (110+ event types) and boost tags are precomputed at build time so the runtime cost is one lookup. New `enhanceContrast` config (default `true`) — set to `false` to restore raw colors everywhere.
+
+### Fixed
+- Severity badge text color now uses the card background color as a "knockout" — saturated pills (red, dark red, pink, tan, etc.) render with their label in the page surface color so the badge reads as a window cut into the card, which perceptually beats the old luminance-threshold pick of pure black/white. Only near-monochrome combinations (contrast < 1.9:1 vs card bg, e.g. dark-red badge on a dark card) flip to the opposite so the label doesn't disappear. Theme-aware via precomputed light + dark variants.
+- Use OR wrapper for multi-entity hideNoAlerts visibility (#148) (8a809fc…)
 
 ### Documentation
 - Add Support section to README (#147) (a90b4f0…)
-
-### Fixed
-- Use OR wrapper for multi-entity hideNoAlerts visibility (#148) (8a809fc…)
 
 ## 2.11.0 — 2026-04-17
 

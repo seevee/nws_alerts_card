@@ -155,6 +155,19 @@ export class WeatherAlertsCardEditor extends LitElement {
     this._fireConfigChanged(newConfig);
   }
 
+  private _enhanceContrastChanged(ev: Event): void {
+    const target = ev.target as HTMLInputElement;
+    const enhance = target.checked;
+    if (enhance === (this._config.enhanceContrast !== false)) return;
+    const newConfig = { ...this._config };
+    if (enhance) {
+      delete newConfig.enhanceContrast;
+    } else {
+      newConfig.enhanceContrast = false;
+    }
+    this._fireConfigChanged(newConfig);
+  }
+
   private _animationsChanged(ev: Event): void {
     const target = ev.target as HTMLInputElement;
     const animations = target.checked;
@@ -642,6 +655,13 @@ export class WeatherAlertsCardEditor extends LitElement {
           <ha-dropdown-item value="nws">${t('editor.color_nws', lang)}</ha-dropdown-item>
           <ha-dropdown-item value="meteoalarm">${t('editor.color_meteoalarm', lang)}</ha-dropdown-item>
         </ha-select>
+
+        <ha-formfield .label=${t('editor.enhance_contrast', lang)}>
+          <ha-switch
+            .checked=${this._config.enhanceContrast !== false}
+            @change=${this._enhanceContrastChanged}
+          ></ha-switch>
+        </ha-formfield>
 
         <ha-select
           .label=${t('editor.font_size', lang)}

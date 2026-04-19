@@ -55,6 +55,7 @@ Then click the Download button, and click Reload when prompted.
 | `sortOrder` | `'default'` | `'default'`, `'onset'`, `'severity'` |
 | `minSeverity` | `'all'` | `'all'`, `'minor'`, `'moderate'`, `'severe'`, `'extreme'` |
 | `colorTheme` | `'severity'` | `'severity'`, `'nws'`, `'meteoalarm'` |
+| `enhanceContrast` | `true` | Boost foreground colors for NWS/MeteoAlarm events whose raw hex fails a 3:1 WCAG ratio against the active theme's card background, and only in the direction where it fails. Events that already read cleanly (e.g. Tornado Warning) render unchanged. Set `false` to always render raw theme hex values. |
 | `eventCodes` | — | Event codes to include, e.g. `['SVR', 'TOR']` (NWS) or `['31', '95']` (DWD) |
 | `excludeEventCodes` | — | Event codes to exclude, e.g. `['SCY']` (NWS) or `['22']` (DWD) |
 | `timezone` | `'server'` | `'server'` or `'browser'` (client's local time) |

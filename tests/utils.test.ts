@@ -3,6 +3,7 @@ import {
   getWeatherIcon,
   getCertaintyIcon,
   getNwsEventColor,
+  getMeteoAlarmColor,
   computeAlertProgress,
   normalizeSeverity,
   sortAlerts,
@@ -249,11 +250,81 @@ describe('getNwsEventColor', () => {
     expect(result.color).toBe('#808080');
   });
 
-  it('includes textColor based on luminance', () => {
-    const dark = getNwsEventColor('Tornado Warning'); // bright red
-    const light = getNwsEventColor('Dense Fog Advisory'); // gray
-    expect(dark.textColor).toBeDefined();
-    expect(light.textColor).toBeDefined();
+  it('picks badge text to match card background (knockout) when contrast allows', () => {
+    // Tornado Warning (#FF0000) vs white card: 4.0:1 >= 1.9 → white text
+    // vs dark card: 4.42:1 >= 1.9 → dark text
+    expect(getNwsEventColor('Tornado Warning').textColorLight).toBe('#ffffff');
+    expect(getNwsEventColor('Tornado Warning').textColorDark).toBe('#1c1c1e');
+    // Freeze Warning (#483D8B darkslateblue, L≈0.062) vs dark card: 1.30:1 < 1.9
+    // → flip to light text so dark-on-dark doesn't disappear
+    expect(getNwsEventColor('Freeze Warning').textColorDark).toBe('#f5f5f5');
+  });
+
+  it('flips badge text when card-bg would collapse into the badge bg', () => {
+    // Wind Advisory (#D2B48C tan, L≈0.482) vs white: 1.97:1 — above 1.9,
+    // so we keep the knockout (white text on tan)
+    expect(getNwsEventColor('Wind Advisory').textColorLight).toBe('#ffffff');
+    // But a very-close-to-white pale shade would fall below 1.9 and flip
+    // to dark — no such entry exists in the help-map fixture, so this is
+    // covered by the unit above rather than a specific event.
+  });
+
+  it('matches event names case-insensitively against the help-map table', () => {
+    // Help-map includes these full event names — lookup must resolve them
+    // directly rather than falling through to the pattern-match fallback.
+    expect(getNwsEventColor('WINTER STORM WARNING').color).toBe('#FF69B4');
+    expect(getNwsEventColor('coastal flood watch').color).toBe('#66CDAA');
+    expect(getNwsEventColor('Gale Warning').color).toBe('#DDA0DD');
+  });
+
+  it('sets boostLight when color fails 3:1 vs white card background', () => {
+    // Winter Storm Warning (#FF69B4 hotpink, L≈0.344) — fails 3:1 on light
+    expect(getNwsEventColor('Winter Storm Warning').boostLight).toBe(true);
+    // Tornado Warning (#FF0000 red, L≈0.213) — passes 3:1 on light (4.0:1)
+    expect(getNwsEventColor('Tornado Warning').boostLight).toBe(false);
+  });
+
+  it('sets boostDark when color fails 3:1 vs dark card background', () => {
+    // Freeze Warning (#483D8B darkslateblue, L≈0.062) — fails 3:1 on dark
+    expect(getNwsEventColor('Freeze Warning').boostDark).toBe(true);
+    // Tornado Warning (#FF0000 red) — passes 3:1 on dark
+    expect(getNwsEventColor('Tornado Warning').boostDark).toBe(false);
+  });
+
+  it('computes boost tags for pattern-match fallbacks too', () => {
+    // "Blast Wave Flood Advisory" — not in help-map; matches "flood" fallback (#228B22)
+    const result = getNwsEventColor('Blast Wave Flood Advisory');
+    expect(result.color).toBe('#228B22');
+    expect(typeof result.boostLight).toBe('boolean');
+    expect(typeof result.boostDark).toBe('boolean');
+  });
+});
+
+describe('getMeteoAlarmColor', () => {
+  it('returns the official awareness-level colors', () => {
+    expect(getMeteoAlarmColor('extreme').color).toBe('#D8001E');
+    expect(getMeteoAlarmColor('severe').color).toBe('#FF9900');
+    expect(getMeteoAlarmColor('moderate').color).toBe('#FFC800');
+    expect(getMeteoAlarmColor('minor').color).toBe('#88C840');
+  });
+
+  it('falls back to gray for unrecognized severity', () => {
+    expect(getMeteoAlarmColor('unknown').color).toBe('#808080');
+  });
+
+  it('flags the bright MeteoAlarm hues as needing light-mode contrast boost', () => {
+    // All three bright hues fail 3:1 on white; extreme red passes.
+    expect(getMeteoAlarmColor('severe').boostLight).toBe(true);
+    expect(getMeteoAlarmColor('moderate').boostLight).toBe(true);
+    expect(getMeteoAlarmColor('minor').boostLight).toBe(true);
+    expect(getMeteoAlarmColor('extreme').boostLight).toBe(false);
+  });
+
+  it('does not flag MeteoAlarm hues for dark-mode boost', () => {
+    // All four pass 3:1 against the dark card bg.
+    for (const sev of ['extreme', 'severe', 'moderate', 'minor']) {
+      expect(getMeteoAlarmColor(sev).boostDark).toBe(false);
+    }
   });
 });
 

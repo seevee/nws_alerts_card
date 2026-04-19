@@ -2,15 +2,15 @@ import { css } from 'lit';
 
 export const cardStyles = css`
   @keyframes pulse-border {
-    0% { box-shadow: 0 0 0 0 rgba(var(--color-rgb), 0.7); }
-    70% { box-shadow: 0 0 0 6px rgba(var(--color-rgb), 0); }
-    100% { box-shadow: 0 0 0 0 rgba(var(--color-rgb), 0); }
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--wac-fg) 70%, transparent); }
+    70% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--wac-fg) 0%, transparent); }
+    100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--wac-fg) 0%, transparent); }
   }
 
   @keyframes ongoing-pulse {
-    0% { background: rgba(var(--color-rgb), 0.8); }
-    50% { background: rgba(var(--color-rgb), 0.5); }
-    100% { background: rgba(var(--color-rgb), 0.8); }
+    0% { background: color-mix(in srgb, var(--wac-fg) 80%, transparent); }
+    50% { background: color-mix(in srgb, var(--wac-fg) 50%, transparent); }
+    100% { background: color-mix(in srgb, var(--wac-fg) 80%, transparent); }
   }
 
   @keyframes stripe-march-sm {
@@ -47,13 +47,20 @@ export const cardStyles = css`
 
   /* --- COLOR MAPPING --- */
   .severity-extreme,
-  .severity-severe { --color: var(--error-color); --color-rgb: 244, 67, 54; }
-  .severity-moderate { --color: var(--warning-color); --color-rgb: 255, 152, 0; }
-  .severity-minor { --color: var(--info-color); --color-rgb: 33, 150, 243; }
-  .severity-unknown { --color: var(--secondary-text-color); --color-rgb: 128, 128, 128; }
+  .severity-severe { --color: var(--error-color); --color-rgb: 244, 67, 54; --color-on: #ffffff; }
+  .severity-moderate { --color: var(--warning-color); --color-rgb: 255, 152, 0; --color-on: #1a1a1a; }
+  .severity-minor { --color: var(--info-color); --color-rgb: 33, 150, 243; --color-on: #ffffff; }
+  .severity-unknown { --color: var(--secondary-text-color); --color-rgb: 128, 128, 128; --color-on: var(--primary-text-color); }
 
   /* --- CARD CONTAINER --- */
   .alert-card {
+    /* Default foreground = raw theme color. Per-card boost rules below
+       override this only when the event's color fails WCAG 3:1 against the
+       active card background (precomputed per NWS/MeteoAlarm entry as a
+       boost-light / boost-dark class). HA's --primary-text-color flips with
+       theme mode; --text-primary-color is the "text on accent" color —
+       do not confuse them. */
+    --wac-fg: var(--color);
     position: relative;
     margin-bottom: 16px;
     padding: 0;
@@ -64,6 +71,21 @@ export const cardStyles = css`
     overflow: hidden;
     transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   }
+
+  /* Contrast boost: only when theme mode matches the failing side.
+     Scoped to event-color themes (nws, meteoalarm). Severity theme
+     never receives these classes — its colors are HA theme tokens. */
+  [data-theme-mode="light"] .alert-card.boost-light,
+  [data-theme-mode="dark"] .alert-card.boost-dark {
+    --wac-fg: color-mix(in oklch, var(--color) 65%, var(--primary-text-color));
+  }
+
+  /* Badge text follows the card background color (knockout effect) so
+     saturated pills read as windows into the page rather than dark markings
+     on color. Event-color themes emit both --color-on-light and
+     --color-on-dark inline; this rule picks the right one per theme mode. */
+  [data-theme-mode="light"] .alert-card { --color-on: var(--color-on-light, #ffffff); }
+  [data-theme-mode="dark"]  .alert-card { --color-on: var(--color-on-dark,  #1a1a1a); }
 
   .alert-card:last-child {
     margin-bottom: 0;
@@ -96,7 +118,7 @@ export const cardStyles = css`
     align-items: center;
     justify-content: center;
     background: rgba(var(--color-rgb), 0.1);
-    color: var(--color);
+    color: var(--wac-fg);
     width: calc(44px * var(--wac-scale, 1));
     height: calc(44px * var(--wac-scale, 1));
     border-radius: 50%;
@@ -201,7 +223,7 @@ export const cardStyles = css`
 
   .severity-badge {
     background: var(--color);
-    color: var(--card-background-color, white);
+    color: var(--color-on);
     font-weight: 700;
   }
   .certainty-badge {
@@ -269,7 +291,7 @@ export const cardStyles = css`
   .label-center {
     text-align: center;
     font-weight: bold;
-    color: var(--color);
+    color: var(--wac-fg);
     white-space: nowrap;
   }
   .label-right { text-align: right; }
@@ -290,7 +312,7 @@ export const cardStyles = css`
   }
 
   .active .progress-fill {
-    background-color: var(--color);
+    background-color: var(--wac-fg);
     background-image: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
     background-size: 40% 100%;
     background-repeat: no-repeat;
@@ -305,11 +327,11 @@ export const cardStyles = css`
     background-color: transparent;
     background-image: linear-gradient(
       -45deg,
-      var(--color) 25%,
+      var(--wac-fg) 25%,
       transparent 25%,
       transparent 50%,
-      var(--color) 50%,
-      var(--color) 75%,
+      var(--wac-fg) 50%,
+      var(--wac-fg) 75%,
       transparent 75%
     );
     background-size: 24px 24px;
@@ -409,7 +431,7 @@ export const cardStyles = css`
   }
   .footer-link { text-align: right; margin-top: 10px; }
   .footer-link a {
-    color: var(--color);
+    color: var(--wac-fg);
     text-decoration: none;
     font-weight: 500;
     font-size: calc(0.85rem * var(--wac-scale, 1));
@@ -461,7 +483,7 @@ export const cardStyles = css`
 
   .compact-time {
     font-size: calc(0.8rem * var(--wac-scale, 1));
-    color: var(--color);
+    color: var(--wac-fg);
     font-weight: 600;
     white-space: nowrap;
     flex-shrink: 0;
@@ -493,7 +515,7 @@ export const cardStyles = css`
     background: var(--secondary-background-color);
   }
   .compact .active.alert-card::before {
-    background-color: var(--color);
+    background-color: var(--wac-fg);
     background-image: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
     background-size: 40% 100%;
     background-repeat: no-repeat;
@@ -505,11 +527,11 @@ export const cardStyles = css`
   .compact .preparation.alert-card::before {
     background-image: linear-gradient(
       -45deg,
-      rgba(var(--color-rgb), 0.6) 25%,
+      color-mix(in srgb, var(--wac-fg) 60%, transparent) 25%,
       transparent 25%,
       transparent 50%,
-      rgba(var(--color-rgb), 0.6) 50%,
-      rgba(var(--color-rgb), 0.6) 75%,
+      color-mix(in srgb, var(--wac-fg) 60%, transparent) 50%,
+      color-mix(in srgb, var(--wac-fg) 60%, transparent) 75%,
       transparent 75%
     );
     background-size: 12px 12px;
@@ -518,7 +540,7 @@ export const cardStyles = css`
   }
   .compact .active.ongoing.alert-card::before {
     left: 0;
-    background: rgba(var(--color-rgb), 0.8);
+    background: color-mix(in srgb, var(--wac-fg) 80%, transparent);
     animation: ongoing-pulse 5s infinite;
   }
 
