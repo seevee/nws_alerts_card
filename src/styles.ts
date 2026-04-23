@@ -8,9 +8,9 @@ export const cardStyles = css`
   }
 
   @keyframes ongoing-pulse {
-    0% { background: color-mix(in srgb, var(--wac-fg) 80%, transparent); }
-    50% { background: color-mix(in srgb, var(--wac-fg) 50%, transparent); }
-    100% { background: color-mix(in srgb, var(--wac-fg) 80%, transparent); }
+    0% { background: color-mix(in srgb, var(--wac-progress-fg) 80%, transparent); }
+    50% { background: color-mix(in srgb, var(--wac-progress-fg) 50%, transparent); }
+    100% { background: color-mix(in srgb, var(--wac-progress-fg) 80%, transparent); }
   }
 
   @keyframes stripe-march-sm {
@@ -54,13 +54,18 @@ export const cardStyles = css`
 
   /* --- CARD CONTAINER --- */
   .alert-card {
-    /* Default foreground = raw theme color. Per-card boost rules below
-       override this only when the event's color fails WCAG 3:1 against the
-       active card background (precomputed per NWS/MeteoAlarm entry as a
-       boost-light / boost-dark class). HA's --primary-text-color flips with
-       theme mode; --text-primary-color is the "text on accent" color —
-       do not confuse them. */
+    /* Two foreground tokens, both default to the raw theme color:
+         --wac-fg          — icon + label text (boost-{light,dark}, ~2:1 tier)
+         --wac-progress-fg — progress-bar fill (progress-boost-{light,dark},
+                             ~1.3:1 tier — only kicks in for near-invisible
+                             tints like yellow Tornado Watch)
+       Boost rules below override these only when the event's color fails
+       the corresponding threshold on the active side (precomputed per
+       NWS/MeteoAlarm entry). HA's --primary-text-color flips with theme
+       mode; --text-primary-color is the "text on accent" color — do not
+       confuse them. */
     --wac-fg: var(--color);
+    --wac-progress-fg: var(--color);
     position: relative;
     margin-bottom: 16px;
     padding: 0;
@@ -78,6 +83,10 @@ export const cardStyles = css`
   [data-theme-mode="light"] .alert-card.boost-light,
   [data-theme-mode="dark"] .alert-card.boost-dark {
     --wac-fg: color-mix(in oklch, var(--color) 65%, var(--primary-text-color));
+  }
+  [data-theme-mode="light"] .alert-card.progress-boost-light,
+  [data-theme-mode="dark"] .alert-card.progress-boost-dark {
+    --wac-progress-fg: color-mix(in oklch, var(--color) 65%, var(--primary-text-color));
   }
 
   /* Badge text follows the card background color (knockout effect) so
@@ -312,7 +321,7 @@ export const cardStyles = css`
   }
 
   .active .progress-fill {
-    background-color: var(--wac-fg);
+    background-color: var(--wac-progress-fg);
     background-image: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
     background-size: 40% 100%;
     background-repeat: no-repeat;
@@ -327,11 +336,11 @@ export const cardStyles = css`
     background-color: transparent;
     background-image: linear-gradient(
       -45deg,
-      var(--wac-fg) 25%,
+      var(--wac-progress-fg) 25%,
       transparent 25%,
       transparent 50%,
-      var(--wac-fg) 50%,
-      var(--wac-fg) 75%,
+      var(--wac-progress-fg) 50%,
+      var(--wac-progress-fg) 75%,
       transparent 75%
     );
     background-size: 24px 24px;
@@ -515,7 +524,7 @@ export const cardStyles = css`
     background: var(--secondary-background-color);
   }
   .compact .active.alert-card::before {
-    background-color: var(--wac-fg);
+    background-color: var(--wac-progress-fg);
     background-image: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
     background-size: 40% 100%;
     background-repeat: no-repeat;
@@ -527,11 +536,11 @@ export const cardStyles = css`
   .compact .preparation.alert-card::before {
     background-image: linear-gradient(
       -45deg,
-      color-mix(in srgb, var(--wac-fg) 60%, transparent) 25%,
+      color-mix(in srgb, var(--wac-progress-fg) 60%, transparent) 25%,
       transparent 25%,
       transparent 50%,
-      color-mix(in srgb, var(--wac-fg) 60%, transparent) 50%,
-      color-mix(in srgb, var(--wac-fg) 60%, transparent) 75%,
+      color-mix(in srgb, var(--wac-progress-fg) 60%, transparent) 50%,
+      color-mix(in srgb, var(--wac-progress-fg) 60%, transparent) 75%,
       transparent 75%
     );
     background-size: 12px 12px;
@@ -540,7 +549,7 @@ export const cardStyles = css`
   }
   .compact .active.ongoing.alert-card::before {
     left: 0;
-    background: color-mix(in srgb, var(--wac-fg) 80%, transparent);
+    background: color-mix(in srgb, var(--wac-progress-fg) 80%, transparent);
     animation: ongoing-pulse 5s infinite;
   }
 

@@ -100,9 +100,17 @@ const NWS_COLOR_FALLBACKS: [readonly string[], string][] = [
 
 // Reference HA card backgrounds used for precomputing boost tags.
 // Kept in sync with scripts/generate-nws-colors.mjs.
+//
+// Two tiers:
+//   TEXT threshold (2.0) gates --wac-fg darkening for icon/label text, which
+//     read OK at middling contrast once the weight is bumped.
+//   PROGRESS threshold (1.3) gates --wac-progress-fg for the progress-bar
+//     fill, which has no weight to lean on and only needs boosting when the
+//     tint is near-invisible against the card (e.g. yellow Tornado Watch).
 const LIGHT_BG = '#ffffff';
 const DARK_BG = '#1c1c1e';
-const CONTRAST_THRESHOLD = 3.0;
+const TEXT_CONTRAST_THRESHOLD = 2.0;
+const PROGRESS_CONTRAST_THRESHOLD = 1.3;
 
 function relativeLuminance(hex: string): number {
   const h = hex.replace('#', '');
@@ -121,10 +129,21 @@ function contrastRatio(hexA: string, hexB: string): number {
   return (light + 0.05) / (dark + 0.05);
 }
 
-function computeBoostTags(hex: string): { boostLight: boolean; boostDark: boolean } {
+interface BoostTags {
+  boostLight: boolean;
+  boostDark: boolean;
+  progressBoostLight: boolean;
+  progressBoostDark: boolean;
+}
+
+function computeBoostTags(hex: string): BoostTags {
+  const crLight = contrastRatio(hex, LIGHT_BG);
+  const crDark = contrastRatio(hex, DARK_BG);
   return {
-    boostLight: contrastRatio(hex, LIGHT_BG) < CONTRAST_THRESHOLD,
-    boostDark: contrastRatio(hex, DARK_BG) < CONTRAST_THRESHOLD,
+    boostLight: crLight < TEXT_CONTRAST_THRESHOLD,
+    boostDark: crDark < TEXT_CONTRAST_THRESHOLD,
+    progressBoostLight: crLight < PROGRESS_CONTRAST_THRESHOLD,
+    progressBoostDark: crDark < PROGRESS_CONTRAST_THRESHOLD,
   };
 }
 
@@ -161,6 +180,8 @@ export interface EventColor {
   textColorDark: string;
   boostLight: boolean;
   boostDark: boolean;
+  progressBoostLight: boolean;
+  progressBoostDark: boolean;
 }
 
 export function getNwsEventColor(event: string): EventColor {
@@ -175,32 +196,32 @@ export function getNwsEventColor(event: string): EventColor {
       textColorDark: badge.dark,
       boostLight: direct.boostLight,
       boostDark: direct.boostDark,
+      progressBoostLight: direct.progressBoostLight,
+      progressBoostDark: direct.progressBoostDark,
     };
   }
   for (const [patterns, hex] of NWS_COLOR_FALLBACKS) {
     if (patterns.some(p => e.includes(p))) {
-      const { boostLight, boostDark } = computeBoostTags(hex);
+      const tags = computeBoostTags(hex);
       const badge = getBadgeTextColors(hex);
       return {
         color: hex,
         rgb: hexToRgbString(hex),
         textColorLight: badge.light,
         textColorDark: badge.dark,
-        boostLight,
-        boostDark,
+        ...tags,
       };
     }
   }
   const fallback = '#808080';
-  const { boostLight, boostDark } = computeBoostTags(fallback);
+  const tags = computeBoostTags(fallback);
   const badge = getBadgeTextColors(fallback);
   return {
     color: fallback,
     rgb: hexToRgbString(fallback),
     textColorLight: badge.light,
     textColorDark: badge.dark,
-    boostLight,
-    boostDark,
+    ...tags,
   };
 }
 
@@ -214,15 +235,14 @@ const METEOALARM_SEVERITY_COLORS: Record<string, string> = {
 
 export function getMeteoAlarmColor(severity: string): EventColor {
   const hex = METEOALARM_SEVERITY_COLORS[severity] ?? '#808080';
-  const { boostLight, boostDark } = computeBoostTags(hex);
+  const tags = computeBoostTags(hex);
   const badge = getBadgeTextColors(hex);
   return {
     color: hex,
     rgb: hexToRgbString(hex),
     textColorLight: badge.light,
     textColorDark: badge.dark,
-    boostLight,
-    boostDark,
+    ...tags,
   };
 }
 

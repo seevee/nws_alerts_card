@@ -277,26 +277,43 @@ describe('getNwsEventColor', () => {
     expect(getNwsEventColor('Gale Warning').color).toBe('#DDA0DD');
   });
 
-  it('sets boostLight when color fails 3:1 vs white card background', () => {
-    // Winter Storm Warning (#FF69B4 hotpink, L≈0.344) — fails 3:1 on light
-    expect(getNwsEventColor('Winter Storm Warning').boostLight).toBe(true);
-    // Tornado Warning (#FF0000 red, L≈0.213) — passes 3:1 on light (4.0:1)
+  it('sets boostLight (text tier, 2.0:1) for middling-contrast hues on white', () => {
+    // Severe Thunderstorm Warning (#FFA500 orange, ~1.97:1) — fails text tier
+    expect(getNwsEventColor('Severe Thunderstorm Warning').boostLight).toBe(true);
+    // Tornado Warning (#FF0000 red, ~4.0:1) — passes both tiers
     expect(getNwsEventColor('Tornado Warning').boostLight).toBe(false);
   });
 
-  it('sets boostDark when color fails 3:1 vs dark card background', () => {
-    // Freeze Warning (#483D8B darkslateblue, L≈0.062) — fails 3:1 on dark
+  it('sets boostDark (text tier, 2.0:1) for dark hues on dark card', () => {
+    // Freeze Warning (#483D8B darkslateblue) — fails text tier on dark
     expect(getNwsEventColor('Freeze Warning').boostDark).toBe(true);
-    // Tornado Warning (#FF0000 red) — passes 3:1 on dark
     expect(getNwsEventColor('Tornado Warning').boostDark).toBe(false);
   });
 
-  it('computes boost tags for pattern-match fallbacks too', () => {
-    // "Blast Wave Flood Advisory" — not in help-map; matches "flood" fallback (#228B22)
+  it('only flags progressBoostLight for near-invisible tints (1.3:1 tier)', () => {
+    // Tornado Watch (#FFFF00 yellow, ~1.07:1) — progress bar truly invisible
+    expect(getNwsEventColor('Tornado Watch').progressBoostLight).toBe(true);
+    // Heat Advisory (#FF7F50 coral, ~2.47:1) — boostLight false too, never fires
+    expect(getNwsEventColor('Heat Advisory').progressBoostLight).toBe(false);
+    // Winter Storm Warning (#FF69B4 hotpink, ~2.63:1) — progress fine at this contrast
+    expect(getNwsEventColor('Winter Storm Warning').progressBoostLight).toBe(false);
+    // Severe Thunderstorm Warning — text tier fires, progress tier does not
+    expect(getNwsEventColor('Severe Thunderstorm Warning').boostLight).toBe(true);
+    expect(getNwsEventColor('Severe Thunderstorm Warning').progressBoostLight).toBe(false);
+  });
+
+  it('progressBoostDark is rare — saturated hues pass easily on dark card', () => {
+    expect(getNwsEventColor('Tornado Warning').progressBoostDark).toBe(false);
+    expect(getNwsEventColor('Freeze Warning').progressBoostDark).toBe(false);
+  });
+
+  it('computes all four boost tags for pattern-match fallbacks too', () => {
     const result = getNwsEventColor('Blast Wave Flood Advisory');
     expect(result.color).toBe('#228B22');
     expect(typeof result.boostLight).toBe('boolean');
     expect(typeof result.boostDark).toBe('boolean');
+    expect(typeof result.progressBoostLight).toBe('boolean');
+    expect(typeof result.progressBoostDark).toBe('boolean');
   });
 });
 
@@ -312,11 +329,11 @@ describe('getMeteoAlarmColor', () => {
     expect(getMeteoAlarmColor('unknown').color).toBe('#808080');
   });
 
-  it('flags the bright MeteoAlarm hues as needing light-mode contrast boost', () => {
-    // All three bright hues fail 3:1 on white; extreme red passes.
-    expect(getMeteoAlarmColor('severe').boostLight).toBe(true);
+  it('flags only palest MeteoAlarm hue for text-tier boost on light (2.0:1)', () => {
+    // moderate (#FFC800 yellow, ~1.55:1) fails; the rest squeak past 2.0:1.
     expect(getMeteoAlarmColor('moderate').boostLight).toBe(true);
-    expect(getMeteoAlarmColor('minor').boostLight).toBe(true);
+    expect(getMeteoAlarmColor('severe').boostLight).toBe(false);
+    expect(getMeteoAlarmColor('minor').boostLight).toBe(false);
     expect(getMeteoAlarmColor('extreme').boostLight).toBe(false);
   });
 
@@ -324,6 +341,15 @@ describe('getMeteoAlarmColor', () => {
     // All four pass 3:1 against the dark card bg.
     for (const sev of ['extreme', 'severe', 'moderate', 'minor']) {
       expect(getMeteoAlarmColor(sev).boostDark).toBe(false);
+    }
+  });
+
+  it('progress-tier boost (1.3:1) is never triggered by MeteoAlarm hues', () => {
+    // Even the palest (moderate #FFC800, ~1.55:1) clears the 1.3:1 progress
+    // threshold, so the progress bar never gets re-tinted on MeteoAlarm.
+    for (const sev of ['extreme', 'severe', 'moderate', 'minor']) {
+      expect(getMeteoAlarmColor(sev).progressBoostLight).toBe(false);
+      expect(getMeteoAlarmColor(sev).progressBoostDark).toBe(false);
     }
   });
 });

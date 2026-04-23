@@ -36,7 +36,7 @@ export interface WeatherAlertsCardConfig {
   layout?: 'default' | 'compact';
   fontSize?: 'small' | 'default' | 'large' | 'x-large';
   colorTheme?: 'severity' | 'nws' | 'meteoalarm';
-  enhanceContrast?: boolean;  // undefined/true: boost WCAG contrast on NWS/MeteoAlarm colors that fail 3:1 against the active card background; false: always render raw colors
+  enhanceContrast?: boolean;  // undefined/true: two-tier WCAG boost on NWS/MeteoAlarm colors — text tier (~2:1) darkens icon/label, progress tier (~1.3:1) darkens the progress-bar fill; triggered per event + per theme mode against the active card background. false: always render raw colors.
   provider?: AlertProvider;  // undefined: auto-detect from entity attributes
   deduplicate?: boolean;     // undefined/true: dedup on; false: dedup off
   deduplicateHeadlines?: boolean; // undefined/true: filter redundant headlines; false: show all verbatim

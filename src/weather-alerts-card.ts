@@ -335,12 +335,17 @@ export class WeatherAlertsCard extends LitElement {
   }
 
   // Per-alert boost classes — only emitted for event-color themes (nws,
-  // meteoalarm) and only for entries that fail WCAG 3:1 on the given side.
+  // meteoalarm). Two tiers: boost-{light,dark} darkens icon/label text
+  // (fires at ~2:1), progress-boost-{light,dark} darkens the progress-bar
+  // fill (fires at a stricter ~1.3:1, only for near-invisible tints).
   // Severity theme gets no classes: its colors are HA theme tokens that
   // the theme author has already tuned for their palette.
   private _alertBoostClasses(alert: WeatherAlert): string {
     if (this._config?.enhanceContrast === false) return '';
-    let tags: { boostLight: boolean; boostDark: boolean } | null = null;
+    let tags: {
+      boostLight: boolean; boostDark: boolean;
+      progressBoostLight: boolean; progressBoostDark: boolean;
+    } | null = null;
     if (this._colorTheme === 'nws') {
       tags = getNwsEventColor(alert.event);
     } else if (this._colorTheme === 'meteoalarm') {
@@ -350,6 +355,8 @@ export class WeatherAlertsCard extends LitElement {
     const classes: string[] = [];
     if (tags.boostLight) classes.push('boost-light');
     if (tags.boostDark) classes.push('boost-dark');
+    if (tags.progressBoostLight) classes.push('progress-boost-light');
+    if (tags.progressBoostDark) classes.push('progress-boost-dark');
     return classes.join(' ');
   }
 

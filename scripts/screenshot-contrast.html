@@ -57,7 +57,7 @@
     }
 
     /* 2×2 grid: columns = raw / enhanced; rows = compact / default.
-       Compact row holds all 8 fixtures; default row shows a trimmed subset
+       Compact row holds every fixture; default row shows a trimmed subset
        so the cards' full-layout details don't blow out vertical height. */
     .contrast-canvas {
       background: var(--contrast-bg);
@@ -197,17 +197,19 @@
     // ---- Mock hass ----
     const NWS_ENTITY = 'sensor.nws_alerts_alerts';
 
-    // Full compact set (8 alerts: 1 control + 3 boostDark + 4 boostLight).
+    // Full compact set — 9 alerts walking through every boost tier (see
+    // ALERTS_CONTRAST_DEMO for the breakdown).
     const COMPACT_ALERTS = ALERTS_CONTRAST_DEMO;
 
-    // Trimmed default-layout set: keep the control + one from each boost
-    // direction + one Minor so the full-layout column stays a reasonable height.
-    //   - Tornado Warning   (control, neither boost)
-    //   - Flash Flood Warning (boostDark)
-    //   - Winter Storm Warning (boostLight)
-    //   - Wind Advisory       (boostLight, Minor)
+    // Trimmed default-layout set: one representative from each tier so the
+    // full-layout column stays a reasonable height.
+    //   - Tornado Warning             — control (no boost)
+    //   - Flash Flood Warning         — dark-only
+    //   - Heat Advisory               — borderline light (was boosted, no longer)
+    //   - Severe Thunderstorm Warning — text-only light
+    //   - Tornado Watch               — both tiers (text + progress)
     const DEFAULT_ALERTS = ALERTS_CONTRAST_DEMO.filter(a =>
-      ['Tornado Warning', 'Flash Flood Warning', 'Winter Storm Warning', 'Wind Advisory'].includes(a.Event)
+      ['Tornado Warning', 'Flash Flood Warning', 'Heat Advisory', 'Severe Thunderstorm Warning', 'Tornado Watch'].includes(a.Event)
     );
 
     const makeHass = (alerts) => ({

@@ -142,11 +142,31 @@ export const ALERTS_WITH_MINOR = [...ALERTS, ALERT_MINOR];
 
 // Contrast demo fixture — real NWS event names so getNwsEventColor hits the
 // help-map lookup directly (not the pattern-match fallback). Mix chosen to
-// exercise both boost directions plus a control:
-//   - Tornado Warning   (#FF0000) control — fine on both themes, never boosted
-//   - Flash Flood, Ice Storm, Freeze  — boostDark only (dark hues fail on dark bg)
-//   - Winter Storm Warning, Tornado Watch, Heat Advisory, Wind Advisory
-//                                       — boostLight only (bright hues fail on white)
+// walk through every boost tier at its boundary:
+//
+//   CONTROL              never boosted, saturated on both themes
+//     - Tornado Warning       (#FF0000, CR 4.00 white / 4.26 dark)
+//
+//   DARK-ONLY            dark hues that fail 2.0:1 on the dark card only
+//     - Flash Flood Warning   (#8B0000, CR 10.01 / 1.70)
+//     - Freeze Warning        (#483D8B, CR 9.07 / 1.88)
+//
+//   BORDERLINE LIGHT     bright-but-legible hues that USED to boost at the
+//                        old 3.0:1 threshold but now pass the tightened
+//                        2.0:1 text tier (no boost at all)
+//     - Winter Storm Warning  (#FF69B4, CR 2.65 white)
+//     - Heat Advisory         (#FF7F50, CR 2.50 white)
+//
+//   TEXT-ONLY LIGHT      fail the 2.0:1 text tier, pass the 1.3:1 progress
+//                        tier → icon/label darken, progress bar keeps raw tint
+//     - Severe Thunderstorm Warning (#FFA500, CR 1.97 white)
+//     - Wind Advisory               (#D2B48C, CR 1.97 white)
+//
+//   BOTH TIERS LIGHT     near-invisible on white — fail 1.3:1 too, so the
+//                        progress bar gets re-tinted as well
+//     - Tornado Watch         (#FFFF00, CR 1.07 white)
+//     - Freeze Watch          (#00FFFF, CR 1.25 white)
+//
 // AreaDesc values are fictional so screenshots read as demos, not real alerts.
 function makeContrastAlert(id, event, severity, areaDesc, { certainty = 'Likely', urgency = 'Expected', onsetOffset = -0.5, endsOffset = 5 } = {}) {
   return {
@@ -168,15 +188,23 @@ function makeContrastAlert(id, event, severity, areaDesc, { certainty = 'Likely'
   };
 }
 
+const watchTiming = { certainty: 'Possible', urgency: 'Future', onsetOffset: 2, endsOffset: 8 };
+
 export const ALERTS_CONTRAST_DEMO = [
-  makeContrastAlert('c1', 'Tornado Warning',       'Extreme',  'Control County'),      // neither
-  makeContrastAlert('c2', 'Flash Flood Warning',   'Severe',   'Sampletown'),           // boostDark
-  makeContrastAlert('c3', 'Ice Storm Warning',     'Severe',   'Mockton'),              // boostDark
-  makeContrastAlert('c4', 'Freeze Warning',        'Moderate', 'Pleasantville'),        // boostDark
-  makeContrastAlert('c5', 'Winter Storm Warning',  'Moderate', 'Demoville'),            // boostLight
-  makeContrastAlert('c6', 'Tornado Watch',         'Moderate', 'Exampleville', { certainty: 'Possible', urgency: 'Future', onsetOffset: 2, endsOffset: 8 }), // boostLight
-  makeContrastAlert('c7', 'Heat Advisory',         'Minor',    'Sunnyside'),            // boostLight
-  makeContrastAlert('c8', 'Wind Advisory',         'Minor',    'Testburg'),             // boostLight
+  // control — saturated red, never boosted on either side
+  makeContrastAlert('c1', 'Tornado Warning',             'Extreme',  'Control County'),
+  // dark-only: dark hues on dark card
+  makeContrastAlert('c2', 'Flash Flood Warning',         'Severe',   'Sampletown'),
+  makeContrastAlert('c3', 'Freeze Warning',              'Moderate', 'Pleasantville'),
+  // borderline light — passes new 2.0:1 threshold, no boost (was boosted at old 3.0:1)
+  makeContrastAlert('c4', 'Winter Storm Warning',        'Moderate', 'Demoville'),
+  makeContrastAlert('c5', 'Heat Advisory',               'Moderate', 'Sunnyside'),
+  // text-only light — text/icon darken, progress keeps raw tint
+  makeContrastAlert('c6', 'Severe Thunderstorm Warning', 'Severe',   'Mockton'),
+  makeContrastAlert('c7', 'Wind Advisory',               'Minor',    'Testburg'),
+  // both tiers light — progress bar also gets re-tinted (watch timing → striped preparation fill)
+  makeContrastAlert('c8', 'Tornado Watch',               'Moderate', 'Exampleville', watchTiming),
+  makeContrastAlert('c9', 'Freeze Watch',                'Minor',    'Northfield',   watchTiming),
 ];
 
 // PirateWeather-format duplicates of some NWS alerts (for cross-provider dedup demos).
