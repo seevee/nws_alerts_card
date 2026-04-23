@@ -4,6 +4,7 @@ import {
   getCertaintyIcon,
   getNwsEventColor,
   getMeteoAlarmColor,
+  resolveContrastMode,
   computeAlertProgress,
   normalizeSeverity,
   sortAlerts,
@@ -315,6 +316,39 @@ describe('getNwsEventColor', () => {
     expect(typeof result.progressBoostLight).toBe('boolean');
     expect(typeof result.progressBoostDark).toBe('boolean');
   });
+
+  it('mode="off" zeroes every boost tag regardless of contrast', () => {
+    // Severe Thunderstorm Warning normally boosts on light; Freeze Warning
+    // normally boosts on dark. 'off' must suppress both.
+    const stw = getNwsEventColor('Severe Thunderstorm Warning', 'off');
+    expect(stw.boostLight).toBe(false);
+    expect(stw.boostDark).toBe(false);
+    expect(stw.progressBoostLight).toBe(false);
+    expect(stw.progressBoostDark).toBe(false);
+    const fw = getNwsEventColor('Freeze Warning', 'off');
+    expect(fw.boostDark).toBe(false);
+    expect(fw.progressBoostDark).toBe(false);
+  });
+
+  it('mode="strict" catches middling hues that subtle lets through', () => {
+    // Heat Advisory (#FF7F50, crLight ~2.50) — passes subtle (>=2.0), fails strict (<3.0)
+    expect(getNwsEventColor('Heat Advisory', 'subtle').boostLight).toBe(false);
+    expect(getNwsEventColor('Heat Advisory', 'strict').boostLight).toBe(true);
+    // Winter Storm Warning (#FF69B4, crLight ~2.65) — same pattern
+    expect(getNwsEventColor('Winter Storm Warning', 'subtle').boostLight).toBe(false);
+    expect(getNwsEventColor('Winter Storm Warning', 'strict').boostLight).toBe(true);
+    // Severe Thunderstorm Warning (crLight ~1.97) — strict progress tier (2.0) now
+    // fires where subtle's 1.3 tier let it pass
+    expect(getNwsEventColor('Severe Thunderstorm Warning', 'subtle').progressBoostLight).toBe(false);
+    expect(getNwsEventColor('Severe Thunderstorm Warning', 'strict').progressBoostLight).toBe(true);
+  });
+
+  it('mode="strict" does not falsely flag well-contrasted hues', () => {
+    // Tornado Warning (#FF0000, crLight ~4.0, crDark ~4.26) — passes even strict's 3.0 text tier
+    const tw = getNwsEventColor('Tornado Warning', 'strict');
+    expect(tw.boostLight).toBe(false);
+    expect(tw.boostDark).toBe(false);
+  });
 });
 
 describe('getMeteoAlarmColor', () => {
@@ -351,6 +385,32 @@ describe('getMeteoAlarmColor', () => {
       expect(getMeteoAlarmColor(sev).progressBoostLight).toBe(false);
       expect(getMeteoAlarmColor(sev).progressBoostDark).toBe(false);
     }
+  });
+
+  it('mode="off" suppresses the MeteoAlarm text-tier boost on moderate', () => {
+    // moderate normally fires boostLight under 'subtle' — 'off' must suppress it.
+    expect(getMeteoAlarmColor('moderate', 'off').boostLight).toBe(false);
+  });
+
+  it('mode="strict" flags severe and minor on light where subtle does not', () => {
+    // severe (#FF9900, ~2.31) and minor (#88C840, ~2.14) pass subtle (2.0)
+    // but fail strict (3.0). moderate fails both; extreme passes both.
+    expect(getMeteoAlarmColor('severe', 'subtle').boostLight).toBe(false);
+    expect(getMeteoAlarmColor('severe', 'strict').boostLight).toBe(true);
+    expect(getMeteoAlarmColor('minor', 'subtle').boostLight).toBe(false);
+    expect(getMeteoAlarmColor('minor', 'strict').boostLight).toBe(true);
+    expect(getMeteoAlarmColor('extreme', 'strict').boostLight).toBe(false);
+  });
+});
+
+describe('resolveContrastMode', () => {
+  it('defaults undefined to "subtle"', () => {
+    expect(resolveContrastMode(undefined)).toBe('subtle');
+  });
+  it('passes explicit modes through unchanged', () => {
+    expect(resolveContrastMode('off')).toBe('off');
+    expect(resolveContrastMode('subtle')).toBe('subtle');
+    expect(resolveContrastMode('strict')).toBe('strict');
   });
 });
 

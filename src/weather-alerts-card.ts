@@ -1,7 +1,7 @@
 import { LitElement, html, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { HomeAssistant, WeatherAlertsCardConfig, WeatherAlert, AlertProgress, AlertProvider } from './types';
+import { HomeAssistant, WeatherAlertsCardConfig, WeatherAlert, AlertProgress, AlertProvider, ContrastMode } from './types';
 import {
   getWeatherIcon,
   getCertaintyIcon,
@@ -15,6 +15,7 @@ import {
   deduplicateAlerts,
   getNwsEventColor,
   getMeteoAlarmColor,
+  resolveContrastMode,
   sanitizeAlertHtml,
   getDisplayHeadline,
   reflowAlertText,
@@ -322,34 +323,39 @@ export class WeatherAlertsCard extends LitElement {
     return scale !== undefined ? Math.round(base * scale) : base;
   }
 
+  private get _contrastMode(): ContrastMode {
+    return resolveContrastMode(this._config?.enhanceContrast);
+  }
+
   private _alertColorStyle(alert: WeatherAlert): string {
     if (this._colorTheme === 'nws') {
-      const { color, rgb, textColorLight, textColorDark } = getNwsEventColor(alert.event);
+      const { color, rgb, textColorLight, textColorDark } = getNwsEventColor(alert.event, this._contrastMode);
       return `--color: ${color}; --color-rgb: ${rgb}; --color-on-light: ${textColorLight}; --color-on-dark: ${textColorDark};`;
     }
     if (this._colorTheme === 'meteoalarm') {
-      const { color, rgb, textColorLight, textColorDark } = getMeteoAlarmColor(alert.severity);
+      const { color, rgb, textColorLight, textColorDark } = getMeteoAlarmColor(alert.severity, this._contrastMode);
       return `--color: ${color}; --color-rgb: ${rgb}; --color-on-light: ${textColorLight}; --color-on-dark: ${textColorDark};`;
     }
     return '';
   }
 
   // Per-alert boost classes — only emitted for event-color themes (nws,
-  // meteoalarm). Two tiers: boost-{light,dark} darkens icon/label text
-  // (fires at ~2:1), progress-boost-{light,dark} darkens the progress-bar
-  // fill (fires at a stricter ~1.3:1, only for near-invisible tints).
-  // Severity theme gets no classes: its colors are HA theme tokens that
-  // the theme author has already tuned for their palette.
+  // meteoalarm). Two tiers driven by _contrastMode: boost-{light,dark}
+  // darkens icon/label text, progress-boost-{light,dark} darkens the
+  // progress-bar fill at a stricter tier. Mode 'off' emits nothing.
+  // Severity theme never gets classes: its colors are HA theme tokens
+  // that the theme author has already tuned for their palette.
   private _alertBoostClasses(alert: WeatherAlert): string {
-    if (this._config?.enhanceContrast === false) return '';
+    const mode = this._contrastMode;
+    if (mode === 'off') return '';
     let tags: {
       boostLight: boolean; boostDark: boolean;
       progressBoostLight: boolean; progressBoostDark: boolean;
     } | null = null;
     if (this._colorTheme === 'nws') {
-      tags = getNwsEventColor(alert.event);
+      tags = getNwsEventColor(alert.event, mode);
     } else if (this._colorTheme === 'meteoalarm') {
-      tags = getMeteoAlarmColor(alert.severity);
+      tags = getMeteoAlarmColor(alert.severity, mode);
     }
     if (!tags) return '';
     const classes: string[] = [];

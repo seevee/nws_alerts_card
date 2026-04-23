@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { HomeAssistant, WeatherAlertsCardConfig, AlertSeverity } from './types';
+import { HomeAssistant, WeatherAlertsCardConfig, AlertSeverity, ContrastMode } from './types';
 import { canHandleAny, ENTITY_NAME_PATTERNS } from './adapters';
 import { t } from './localize';
 
@@ -155,15 +155,14 @@ export class WeatherAlertsCardEditor extends LitElement {
     this._fireConfigChanged(newConfig);
   }
 
-  private _enhanceContrastChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const enhance = target.checked;
-    if (enhance === (this._config.enhanceContrast !== false)) return;
+  private _enhanceContrastChanged(ev: CustomEvent): void {
+    const value = ev.detail.value as ContrastMode;
+    if (value === (this._config.enhanceContrast || 'subtle')) return;
     const newConfig = { ...this._config };
-    if (enhance) {
+    if (value === 'subtle') {
       delete newConfig.enhanceContrast;
     } else {
-      newConfig.enhanceContrast = false;
+      newConfig.enhanceContrast = value;
     }
     this._fireConfigChanged(newConfig);
   }
@@ -656,12 +655,15 @@ export class WeatherAlertsCardEditor extends LitElement {
           <ha-dropdown-item value="meteoalarm">${t('editor.color_meteoalarm', lang)}</ha-dropdown-item>
         </ha-select>
 
-        <ha-formfield .label=${t('editor.enhance_contrast', lang)}>
-          <ha-switch
-            .checked=${this._config.enhanceContrast !== false}
-            @change=${this._enhanceContrastChanged}
-          ></ha-switch>
-        </ha-formfield>
+        <ha-select
+          .label=${t('editor.enhance_contrast', lang)}
+          .value=${this._config.enhanceContrast || 'subtle'}
+          @selected=${this._enhanceContrastChanged}
+        >
+          <ha-dropdown-item value="off">${t('editor.enhance_contrast_off', lang)}</ha-dropdown-item>
+          <ha-dropdown-item value="subtle">${t('editor.enhance_contrast_subtle', lang)}</ha-dropdown-item>
+          <ha-dropdown-item value="strict">${t('editor.enhance_contrast_strict', lang)}</ha-dropdown-item>
+        </ha-select>
 
         <ha-select
           .label=${t('editor.font_size', lang)}

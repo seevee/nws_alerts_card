@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify';
-import { WeatherAlert, AlertProgress, AlertProvider } from './types';
+import { WeatherAlert, AlertProgress, AlertProvider, ContrastMode } from './types';
 import { t } from './localize';
 import { NWS_EVENT_COLORS } from './nws-colors';
 
@@ -98,19 +98,29 @@ const NWS_COLOR_FALLBACKS: [readonly string[], string][] = [
   [['tsunami'],                                '#FD6347'],
 ];
 
-// Reference HA card backgrounds used for precomputing boost tags.
-// Kept in sync with scripts/generate-nws-colors.mjs.
-//
-// Two tiers:
-//   TEXT threshold (2.0) gates --wac-fg darkening for icon/label text, which
-//     read OK at middling contrast once the weight is bumped.
-//   PROGRESS threshold (1.3) gates --wac-progress-fg for the progress-bar
-//     fill, which has no weight to lean on and only needs boosting when the
-//     tint is near-invisible against the card (e.g. yellow Tornado Watch).
+// Reference HA card backgrounds used for computing contrast ratios.
+// Matches scripts/generate-nws-colors.mjs — the generated table in
+// src/nws-colors.ts stores crLight/crDark computed against these values.
 const LIGHT_BG = '#ffffff';
 const DARK_BG = '#1c1c1e';
-const TEXT_CONTRAST_THRESHOLD = 2.0;
-const PROGRESS_CONTRAST_THRESHOLD = 1.3;
+
+// Contrast mode thresholds. Each mode defines a text tier (drives --wac-fg
+// for icon/label/countdown, where font weight backstops legibility) and a
+// stricter progress tier (drives --wac-progress-fg for the progress-bar
+// fill, which has no weight and only needs help when the tint is nearly
+// invisible against the card, e.g. yellow Tornado Watch vs white).
+// 'subtle' is the default; 'strict' biases toward WCAG AA for users who
+// want stronger guarantees; 'off' disables the whole system.
+export const CONTRAST_MODE_THRESHOLDS: Record<Exclude<ContrastMode, 'off'>, { text: number; progress: number }> = {
+  subtle: { text: 2.0, progress: 1.3 },
+  strict: { text: 3.0, progress: 2.0 },
+};
+
+export const DEFAULT_CONTRAST_MODE: ContrastMode = 'subtle';
+
+export function resolveContrastMode(v: ContrastMode | undefined): ContrastMode {
+  return v ?? DEFAULT_CONTRAST_MODE;
+}
 
 function relativeLuminance(hex: string): number {
   const h = hex.replace('#', '');
@@ -136,14 +146,21 @@ interface BoostTags {
   progressBoostDark: boolean;
 }
 
-function computeBoostTags(hex: string): BoostTags {
-  const crLight = contrastRatio(hex, LIGHT_BG);
-  const crDark = contrastRatio(hex, DARK_BG);
+const NO_BOOST: BoostTags = {
+  boostLight: false,
+  boostDark: false,
+  progressBoostLight: false,
+  progressBoostDark: false,
+};
+
+function tagsFromCrs(crLight: number, crDark: number, mode: ContrastMode): BoostTags {
+  if (mode === 'off') return NO_BOOST;
+  const { text, progress } = CONTRAST_MODE_THRESHOLDS[mode];
   return {
-    boostLight: crLight < TEXT_CONTRAST_THRESHOLD,
-    boostDark: crDark < TEXT_CONTRAST_THRESHOLD,
-    progressBoostLight: crLight < PROGRESS_CONTRAST_THRESHOLD,
-    progressBoostDark: crDark < PROGRESS_CONTRAST_THRESHOLD,
+    boostLight: crLight < text,
+    boostDark: crDark < text,
+    progressBoostLight: crLight < progress,
+    progressBoostDark: crDark < progress,
   };
 }
 
@@ -184,45 +201,42 @@ export interface EventColor {
   progressBoostDark: boolean;
 }
 
-export function getNwsEventColor(event: string): EventColor {
+function buildEventColor(hex: string, rgb: string, crLight: number, crDark: number, mode: ContrastMode): EventColor {
+  const badge = getBadgeTextColors(hex);
+  return {
+    color: hex,
+    rgb,
+    textColorLight: badge.light,
+    textColorDark: badge.dark,
+    ...tagsFromCrs(crLight, crDark, mode),
+  };
+}
+
+export function getNwsEventColor(event: string, mode: ContrastMode = DEFAULT_CONTRAST_MODE): EventColor {
   const e = event.toLowerCase();
   const direct = NWS_EVENT_COLORS[e];
   if (direct) {
-    const badge = getBadgeTextColors(direct.hex);
-    return {
-      color: direct.hex,
-      rgb: direct.rgb,
-      textColorLight: badge.light,
-      textColorDark: badge.dark,
-      boostLight: direct.boostLight,
-      boostDark: direct.boostDark,
-      progressBoostLight: direct.progressBoostLight,
-      progressBoostDark: direct.progressBoostDark,
-    };
+    return buildEventColor(direct.hex, direct.rgb, direct.crLight, direct.crDark, mode);
   }
   for (const [patterns, hex] of NWS_COLOR_FALLBACKS) {
     if (patterns.some(p => e.includes(p))) {
-      const tags = computeBoostTags(hex);
-      const badge = getBadgeTextColors(hex);
-      return {
-        color: hex,
-        rgb: hexToRgbString(hex),
-        textColorLight: badge.light,
-        textColorDark: badge.dark,
-        ...tags,
-      };
+      return buildEventColor(
+        hex,
+        hexToRgbString(hex),
+        contrastRatio(hex, LIGHT_BG),
+        contrastRatio(hex, DARK_BG),
+        mode,
+      );
     }
   }
   const fallback = '#808080';
-  const tags = computeBoostTags(fallback);
-  const badge = getBadgeTextColors(fallback);
-  return {
-    color: fallback,
-    rgb: hexToRgbString(fallback),
-    textColorLight: badge.light,
-    textColorDark: badge.dark,
-    ...tags,
-  };
+  return buildEventColor(
+    fallback,
+    hexToRgbString(fallback),
+    contrastRatio(fallback, LIGHT_BG),
+    contrastRatio(fallback, DARK_BG),
+    mode,
+  );
 }
 
 // MeteoAlarm official awareness level colors
@@ -233,17 +247,15 @@ const METEOALARM_SEVERITY_COLORS: Record<string, string> = {
   minor:   '#88C840',   // Green
 };
 
-export function getMeteoAlarmColor(severity: string): EventColor {
+export function getMeteoAlarmColor(severity: string, mode: ContrastMode = DEFAULT_CONTRAST_MODE): EventColor {
   const hex = METEOALARM_SEVERITY_COLORS[severity] ?? '#808080';
-  const tags = computeBoostTags(hex);
-  const badge = getBadgeTextColors(hex);
-  return {
-    color: hex,
-    rgb: hexToRgbString(hex),
-    textColorLight: badge.light,
-    textColorDark: badge.dark,
-    ...tags,
-  };
+  return buildEventColor(
+    hex,
+    hexToRgbString(hex),
+    contrastRatio(hex, LIGHT_BG),
+    contrastRatio(hex, DARK_BG),
+    mode,
+  );
 }
 
 export function parseTimestamp(raw: string | undefined | null): number {

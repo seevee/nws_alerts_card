@@ -21,6 +21,7 @@ export interface HassEntity {
 
 export type AlertSeverity = 'extreme' | 'severe' | 'moderate' | 'minor' | 'unknown';
 export type AlertProvider = 'nws' | 'bom' | 'meteoalarm' | 'pirateweather' | 'dwd';
+export type ContrastMode = 'off' | 'subtle' | 'strict';
 
 export interface WeatherAlertsCardConfig {
   type: string;
@@ -36,7 +37,7 @@ export interface WeatherAlertsCardConfig {
   layout?: 'default' | 'compact';
   fontSize?: 'small' | 'default' | 'large' | 'x-large';
   colorTheme?: 'severity' | 'nws' | 'meteoalarm';
-  enhanceContrast?: boolean;  // undefined/true: two-tier WCAG boost on NWS/MeteoAlarm colors — text tier (~2:1) darkens icon/label, progress tier (~1.3:1) darkens the progress-bar fill; triggered per event + per theme mode against the active card background. false: always render raw colors.
+  enhanceContrast?: ContrastMode;  // undefined/'subtle': two-tier WCAG boost on NWS/MeteoAlarm colors — text tier (~2:1) darkens icon/label, progress tier (~1.3:1) darkens the progress-bar fill; 'strict': tighter thresholds (text ~3:1, progress ~2:1) for WCAG-AA-style accessibility; 'off': always render raw colors. Triggered per event + per theme mode against the active card background.
   provider?: AlertProvider;  // undefined: auto-detect from entity attributes
   deduplicate?: boolean;     // undefined/true: dedup on; false: dedup off
   deduplicateHeadlines?: boolean; // undefined/true: filter redundant headlines; false: show all verbatim
