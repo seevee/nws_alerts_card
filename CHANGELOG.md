@@ -7,10 +7,14 @@
 
 ### Fixed
 - Severity badge text color now uses the card background color as a "knockout" — saturated pills (red, dark red, pink, tan, etc.) render with their label in the page surface color so the badge reads as a window cut into the card, which perceptually beats the old luminance-threshold pick of pure black/white. Only near-monochrome combinations (contrast < 1.9:1 vs card bg, e.g. dark-red badge on a dark card) flip to the opposite so the label doesn't disappear. Theme-aware via precomputed light + dark variants.
-- Use OR wrapper for multi-entity hideNoAlerts visibility (#148) (8a809fc…)
+
+## 2.11.1 — 2026-04-18
 
 ### Documentation
 - Add Support section to README (#147) (a90b4f0…)
+
+### Fixed
+- Use OR wrapper for multi-entity hideNoAlerts visibility (#148) (8a809fc…)
 
 ## 2.11.0 — 2026-04-17
 
