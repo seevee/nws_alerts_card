@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { HomeAssistant, WeatherAlertsCardConfig, AlertSeverity } from './types';
+import { HomeAssistant, WeatherAlertsCardConfig, AlertSeverity, ContrastMode } from './types';
 import { canHandleAny, ENTITY_NAME_PATTERNS } from './adapters';
 import { t } from './localize';
 
@@ -151,6 +151,18 @@ export class WeatherAlertsCardEditor extends LitElement {
       delete newConfig.provider;
     } else {
       newConfig.provider = value as 'nws' | 'bom' | 'meteoalarm' | 'pirateweather';
+    }
+    this._fireConfigChanged(newConfig);
+  }
+
+  private _enhanceContrastChanged(ev: CustomEvent): void {
+    const value = ev.detail.value as ContrastMode;
+    if (value === (this._config.enhanceContrast || 'subtle')) return;
+    const newConfig = { ...this._config };
+    if (value === 'subtle') {
+      delete newConfig.enhanceContrast;
+    } else {
+      newConfig.enhanceContrast = value;
     }
     this._fireConfigChanged(newConfig);
   }
@@ -641,6 +653,16 @@ export class WeatherAlertsCardEditor extends LitElement {
           <ha-dropdown-item value="severity">${t('editor.color_severity', lang)}</ha-dropdown-item>
           <ha-dropdown-item value="nws">${t('editor.color_nws', lang)}</ha-dropdown-item>
           <ha-dropdown-item value="meteoalarm">${t('editor.color_meteoalarm', lang)}</ha-dropdown-item>
+        </ha-select>
+
+        <ha-select
+          .label=${t('editor.enhance_contrast', lang)}
+          .value=${this._config.enhanceContrast || 'subtle'}
+          @selected=${this._enhanceContrastChanged}
+        >
+          <ha-dropdown-item value="off">${t('editor.enhance_contrast_off', lang)}</ha-dropdown-item>
+          <ha-dropdown-item value="subtle">${t('editor.enhance_contrast_subtle', lang)}</ha-dropdown-item>
+          <ha-dropdown-item value="strict">${t('editor.enhance_contrast_strict', lang)}</ha-dropdown-item>
         </ha-select>
 
         <ha-select

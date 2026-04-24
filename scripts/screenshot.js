@@ -198,6 +198,19 @@ const PORT = 3742;
       ],
     },
     {
+      name: 'contrast',
+      url: `http://127.0.0.1:${PORT}/scripts/screenshot-contrast.html`,
+      canvasId: 'contrast-canvas',
+      cardIds: [
+        'card-contrast-compact-off', 'card-contrast-compact-subtle', 'card-contrast-compact-strict',
+        'card-contrast-default-off', 'card-contrast-default-subtle', 'card-contrast-default-strict',
+      ],
+      variants: [
+        { theme: 'theme-light', label: 'contrast light', out: 'img/contrast-light.png' },
+        { theme: 'theme-dark',  label: 'contrast dark ', out: 'img/contrast-dark.png' },
+      ],
+    },
+    {
       name: 'dedup',
       url: `http://127.0.0.1:${PORT}/scripts/screenshot-dedup.html`,
       canvasId: 'dedup-canvas',
@@ -222,7 +235,7 @@ const PORT = 3742;
   // Close the 1x context and create a 2x one for composite captures
   await context.close();
   const compositeContext = await browser.newContext({
-    viewport: { width: 1100, height: 900 },
+    viewport: { width: 1600, height: 900 },
     deviceScaleFactor: 2,
   });
   const compositePage = await compositeContext.newPage();
@@ -234,6 +247,12 @@ const PORT = 3742;
 
     for (const { theme, label, out } of set.variants) {
       console.log(`  ${label}         → ${out}`);
+
+      // Emulate prefers-color-scheme so the card's theme-mode getter
+      // (hass.themes.darkMode || matchMedia fallback) resolves to the
+      // matching side for its initial render. Needed by the contrast
+      // harness where CSS boost rules are gated on [data-theme-mode].
+      await compositePage.emulateMedia({ colorScheme: theme === 'theme-dark' ? 'dark' : 'light' });
 
       await compositePage.goto(set.url);
 

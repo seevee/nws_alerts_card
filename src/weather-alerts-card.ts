@@ -1,7 +1,7 @@
 import { LitElement, html, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { HomeAssistant, WeatherAlertsCardConfig, WeatherAlert, AlertProgress, AlertProvider } from './types';
+import { HomeAssistant, WeatherAlertsCardConfig, WeatherAlert, AlertProgress, AlertProvider, ContrastMode } from './types';
 import {
   getWeatherIcon,
   getCertaintyIcon,
@@ -15,6 +15,7 @@ import {
   deduplicateAlerts,
   getNwsEventColor,
   getMeteoAlarmColor,
+  resolveContrastMode,
   sanitizeAlertHtml,
   getDisplayHeadline,
   reflowAlertText,
@@ -322,16 +323,57 @@ export class WeatherAlertsCard extends LitElement {
     return scale !== undefined ? Math.round(base * scale) : base;
   }
 
+  private get _contrastMode(): ContrastMode {
+    return resolveContrastMode(this._config?.enhanceContrast);
+  }
+
   private _alertColorStyle(alert: WeatherAlert): string {
     if (this._colorTheme === 'nws') {
-      const { color, rgb } = getNwsEventColor(alert.event);
-      return `--color: ${color}; --color-rgb: ${rgb};`;
+      const { color, rgb, textColorLight, textColorDark } = getNwsEventColor(alert.event, this._contrastMode);
+      return `--color: ${color}; --color-rgb: ${rgb}; --color-on-light: ${textColorLight}; --color-on-dark: ${textColorDark};`;
     }
     if (this._colorTheme === 'meteoalarm') {
-      const { color, rgb } = getMeteoAlarmColor(alert.severity);
-      return `--color: ${color}; --color-rgb: ${rgb};`;
+      const { color, rgb, textColorLight, textColorDark } = getMeteoAlarmColor(alert.severity, this._contrastMode);
+      return `--color: ${color}; --color-rgb: ${rgb}; --color-on-light: ${textColorLight}; --color-on-dark: ${textColorDark};`;
     }
     return '';
+  }
+
+  // Per-alert boost classes — only emitted for event-color themes (nws,
+  // meteoalarm). Two tiers driven by _contrastMode: boost-{light,dark}
+  // darkens icon/label text, progress-boost-{light,dark} darkens the
+  // progress-bar fill at a stricter tier. Mode 'off' emits nothing.
+  // Severity theme never gets classes: its colors are HA theme tokens
+  // that the theme author has already tuned for their palette.
+  private _alertBoostClasses(alert: WeatherAlert): string {
+    const mode = this._contrastMode;
+    if (mode === 'off') return '';
+    let tags: {
+      boostLight: boolean; boostDark: boolean;
+      progressBoostLight: boolean; progressBoostDark: boolean;
+    } | null = null;
+    if (this._colorTheme === 'nws') {
+      tags = getNwsEventColor(alert.event, mode);
+    } else if (this._colorTheme === 'meteoalarm') {
+      tags = getMeteoAlarmColor(alert.severity, mode);
+    }
+    if (!tags) return '';
+    const classes: string[] = [];
+    if (tags.boostLight) classes.push('boost-light');
+    if (tags.boostDark) classes.push('boost-dark');
+    if (tags.progressBoostLight) classes.push('progress-boost-light');
+    if (tags.progressBoostDark) classes.push('progress-boost-dark');
+    return classes.join(' ');
+  }
+
+  // Resolves to 'light' or 'dark' so CSS boost rules only activate on the
+  // matching side. Prefers HA's authoritative darkMode; falls back to
+  // prefers-color-scheme when HA hasn't reported one yet (e.g., initial
+  // render before hass is attached).
+  private get _themeMode(): 'light' | 'dark' {
+    const hassDark = this.hass?.themes?.darkMode;
+    if (typeof hassDark === 'boolean') return hassDark ? 'dark' : 'light';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
   private _normalizeText(text: string | undefined): string {
     return (text || '').replace(/\n{2,}/g, '\n\n').trim();
@@ -391,7 +433,7 @@ export class WeatherAlertsCard extends LitElement {
     const layoutClass = this._isCompact ? 'compact' : '';
 
     return html`
-      <ha-card .header=${this._config.title || ''} class="${animClass} ${layoutClass}" style=${this._scaleStyle}>
+      <ha-card .header=${this._config.title || ''} class="${animClass} ${layoutClass}" data-theme-mode=${this._themeMode} style=${this._scaleStyle}>
         ${alerts.length === 0
         ? this._renderNoAlerts()
         : alerts.map(alert => this._renderAlert(alert))}
@@ -405,7 +447,7 @@ export class WeatherAlertsCard extends LitElement {
     const layoutClass = this._isCompact ? 'compact' : '';
 
     return html`
-      <ha-card .header=${this._config.title || ''} class="${animClass} ${layoutClass}" style=${this._scaleStyle}>
+      <ha-card .header=${this._config.title || ''} class="${animClass} ${layoutClass}" data-theme-mode=${this._themeMode} style=${this._scaleStyle}>
         <div class="preview-label">${t('card.preview', this._lang)}</div>
         ${alerts.map(alert => this._renderAlert(alert))}
       </ha-card>
@@ -448,9 +490,10 @@ export class WeatherAlertsCard extends LitElement {
           ? t('progress.compact_active', lang, { time: formatDuration(progress.endsTs, progress.nowTs) })
           : t('progress.compact_prep', lang, { time: formatDuration(progress.onsetTs, progress.nowTs) });
     const ongoingClass = isOngoing ? 'ongoing' : '';
+    const boostClasses = this._alertBoostClasses(alert);
     const progressStyle = isOngoing ? '' : `--progress: ${progress.progressPct}%;`;
     return html`
-      <div class="alert-card ${className} ${phaseClass} ${ongoingClass}" style=${`${this._alertColorStyle(alert)} ${progressStyle}`}>
+      <div class="alert-card ${className} ${phaseClass} ${ongoingClass} ${boostClasses}" style=${`${this._alertColorStyle(alert)} ${progressStyle}`}>
         <div
           class="alert-header-row compact-row"
           @click=${() => this._toggleDetails(alert.id)}
@@ -514,8 +557,9 @@ export class WeatherAlertsCard extends LitElement {
     alert: WeatherAlert, className: string, phaseClass: string,
     progress: AlertProgress, expanded: boolean,
   ): TemplateResult {
+    const boostClasses = this._alertBoostClasses(alert);
     return html`
-      <div class="alert-card ${className} ${phaseClass}" style=${this._alertColorStyle(alert)}>
+      <div class="alert-card ${className} ${phaseClass} ${boostClasses}" style=${this._alertColorStyle(alert)}>
         <div class="alert-header-row">
           <div class="icon-box">
             <ha-icon icon=${getWeatherIcon(alert.iconHint || alert.event)}></ha-icon>

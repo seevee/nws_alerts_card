@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather Alerts Card – Contrast-Aware Colors</title>
+  <style>
+    /* ---- HA theme variables, toggled via .theme-light / .theme-dark on the canvas ---- */
+    .theme-light {
+      --primary-text-color: #212121;
+      --secondary-text-color: #727272;
+      --primary-background-color: #fafafa;
+      --secondary-background-color: #e5e5e5;
+      --card-background-color: #ffffff;
+      --divider-color: rgba(0, 0, 0, 0.12);
+      --error-color: #db4437;
+      --warning-color: #ffa600;
+      --info-color: #4f86f7;
+      --text-primary-color: #ffffff;
+      --rgb-primary-text-color: 33, 33, 33;
+      --ha-card-box-shadow:
+        0px 2px 1px -1px rgba(0, 0, 0, 0.2),
+        0px 1px 1px 0px rgba(0, 0, 0, 0.14),
+        0px 1px 3px 0px rgba(0, 0, 0, 0.12);
+      --contrast-bg: #f0f0f0;
+      --contrast-label-color: rgba(0, 0, 0, 0.45);
+      --contrast-sub-color: rgba(0, 0, 0, 0.55);
+    }
+    .theme-dark {
+      --primary-text-color: #e1e1e1;
+      --secondary-text-color: #9b9b9b;
+      --primary-background-color: #111111;
+      --secondary-background-color: #202020;
+      --card-background-color: #1c1c1e;
+      --divider-color: rgba(225, 225, 225, 0.12);
+      --error-color: #cf6679;
+      --warning-color: #e68900;
+      --info-color: #4f86f7;
+      --text-primary-color: #ffffff;
+      --rgb-primary-text-color: 225, 225, 225;
+      --ha-card-box-shadow:
+        0px 2px 1px -1px rgba(0, 0, 0, 0.5),
+        0px 1px 1px 0px rgba(0, 0, 0, 0.4),
+        0px 1px 3px 0px rgba(0, 0, 0, 0.3);
+      --contrast-bg: #0d1117;
+      --contrast-label-color: rgba(255, 255, 255, 0.45);
+      --contrast-sub-color: rgba(255, 255, 255, 0.55);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      font-family: Roboto, "Noto Sans", sans-serif;
+    }
+
+    /* 2×3 grid: columns = off / subtle / strict contrast modes;
+       rows = compact / default.
+       Compact row holds every fixture; default row shows a trimmed subset
+       so the cards' full-layout details don't blow out vertical height. */
+    .contrast-canvas {
+      background: var(--contrast-bg);
+      padding: 32px 28px 28px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      column-gap: 28px;
+      row-gap: 28px;
+      width: 1540px;
+    }
+
+    .showcase {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section-label {
+      color: var(--contrast-label-color);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .section-sub {
+      color: var(--contrast-sub-color);
+      font-size: 11px;
+      letter-spacing: 0.3px;
+      margin-bottom: 10px;
+      opacity: 0.85;
+    }
+
+    .card-inner {
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="contrast-canvas" id="contrast-canvas">
+
+    <!-- Row 1: compact × off -->
+    <div class="showcase">
+      <div class="section-label">Compact &middot; Off</div>
+      <div class="section-sub">enhanceContrast: 'off'</div>
+      <div class="card-inner">
+        <nws-alerts-card id="card-contrast-compact-off"></nws-alerts-card>
+      </div>
+    </div>
+
+    <!-- Row 1: compact × subtle -->
+    <div class="showcase">
+      <div class="section-label">Compact &middot; Subtle</div>
+      <div class="section-sub">enhanceContrast: 'subtle' (default)</div>
+      <div class="card-inner">
+        <nws-alerts-card id="card-contrast-compact-subtle"></nws-alerts-card>
+      </div>
+    </div>
+
+    <!-- Row 1: compact × strict -->
+    <div class="showcase">
+      <div class="section-label">Compact &middot; Strict</div>
+      <div class="section-sub">enhanceContrast: 'strict'</div>
+      <div class="card-inner">
+        <nws-alerts-card id="card-contrast-compact-strict"></nws-alerts-card>
+      </div>
+    </div>
+
+    <!-- Row 2: default × off -->
+    <div class="showcase">
+      <div class="section-label">Default &middot; Off</div>
+      <div class="section-sub">enhanceContrast: 'off'</div>
+      <div class="card-inner">
+        <nws-alerts-card id="card-contrast-default-off"></nws-alerts-card>
+      </div>
+    </div>
+
+    <!-- Row 2: default × subtle -->
+    <div class="showcase">
+      <div class="section-label">Default &middot; Subtle</div>
+      <div class="section-sub">enhanceContrast: 'subtle' (default)</div>
+      <div class="card-inner">
+        <nws-alerts-card id="card-contrast-default-subtle"></nws-alerts-card>
+      </div>
+    </div>
+
+    <!-- Row 2: default × strict -->
+    <div class="showcase">
+      <div class="section-label">Default &middot; Strict</div>
+      <div class="section-sub">enhanceContrast: 'strict'</div>
+      <div class="card-inner">
+        <nws-alerts-card id="card-contrast-default-strict"></nws-alerts-card>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module">
+    import '/dist/weather-alerts-card.js';
+    import { ALERTS_CONTRAST_DEMO } from '/scripts/screenshot-fixtures.js';
+
+    // ---- ha-card stub ----
+    class HaCard extends HTMLElement {
+      set header(v) {}
+      constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+        this.shadowRoot.innerHTML = `
+          <style>
+            :host {
+              display: block;
+              background: var(--ha-card-background, var(--card-background-color, white));
+              border-radius: var(--ha-card-border-radius, 12px);
+              box-shadow: var(--ha-card-box-shadow);
+              overflow: hidden;
+            }
+          </style>
+          <slot></slot>
+        `;
+      }
+    }
+    customElements.define('ha-card', HaCard);
+
+    // ---- ha-icon stub ----
+    class HaIcon extends HTMLElement {
+      static get observedAttributes() { return ['icon']; }
+      constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+      }
+      connectedCallback() { this._render(); }
+      attributeChangedCallback() { this._render(); }
+
+      _render() {
+        const icon = this.getAttribute('icon') || '';
+        const path = (window.__MDI_ICONS__ || {})[icon];
+        const size = this.style.width || 'var(--mdc-icon-size, 24px)';
+        this.style.display = 'inline-flex';
+        this.style.alignItems = 'center';
+        this.style.justifyContent = 'center';
+        this.shadowRoot.innerHTML = path
+          ? `<svg viewBox="0 0 24 24"
+               style="width:${size};height:${size};display:block;fill:currentColor">
+               <path d="${path}"/>
+             </svg>`
+          : `<svg viewBox="0 0 24 24"
+               style="width:${size};height:${size};display:block;fill:currentColor">
+               <circle cx="12" cy="12" r="9"/>
+             </svg>`;
+      }
+    }
+    customElements.define('ha-icon', HaIcon);
+
+    // ---- Mock hass ----
+    const NWS_ENTITY = 'sensor.nws_alerts_alerts';
+
+    // Full compact set — 9 alerts walking through every boost tier (see
+    // ALERTS_CONTRAST_DEMO for the breakdown).
+    const COMPACT_ALERTS = ALERTS_CONTRAST_DEMO;
+
+    // Trimmed default-layout set: one representative from each tier so the
+    // full-layout column stays a reasonable height.
+    //   - Tornado Warning             — control (no boost)
+    //   - Flash Flood Warning         — dark-only
+    //   - Heat Advisory               — borderline light (was boosted, no longer)
+    //   - Severe Thunderstorm Warning — text-only light
+    //   - Tornado Watch               — both tiers (text + progress)
+    const DEFAULT_ALERTS = ALERTS_CONTRAST_DEMO.filter(a =>
+      ['Tornado Warning', 'Flash Flood Warning', 'Heat Advisory', 'Severe Thunderstorm Warning', 'Tornado Watch'].includes(a.Event)
+    );
+
+    const makeHass = (alerts) => ({
+      locale: { language: 'en', time_format: '12', date_format: 'MDY' },
+      config: { time_zone: 'America/Denver' },
+      states: {
+        [NWS_ENTITY]: {
+          state: String(alerts.length),
+          attributes: { Alerts: alerts },
+        },
+      },
+    });
+
+    const compactHass = makeHass(COMPACT_ALERTS);
+    const defaultHass = makeHass(DEFAULT_ALERTS);
+
+    const configure = (id, { layout, enhanceContrast }, hass) => {
+      const el = document.getElementById(id);
+      const cfg = {
+        type: 'custom:nws-alerts-card',
+        entity: NWS_ENTITY,
+        animations: false,
+        colorTheme: 'nws',
+      };
+      if (layout) cfg.layout = layout;
+      if (enhanceContrast !== undefined) cfg.enhanceContrast = enhanceContrast;
+      el.setConfig(cfg);
+      el.hass = hass;
+    };
+
+    // Compact row: off / subtle (default) / strict
+    configure('card-contrast-compact-off',    { layout: 'compact', enhanceContrast: 'off'    }, compactHass);
+    configure('card-contrast-compact-subtle', { layout: 'compact'                             }, compactHass);
+    configure('card-contrast-compact-strict', { layout: 'compact', enhanceContrast: 'strict' }, compactHass);
+
+    // Default row (trimmed fixture set): off / subtle (default) / strict
+    configure('card-contrast-default-off',    { enhanceContrast: 'off'    }, defaultHass);
+    configure('card-contrast-default-subtle', {                            }, defaultHass);
+    configure('card-contrast-default-strict', { enhanceContrast: 'strict' }, defaultHass);
+  </script>
+</body>
+</html>
