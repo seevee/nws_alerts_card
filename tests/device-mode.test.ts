@@ -41,14 +41,18 @@ function entry(
 }
 
 function capAlertAttrs(extra: Record<string, unknown> = {}): Record<string, unknown> {
+  // Anchor to Date.now() so the alert is always within its active window;
+  // hard-coded ISO strings rot the moment the wall clock crosses `expires`,
+  // and `hideExpired` (default true) silently filters them out.
+  const now = Date.now();
   return {
     incident_platform_version: '1.0',
     id: 'urn:oid:2.49.0.1.276.0.abc',
     event: 'Frost',
     severity: 'Moderate',
     severity_normalized: 'moderate',
-    sent: '2026-04-25T22:00:00+00:00',
-    expires: '2026-04-26T07:00:00+00:00',
+    sent: new Date(now - 9 * 60 * 60 * 1000).toISOString(),
+    expires: new Date(now + 3 * 60 * 60 * 1000).toISOString(),
     ...extra,
   };
 }
