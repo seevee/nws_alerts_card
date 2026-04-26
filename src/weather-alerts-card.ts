@@ -1,7 +1,15 @@
-import { LitElement, html, nothing, TemplateResult } from 'lit';
+import { LitElement, html, nothing, TemplateResult, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { HomeAssistant, WeatherAlertsCardConfig, WeatherAlert, AlertProgress, AlertProvider, ContrastMode, DismissalRecord } from './types';
+import type { Connection } from 'home-assistant-js-websocket';
+import { HomeAssistant, WeatherAlertsCardConfig, WeatherAlert, AlertProgress, AlertProvider, ContrastMode, DismissalRecord, EntityRegistryDisplayEntry } from './types';
+import {
+  resolveDeviceAlertEntities,
+  deviceHasAnyEntity,
+  subscribeEntityRegistry,
+} from './registry';
+// Re-export for existing test imports.
+export { resolveDeviceAlertEntities, subscribeEntityRegistry } from './registry';
 import {
   loadDismissals,
   saveDismissals,
@@ -29,7 +37,7 @@ import {
   getDisplayHeadline,
   reflowAlertText,
 } from './utils';
-import { getAdapter, canHandleAny, ENTITY_NAME_PATTERNS } from './adapters';
+import { getAdapter, ENTITY_NAME_PATTERNS } from './adapters';
 import { t } from './localize';
 import { cardStyles } from './styles';
 import './weather-alerts-card-editor';
@@ -62,32 +70,9 @@ const PROVIDER_SHORT: Record<string, string> = {
   cap: 'CAP',
 };
 
-// Entity name patterns are now in adapters/index.ts (ENTITY_NAME_PATTERNS)
-
-/**
- * Returns entity IDs of per-alert sensors that belong to the given device.
- * Filters by attribute shape (any adapter's `canHandle`) rather than
- * entity_id prefix — the CAP Alerts integration produces ids of the form
- * `sensor.<device_slug>_cap_alert_<event>_<hash>`, so a prefix filter would
- * miss them. Diagnostic siblings (count, last_updated) carry no recognised
- * alert attributes and are skipped naturally.
- *
- * @internal exported for testing
- */
-export function resolveDeviceAlertEntities(hass: HomeAssistant, deviceId: string): string[] {
-  const reg = hass.entities;
-  if (!reg) return [];
-  const result: string[] = [];
-  for (const entry of Object.values(reg)) {
-    if (!entry || entry.device_id !== deviceId) continue;
-    const id = entry.entity_id;
-    if (!id) continue;
-    const state = hass.states[id];
-    if (!state || !canHandleAny(state.attributes)) continue;
-    result.push(id);
-  }
-  return result;
-}
+// Entity name patterns are now in adapters/index.ts (ENTITY_NAME_PATTERNS).
+// Registry helpers (resolveDeviceAlertEntities, deviceHasAnyEntity,
+// subscribeEntityRegistry) live in ./registry and are re-exported above.
 
 function getPreviewAlerts(): WeatherAlert[] {
   const now = Date.now() / 1000;
@@ -182,6 +167,12 @@ export class WeatherAlertsCard extends LitElement {
   private _dismissalsScope = '';
   private _unsubscribeDismissals?: () => void;
 
+  // Live entity-registry copy. `null` until the WS subscription delivers;
+  // resolution helpers fall back to `hass.entities` while it is null.
+  private _registryEntries: EntityRegistryDisplayEntry[] | null = null;
+  private _unsubscribeRegistry?: () => void;
+  private _subscribedRegistryConn?: Connection;
+
   private _motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   private _onMotionChange = () => this.requestUpdate();
 
@@ -193,6 +184,7 @@ export class WeatherAlertsCard extends LitElement {
       this._dismissalsScope = '';
       this._reloadDismissalsIfScopeChanged();
     }
+    this._maybeSubscribeRegistry();
   }
 
   disconnectedCallback() {
@@ -200,9 +192,53 @@ export class WeatherAlertsCard extends LitElement {
     this._motionQuery.removeEventListener('change', this._onMotionChange);
     this._unsubscribeDismissals?.();
     this._unsubscribeDismissals = undefined;
+    this._teardownRegistrySubscription();
     if (this._config?.entity || this._config?.device) {
       WeatherAlertsCard._editorExpandedState.set(this._entityStateKey(), this._expandedAlerts);
     }
+  }
+
+  protected updated(changed: PropertyValues): void {
+    super.updated(changed);
+    // `hass` is set as a property after the element mounts, so the WS
+    // connection typically becomes available here rather than in
+    // connectedCallback. Subscribe lazily and re-subscribe if the
+    // connection object swaps (e.g., after a reconnect).
+    if (changed.has('hass') && this.isConnected) {
+      this._maybeSubscribeRegistry();
+    }
+  }
+
+  private _maybeSubscribeRegistry(): void {
+    const conn = this.hass?.connection;
+    if (!conn || conn === this._subscribedRegistryConn) return;
+    // New (or first) connection — drop any prior subscription.
+    this._unsubscribeRegistry?.();
+    this._unsubscribeRegistry = undefined;
+    this._subscribedRegistryConn = conn;
+    subscribeEntityRegistry(conn, (entries) => {
+      this._registryEntries = entries;
+      this.requestUpdate();
+    }).then((unsub) => {
+      // The connection (or our own state) may have changed while the
+      // subscribe round-trip was in flight; honour that by tearing the
+      // freshly-acquired subscription down rather than retaining it.
+      if (this._subscribedRegistryConn !== conn) {
+        unsub();
+        return;
+      }
+      this._unsubscribeRegistry = unsub;
+    }).catch(() => {
+      if (this._subscribedRegistryConn === conn) {
+        this._subscribedRegistryConn = undefined;
+      }
+    });
+  }
+
+  private _teardownRegistrySubscription(): void {
+    this._unsubscribeRegistry?.();
+    this._unsubscribeRegistry = undefined;
+    this._subscribedRegistryConn = undefined;
   }
 
   public setConfig(config: WeatherAlertsCardConfig): void {
@@ -310,8 +346,8 @@ export class WeatherAlertsCard extends LitElement {
         result.push(id);
       }
     }
-    if (this._config.device && this.hass?.entities) {
-      for (const id of resolveDeviceAlertEntities(this.hass, this._config.device)) {
+    if (this._config.device && this.hass) {
+      for (const id of resolveDeviceAlertEntities(this.hass, this._config.device, this._registryEntries)) {
         if (!seen.has(id)) {
           seen.add(id);
           result.push(id);
@@ -328,12 +364,8 @@ export class WeatherAlertsCard extends LitElement {
   private _multiProvider = false;
 
   private _deviceHasAnyEntity(deviceId: string): boolean {
-    const reg = this.hass?.entities;
-    if (!reg) return false;
-    for (const entry of Object.values(reg)) {
-      if (entry?.device_id === deviceId) return true;
-    }
-    return false;
+    if (!this.hass) return false;
+    return deviceHasAnyEntity(this.hass, deviceId, this._registryEntries);
   }
 
   private _getAlerts(): WeatherAlert[] {

@@ -129,6 +129,7 @@ const en: TranslationMap = {
   'editor.entity_warning': 'Selected entity does not appear to contain weather alert data.',
   'editor.no_entities_hint': 'No supported weather alert entities found. A provider integration (e.g. NWS Alerts) must be installed first.',
   'editor.no_entities_hint_link': 'Supported providers',
+  'editor.no_device_alerts_hint': 'No active alert sensors found under this device yet. The card will populate automatically when CAP Alerts publishes alerts.',
 
   // Editor section labels
   'editor.section_entity': 'Entities & Provider',
@@ -267,6 +268,7 @@ const fr: TranslationMap = {
   'editor.entity_warning': 'L\'entite selectionnee ne semble pas contenir de donnees d\'alerte meteo.',
   'editor.no_entities_hint': 'Aucune entite d\'alerte meteo compatible trouvee. Une integration (ex. NWS Alerts) doit etre installee.',
   'editor.no_entities_hint_link': 'Fournisseurs supportes',
+  'editor.no_device_alerts_hint': 'Aucun capteur d\'alerte actif trouve sous cet appareil pour le moment. La carte se remplira automatiquement lorsque CAP Alerts publiera des alertes.',
 
   // Editor section labels
   'editor.section_entity': 'Entite et fournisseur',
@@ -405,6 +407,7 @@ const es: TranslationMap = {
   'editor.entity_warning': 'La entidad seleccionada no parece contener datos de alerta meteorologica.',
   'editor.no_entities_hint': 'No se encontraron entidades de alerta meteorologica compatibles. Se debe instalar una integracion (ej. NWS Alerts).',
   'editor.no_entities_hint_link': 'Proveedores compatibles',
+  'editor.no_device_alerts_hint': 'Aun no se encontraron sensores de alerta activos bajo este dispositivo. La tarjeta se rellenara automaticamente cuando CAP Alerts publique alertas.',
 
   // Editor section labels
   'editor.section_entity': 'Entidad y proveedor',
@@ -543,6 +546,7 @@ const it: TranslationMap = {
   'editor.entity_warning': 'L\'entità selezionata non sembra contenere dati di allerta meteo.',
   'editor.no_entities_hint': 'Nessuna entita di allerta meteo compatibile trovata. Un\'integrazione (es. NWS Alerts) deve essere installata.',
   'editor.no_entities_hint_link': 'Provider supportati',
+  'editor.no_device_alerts_hint': 'Nessun sensore di allerta attivo trovato sotto questo dispositivo per ora. La scheda si popolera automaticamente quando CAP Alerts pubblichera delle allerte.',
 
   // Editor section labels
   'editor.section_entity': 'Entità e fornitore',
@@ -681,6 +685,7 @@ const de: TranslationMap = {
   'editor.entity_warning': 'Die ausgewählte Entität scheint keine Wetterwarnungsdaten zu enthalten.',
   'editor.no_entities_hint': 'Keine kompatiblen Wetterwarnungs-Entitaten gefunden. Eine Integration (z.B. NWS Alerts) muss installiert sein.',
   'editor.no_entities_hint_link': 'Unterstutzte Anbieter',
+  'editor.no_device_alerts_hint': 'Noch keine aktiven Warnsensoren unter diesem Gerat gefunden. Die Karte fullt sich automatisch, sobald CAP Alerts Warnungen veroffentlicht.',
 
   // Editor section labels
   'editor.section_entity': 'Entität und Anbieter',

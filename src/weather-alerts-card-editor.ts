@@ -1,7 +1,9 @@
 import { LitElement, html, css, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { HomeAssistant, WeatherAlertsCardConfig, AlertSeverity, ContrastMode } from './types';
+import type { Connection } from 'home-assistant-js-websocket';
+import { HomeAssistant, WeatherAlertsCardConfig, AlertSeverity, ContrastMode, EntityRegistryDisplayEntry } from './types';
 import { canHandleAny, ENTITY_NAME_PATTERNS } from './adapters';
+import { resolveDeviceAlertEntities, subscribeEntityRegistry } from './registry';
 import { t } from './localize';
 import { computeScopeHash, loadDismissals, restoreAll, subscribeToDismissalChanges } from './dismissal';
 
@@ -13,11 +15,18 @@ export class WeatherAlertsCardEditor extends LitElement {
   private _subscribedDismissalsScope = '';
   private _unsubscribeDismissals?: () => void;
 
+  // Live entity-registry copy. `null` until the WS subscription delivers;
+  // `_renderNoEntitiesHint` falls back to `hass.entities` while it is null.
+  private _registryEntries: EntityRegistryDisplayEntry[] | null = null;
+  private _unsubscribeRegistry?: () => void;
+  private _subscribedRegistryConn?: Connection;
+
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this._unsubscribeDismissals?.();
     this._unsubscribeDismissals = undefined;
     this._subscribedDismissalsScope = '';
+    this._teardownRegistrySubscription();
   }
 
   protected updated(changed: Map<string, unknown>): void {
@@ -26,16 +35,48 @@ export class WeatherAlertsCardEditor extends LitElement {
     // current entity-set scope so dismiss/undo/restore-all events on any
     // card instance refresh the admin line immediately.
     const scope = this._currentScopeHash();
-    if (scope === this._subscribedDismissalsScope) return;
-    this._unsubscribeDismissals?.();
-    this._unsubscribeDismissals = undefined;
-    this._subscribedDismissalsScope = scope;
-    if (scope) {
-      this._unsubscribeDismissals = subscribeToDismissalChanges(
-        scope,
-        () => this.requestUpdate(),
-      );
+    if (scope !== this._subscribedDismissalsScope) {
+      this._unsubscribeDismissals?.();
+      this._unsubscribeDismissals = undefined;
+      this._subscribedDismissalsScope = scope;
+      if (scope) {
+        this._unsubscribeDismissals = subscribeToDismissalChanges(
+          scope,
+          () => this.requestUpdate(),
+        );
+      }
     }
+    if (this.isConnected) {
+      this._maybeSubscribeRegistry();
+    }
+  }
+
+  private _maybeSubscribeRegistry(): void {
+    const conn = this.hass?.connection;
+    if (!conn || conn === this._subscribedRegistryConn) return;
+    this._unsubscribeRegistry?.();
+    this._unsubscribeRegistry = undefined;
+    this._subscribedRegistryConn = conn;
+    subscribeEntityRegistry(conn, (entries) => {
+      this._registryEntries = entries;
+      this.requestUpdate();
+    }).then((unsub) => {
+      if (this._subscribedRegistryConn !== conn) {
+        unsub();
+        return;
+      }
+      this._unsubscribeRegistry = unsub;
+    }).catch(() => {
+      if (this._subscribedRegistryConn === conn) {
+        this._subscribedRegistryConn = undefined;
+      }
+    });
+  }
+
+  private _teardownRegistrySubscription(): void {
+    this._unsubscribeRegistry?.();
+    this._unsubscribeRegistry = undefined;
+    this._subscribedRegistryConn = undefined;
   }
 
   private get _lang(): string {
@@ -127,9 +168,17 @@ export class WeatherAlertsCardEditor extends LitElement {
   }
 
   private _renderNoEntitiesHint(lang: string): TemplateResult | typeof nothing {
-    // A configured device satisfies the editor's "alert source" requirement
-    // even if no per-alert entities exist yet.
-    if (this._config?.device) return nothing;
+    // Device-mode: surface a distinct hint while resolution returns 0 so the
+    // user knows the device is wired correctly but has no active alerts yet.
+    if (this._config?.device && this.hass) {
+      const resolved = resolveDeviceAlertEntities(
+        this.hass,
+        this._config.device,
+        this._registryEntries,
+      );
+      if (resolved.length > 0) return nothing;
+      return html`<ha-alert alert-type="info">${t('editor.no_device_alerts_hint', lang)}</ha-alert>`;
+    }
     const ids = this._getMatchingEntityIds();
     // The list always includes the configured entity as a fallback;
     // check whether any entry actually exists in HA

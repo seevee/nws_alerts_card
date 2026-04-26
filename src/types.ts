@@ -1,3 +1,5 @@
+import type { Connection } from 'home-assistant-js-websocket';
+
 // HA types (subset needed by card + editor)
 export interface HomeAssistant {
   states: Record<string, HassEntity>;
@@ -14,6 +16,8 @@ export interface HomeAssistant {
   };
   // Entity registry, keyed by entity_id. Available in HA 2023.4+.
   entities?: Record<string, EntityRegistryDisplayEntry>;
+  // Live WS connection — used to subscribe to entity_registry updates.
+  connection?: Connection;
 }
 
 export interface HassEntity {
