@@ -4,7 +4,7 @@ This file provides guidance to AI agents working with code in this repository.
 
 ## Project Overview
 
-A standalone custom Home Assistant Lovelace card for displaying weather alerts from multiple providers. Currently supports NWS (National Weather Service, US), BoM (Bureau of Meteorology, Australia), MeteoAlarm (EUMETNET, Europe), DWD (Deutscher Wetterdienst, Germany), PirateWeather, and the [CAP Alerts](../cap_alerts) integration (one entity per active alert, multi-region). Built with LitElement/Lit 3, bundled with Rollup, and packaged for HACS distribution.
+A standalone custom Home Assistant Lovelace card for displaying weather alerts from multiple providers. Currently supports NWS (National Weather Service, US), BoM (Bureau of Meteorology, Australia), MeteoAlarm (EUMETNET, Europe), DWD (Deutscher Wetterdienst, Germany), PirateWeather, and the [CAP Alerts](https://github.com/seevee/cap_alerts) integration (one entity per active alert, multi-region). Built with LitElement/Lit 3, bundled with Rollup, and packaged for HACS distribution.
 
 ## Build Commands
 
@@ -58,7 +58,7 @@ Always run `npm run lint` and `npm run test` before committing.
 interface WeatherAlertsCardConfig {
   entity: string;              // required — e.g. "sensor.nws_alerts_alerts"
   entities?: string[];         // additional entities to merge alerts from
-  device?: string;             // HA device_id — auto-discovers all `sensor.cap_alert_*` children (CAP Alerts integration)
+  device?: string;             // HA device_id — auto-discovers per-alert sensors under it. Provider-agnostic; currently only the CAP Alerts integration produces this shape.
   title?: string;              // optional card header
   zones?: string[];            // optional zone filter — e.g. ["COC059", "COZ039"]
   eventCodes?: string[];       // event codes to include (provider-specific) — empty/omitted = all
