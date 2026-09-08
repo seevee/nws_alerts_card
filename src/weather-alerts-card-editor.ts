@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Connection } from 'home-assistant-js-websocket';
 import { HomeAssistant, WeatherAlertsCardConfig, EntityRegistryDisplayEntry, DecoPhase, ProgressDecoration, IconBorderStyle, ProgressStyleConfig, IconBorderStyleConfig, ActionConfig, PROGRESS_DECO_DEFAULTS, ICON_BORDER_DEFAULTS } from './types';
-import { SELECTS, TOGGLES, SelectKey, SimpleKey, SimpleValue, ToggleKey, effectiveValue, isOn, withKey } from './editor-fields';
+import { DETAIL_SECTIONS, PANELS, PANEL_LABELS, Panel, SELECTS, STYLING_KEYS, TOGGLES, SelectKey, SimpleKey, SimpleValue, ToggleKey, changedCount, effectiveValue, isOn, withKey } from './editor-fields';
 import { canHandleAny, ENTITY_NAME_PATTERNS, getAdapter, knownFeedSources, pointCapableProviders } from './adapters';
 import { LengthUnit, displayToKm, kmToDisplay, toLengthUnit } from './utils';
 import { configuredDevices, deviceEntityIds, resolveDeviceAlertEntities, subscribeEntityRegistry } from './registry';
@@ -14,9 +14,6 @@ export class WeatherAlertsCardEditor extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
   @state() private _config!: WeatherAlertsCardConfig;
   @state() private _showPreview = false;
-  // Local UI: whether the collapsible per-phase progress/icon styling group is
-  // open. Not persisted to config — purely an editor disclosure.
-  @state() private _showStyling = false;
   private _subscribedDismissalsScope = '';
   private _unsubscribeDismissals?: () => void;
 
@@ -713,27 +710,25 @@ export class WeatherAlertsCardEditor extends LitElement {
     if (next !== this._config) this._fireConfigChanged(next);
   }
 
-  private _renderToggle(key: ToggleKey, disabled?: boolean): TemplateResult {
+  private _renderToggle(key: ToggleKey): TemplateResult {
     const field = TOGGLES[key];
     return html`
       <ha-formfield .label=${t(field.label, this._lang)}>
         <ha-switch
           .checked=${isOn(this._config, field)}
-          .disabled=${disabled ?? nothing}
           @change=${(ev: Event) => this._writeKey(key, (ev.target as HTMLInputElement).checked ? field.on : field.off)}
         ></ha-switch>
       </ha-formfield>
     `;
   }
 
-  private _renderSelect(key: SelectKey, disabled?: boolean): TemplateResult {
+  private _renderSelect(key: SelectKey): TemplateResult {
     const field = SELECTS[key];
     const lang = this._lang;
     return html`
       <ha-select
         .label=${t(field.label, lang)}
         .value=${effectiveValue(this._config, key)}
-        .disabled=${disabled ?? nothing}
         @selected=${(ev: CustomEvent) => this._writeKey(key, this._selectValue(ev))}
         ?fixedMenuPosition=${this._legacyMenu}
         ?naturalMenuWidth=${this._legacyMenu}
@@ -743,17 +738,57 @@ export class WeatherAlertsCardEditor extends LitElement {
     `;
   }
 
+  // Each panel binds `.header` / `.secondary` as properties rather than
+  // slotting a heading: ha-expansion-panel renders the secondary line as
+  // fallback content *inside* the header slot, so a slotted header would drop
+  // the count. `.expanded` is a constant per panel — Lit never re-commits an
+  // unchanged binding — so the element owns its open/closed state across
+  // re-renders and the editor tracks nothing. Source carries no count: its
+  // keys are the configuration, not a deviation from defaults.
+  private _renderPanel(panel: Panel, expanded: boolean, lang: string, content: TemplateResult): TemplateResult {
+    const n = panel === 'source' ? 0 : changedCount(this._config, PANELS[panel]);
+    return html`
+      <ha-expansion-panel
+        outlined
+        .expanded=${expanded}
+        .header=${t(PANEL_LABELS[panel], lang)}
+        .secondary=${n > 0 ? t('editor.panel_changed', lang, { count: n }) : ''}
+      >
+        <div class="content">${content}</div>
+      </ha-expansion-panel>
+    `;
+  }
+
   protected render(): TemplateResult {
     if (!this.hass || !this._config) return html``;
     const lang = this._lang;
+    // The preview switch is a tool, not a setting: it stays above the panels.
     return html`
       <div class="editor">
-        ${this._renderSourceSection(lang)}
-        ${this._renderFilteringSection(lang)}
-        ${this._renderAppearanceSection(lang)}
-        ${this._renderDetailsSection(lang)}
-        ${this._renderBehaviorSection(lang)}
-        ${this._renderDismissalSection(lang)}
+        ${this._renderPreviewTools(lang)}
+        ${this._renderPanel('source', true, lang, this._renderSourceSection(lang))}
+        ${this._renderPanel('filtering', false, lang, this._renderFilteringSection(lang))}
+        ${this._renderPanel('appearance', false, lang, this._renderAppearanceSection(lang))}
+        ${this._renderPanel('details', false, lang, this._renderDetailsSection(lang))}
+        ${this._renderPanel('behavior', false, lang, this._renderBehaviorSection(lang))}
+        ${this._renderPanel('dismissal', false, lang, this._renderDismissalSection(lang))}
+        ${this._renderPanel('advanced', false, lang, this._renderAdvancedSection(lang))}
+      </div>
+    `;
+  }
+
+  private _renderPreviewTools(lang: string): TemplateResult {
+    return html`
+      <div class="preview-tools">
+        <ha-formfield .label=${t('editor.show_preview', lang)}>
+          <ha-switch
+            .checked=${this._showPreview}
+            @change=${this._previewChanged}
+          ></ha-switch>
+        </ha-formfield>
+        ${this._hasNoRealAlerts() && !this._showPreview
+          ? html`<div class="preview-nudge">${t('editor.preview_nudge', lang)}</div>`
+          : html`<div class="preview-hint">${t('editor.preview_hint', lang)}</div>`}
       </div>
     `;
   }
@@ -780,8 +815,6 @@ export class WeatherAlertsCardEditor extends LitElement {
       }));
 
     return html`
-      <div class="section-label">${t('editor.section_entity', lang)}</div>
-
       <ha-selector
         .hass=${this.hass}
         .selector=${{ entity: { multiple: true, include_entities: this._getMatchingEntityIds() } }}
@@ -826,33 +859,11 @@ export class WeatherAlertsCardEditor extends LitElement {
           `
         : nothing}
 
-      ${this._renderPreviewTools(lang)}
-
-      ${this._renderToggle('showProvider')}
-
       <ha-textfield
         .label=${t('editor.title', lang)}
         .value=${this._config.title || ''}
         @change=${this._titleChanged}
       ></ha-textfield>
-
-      ${this._renderSelect('provider')}
-    `;
-  }
-
-  private _renderPreviewTools(lang: string): TemplateResult {
-    return html`
-      <div class="preview-tools">
-        <ha-formfield .label=${t('editor.show_preview', lang)}>
-          <ha-switch
-            .checked=${this._showPreview}
-            @change=${this._previewChanged}
-          ></ha-switch>
-        </ha-formfield>
-        ${this._hasNoRealAlerts() && !this._showPreview
-          ? html`<div class="preview-nudge">${t('editor.preview_nudge', lang)}</div>`
-          : html`<div class="preview-hint">${t('editor.preview_hint', lang)}</div>`}
-      </div>
     `;
   }
 
@@ -863,8 +874,6 @@ export class WeatherAlertsCardEditor extends LitElement {
     const excludeEventCodesStr = this._config.excludeEventCodes ? this._config.excludeEventCodes.join(', ') : '';
 
     return html`
-      <div class="section-label">${t('editor.section_filtering', lang)}</div>
-
       <ha-textfield
         .label=${t('editor.zones', lang)}
         .value=${zonesStr}
@@ -920,110 +929,111 @@ export class WeatherAlertsCardEditor extends LitElement {
 
   private _renderAppearanceSection(lang: string): TemplateResult {
     return html`
-      <div class="section-label">${t('editor.section_appearance', lang)}</div>
-
       ${this._renderToggle('layout')}
       ${this._renderSelect('colorTheme')}
-      ${this._renderSelect('enhanceContrast')}
       ${this._renderSelect('fontSize')}
+      ${this._renderToggle('showProvider')}
       ${this._renderToggle('animations')}
-
       ${this._renderStylingGroup(lang)}
-
-      ${this._renderToggle('reformatText')}
     `;
   }
 
-  // Per-phase progress/icon styling: power-user knobs with good defaults,
-  // collapsed by default so they cost one row until opened. Open state is
-  // local UI (not stored in config).
+  // Per-phase progress/icon styling: power-user knobs with good defaults, in a
+  // nested (not outlined) panel so they cost one row until opened.
   private _renderStylingGroup(lang: string): TemplateResult {
     const legacyMenu = this._legacyMenu;
+    const n = changedCount(this._config, STYLING_KEYS);
     return html`
-      <div
-        class="section-label section-toggle ${this._config.progressFill || this._config.progressStyle || this._config.iconBorderStyle ? 'section-toggle-set' : ''}"
-        @click=${() => { this._showStyling = !this._showStyling; }}
+      <ha-expansion-panel
+        .expanded=${false}
+        .header=${t('editor.styling_section', lang)}
+        .secondary=${n > 0 ? t('editor.panel_changed', lang, { count: n }) : ''}
       >
-        <span>${t('editor.styling_section', lang)}</span>
-        <ha-icon
-          icon="mdi:chevron-down"
-          class="section-chevron ${this._showStyling ? 'expanded' : ''}"
-        ></ha-icon>
-      </div>
-      ${this._showStyling ? html`
-        ${this._renderSelect('progressFill')}
+        <div class="content">
+          ${this._renderSelect('progressFill')}
 
-        <div class="sub-label">${t('editor.progress_style', lang)}</div>
-        ${this._config.progressFill === 'background'
-          ? html`<div class="preview-hint">${t('editor.progress_style_wash_note', lang)}</div>`
-          : nothing}
-        <div class="phase-row">
-          ${(['preparation', 'active', 'ongoing'] as DecoPhase[]).map(phase => html`
-            <ha-select
-              .label=${t('editor.progress_style_' + phase, lang)}
-              .value=${this._config.progressStyle?.[phase] || PROGRESS_DECO_DEFAULTS[phase]}
-              @selected=${(ev: CustomEvent) => this._progressStyleChanged(phase, ev)}
-              ?fixedMenuPosition=${legacyMenu}
-              ?naturalMenuWidth=${legacyMenu}
-            >
-              ${this._renderSelectItem('solid', t('editor.deco_solid', lang))}
-              ${this._renderSelectItem('striped', t('editor.deco_striped', lang))}
-              ${this._renderSelectItem('shimmer', t('editor.deco_shimmer', lang))}
-              ${this._renderSelectItem('pulse', t('editor.deco_pulse', lang))}
-            </ha-select>
-          `)}
-        </div>
+          <div class="sub-label">${t('editor.progress_style', lang)}</div>
+          ${this._config.progressFill === 'background'
+            ? html`<div class="preview-hint">${t('editor.progress_style_wash_note', lang)}</div>`
+            : nothing}
+          <div class="phase-row">
+            ${(['preparation', 'active', 'ongoing'] as DecoPhase[]).map(phase => html`
+              <ha-select
+                .label=${t('editor.progress_style_' + phase, lang)}
+                .value=${this._config.progressStyle?.[phase] || PROGRESS_DECO_DEFAULTS[phase]}
+                @selected=${(ev: CustomEvent) => this._progressStyleChanged(phase, ev)}
+                ?fixedMenuPosition=${legacyMenu}
+                ?naturalMenuWidth=${legacyMenu}
+              >
+                ${this._renderSelectItem('solid', t('editor.deco_solid', lang))}
+                ${this._renderSelectItem('striped', t('editor.deco_striped', lang))}
+                ${this._renderSelectItem('shimmer', t('editor.deco_shimmer', lang))}
+                ${this._renderSelectItem('pulse', t('editor.deco_pulse', lang))}
+              </ha-select>
+            `)}
+          </div>
 
-        <div class="sub-label">${t('editor.icon_border_style', lang)}</div>
-        <div class="phase-row">
-          ${(['preparation', 'active', 'ongoing'] as DecoPhase[]).map(phase => html`
-            <ha-select
-              .label=${t('editor.progress_style_' + phase, lang)}
-              .value=${this._config.iconBorderStyle?.[phase] || ICON_BORDER_DEFAULTS[phase]}
-              @selected=${(ev: CustomEvent) => this._iconBorderStyleChanged(phase, ev)}
-              ?fixedMenuPosition=${legacyMenu}
-              ?naturalMenuWidth=${legacyMenu}
-            >
-              ${this._renderSelectItem('dashed', t('editor.icon_border_dashed', lang))}
-              ${this._renderSelectItem('solid', t('editor.icon_border_solid', lang))}
-            </ha-select>
-          `)}
+          <div class="sub-label">${t('editor.icon_border_style', lang)}</div>
+          <div class="phase-row">
+            ${(['preparation', 'active', 'ongoing'] as DecoPhase[]).map(phase => html`
+              <ha-select
+                .label=${t('editor.progress_style_' + phase, lang)}
+                .value=${this._config.iconBorderStyle?.[phase] || ICON_BORDER_DEFAULTS[phase]}
+                @selected=${(ev: CustomEvent) => this._iconBorderStyleChanged(phase, ev)}
+                ?fixedMenuPosition=${legacyMenu}
+                ?naturalMenuWidth=${legacyMenu}
+              >
+                ${this._renderSelectItem('dashed', t('editor.icon_border_dashed', lang))}
+                ${this._renderSelectItem('solid', t('editor.icon_border_solid', lang))}
+              </ha-select>
+            `)}
+          </div>
         </div>
+      </ha-expansion-panel>
+    `;
+  }
+
+  // Dependents are hidden, not disabled, while the detail panel is off: a
+  // saved-but-hidden key (e.g. `showGeometry: true` under `showDetails:
+  // false`) keeps counting in the panel header and comes back when the master
+  // is switched on.
+  private _renderDetailsSection(lang: string): TemplateResult {
+    if (this._config.showDetails === false) return this._renderToggle('showDetails');
+    const options = DETAIL_SECTIONS.map(key => ({ value: key, label: t(TOGGLES[key].label, lang) }));
+    return html`
+      ${this._renderToggle('showDetails')}
+      ${this._renderToggle('expandDetails')}
+
+      <ha-selector
+        .hass=${this.hass}
+        .selector=${{ select: { multiple: true, mode: 'list', options } }}
+        .value=${DETAIL_SECTIONS.filter(key => isOn(this._config, TOGGLES[key]))}
+        .label=${t('editor.detail_sections', lang)}
+        @value-changed=${this._detailSectionsChanged}
+      ></ha-selector>
+
+      ${this._config.showGeometry === true ? html`
+        ${this._renderSelect('geometryStyle')}
+        ${this._renderToggle('showMyLocation')}
       ` : nothing}
     `;
   }
 
-  private _renderDetailsSection(lang: string): TemplateResult {
-    const off = this._config.showDetails === false;
-    return html`
-      <div class="section-label">${t('editor.section_detail_panel', lang)}</div>
-
-      ${this._renderToggle('showDetails')}
-      ${this._renderToggle('expandDetails', off)}
-      ${this._renderToggle('showMetadata', off)}
-      ${this._renderToggle('showDescription', off)}
-      ${this._renderToggle('showInstructions', off)}
-      ${this._renderToggle('showGeometry', off)}
-
-      ${this._config.showGeometry === true ? html`
-        ${this._renderSelect('geometryStyle', off)}
-        ${this._renderToggle('showMyLocation', off)}
-      ` : nothing}
-
-      ${this._renderToggle('showSourceLink', off)}
-    `;
+  // One click on the sections list is one event: fold `withKey` over the five
+  // keys, so a section switched off deletes or writes exactly its own key.
+  private _detailSectionsChanged(ev: CustomEvent): void {
+    const raw = ev.detail?.value;
+    const selected = new Set<string>(Array.isArray(raw) ? raw : []);
+    let next = this._config;
+    for (const key of DETAIL_SECTIONS) next = withKey(next, key, selected.has(key));
+    if (next !== this._config) this._fireConfigChanged(next);
   }
 
   private _renderBehaviorSection(lang: string): TemplateResult {
     return html`
-      <div class="section-label">${t('editor.section_behavior', lang)}</div>
-
       ${this._renderTapAction(lang)}
 
       ${this._renderSelect('sortOrder')}
-      ${this._renderSelect('timezone')}
-      ${this._renderToggle('deduplicate')}
-      ${this._renderToggle('deduplicateHeadlines')}
       ${this._renderToggle('hideExpired')}
 
       <ha-formfield .label=${t('editor.hide_no_alerts', lang)}>
@@ -1089,19 +1099,28 @@ export class WeatherAlertsCardEditor extends LitElement {
   }
 
   private _renderDismissalSection(lang: string): TemplateResult {
+    const allow = this._config.allowDismiss === true;
     return html`
-      <div class="section-label">${t('editor.section_dismissal', lang)}</div>
-
       ${this._renderToggle('allowDismiss')}
 
-      ${this._config.allowDismiss === true ? html`
+      ${allow ? html`
         ${this._renderSelect('dismissTrigger')}
         ${this._config.dismissTrigger !== 'swipe' ? this._renderSelect('dismissButtonStyle') : nothing}
+        ${this._renderToggle('showDismissUndo')}
       ` : nothing}
 
-      ${this._renderToggle('showDismissUndo', this._config.allowDismiss !== true)}
-
       ${this._renderDismissedStatus(lang)}
+    `;
+  }
+
+  private _renderAdvancedSection(lang: string): TemplateResult {
+    return html`
+      ${this._renderSelect('provider')}
+      ${this._renderSelect('timezone')}
+      ${this._renderSelect('enhanceContrast')}
+      ${this._renderToggle('reformatText')}
+      ${this._renderToggle('deduplicate')}
+      ${this._renderToggle('deduplicateHeadlines')}
     `;
   }
 
@@ -1127,40 +1146,17 @@ export class WeatherAlertsCardEditor extends LitElement {
       gap: 16px;
       padding: 16px 0;
     }
-    .section-label {
-      font-size: 0.75rem;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--secondary-text-color);
-      border-bottom: 1px solid var(--divider-color);
-      padding-bottom: 4px;
-      margin-top: 8px;
+    ha-expansion-panel {
+      --expansion-panel-content-padding: 0;
     }
-    /* Clickable disclosure header for the collapsible styling group. */
-    .section-toggle {
+    /* Panel body: the ha-form expandable convention. */
+    .content {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      cursor: pointer;
-      user-select: none;
+      flex-direction: column;
+      gap: 16px;
+      padding: 12px;
     }
-    /* Marks the collapsed group when non-default overrides are set, so a closed
-       section never hides that styling has been customized. */
-    .section-toggle-set > span::after {
-      content: '•';
-      margin-left: 6px;
-      color: var(--primary-color);
-    }
-    .section-chevron {
-      --mdc-icon-size: 20px;
-      transition: transform 0.2s;
-      color: var(--secondary-text-color);
-    }
-    .section-chevron.expanded {
-      transform: rotate(180deg);
-    }
-    /* Sub-heading inside the disclosure (lighter than a section-label). */
+    /* Sub-heading inside the styling group. */
     .sub-label {
       font-size: 0.75rem;
       color: var(--secondary-text-color);

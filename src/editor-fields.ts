@@ -179,6 +179,31 @@ export const PANELS: Readonly<Record<Panel, readonly (keyof WeatherAlertsCardCon
   advanced: ['provider', 'timezone', 'reformatText', 'deduplicate', 'deduplicateHeadlines', 'enhanceContrast'],
 };
 
+/** Translation key of each panel's header, in display order. */
+export const PANEL_LABELS: Readonly<Record<Panel, string>> = {
+  source: 'editor.section_source',
+  filtering: 'editor.section_filtering',
+  appearance: 'editor.section_appearance',
+  details: 'editor.section_detail_panel',
+  behavior: 'editor.section_behavior',
+  dismissal: 'editor.section_dismissal',
+  advanced: 'editor.section_advanced',
+};
+
+/** The detail-panel sections offered as one multi-select list, in display
+ *  order. Each is an ordinary toggle field; the list is a denser control over
+ *  the same five keys. */
+export const DETAIL_SECTIONS = [
+  'showMetadata',
+  'showDescription',
+  'showInstructions',
+  'showSourceLink',
+  'showGeometry',
+] as const satisfies readonly ToggleKey[];
+
+/** The keys the nested styling group owns, for its own header count. */
+export const STYLING_KEYS = ['progressFill', 'progressStyle', 'iconBorderStyle'] as const satisfies readonly (keyof WeatherAlertsCardConfig)[];
+
 /** The value the control shows: the stored one, else the field default. */
 export function effectiveValue(config: WeatherAlertsCardConfig, key: SimpleKey): SimpleValue {
   return (config[key] as SimpleValue | undefined) ?? FIELDS[key].default;
@@ -211,4 +236,22 @@ export function withKey(
     (next as Record<SimpleKey, SimpleValue>)[key] = value;
   }
   return next;
+}
+
+/** How many of `keys` are customised: registry keys whose effective value
+ *  differs from the default, plus bespoke keys that are present. An explicit
+ *  `showDetails: true` is not customised; a `zones: []` is. */
+export function changedCount(
+  config: WeatherAlertsCardConfig,
+  keys: readonly (keyof WeatherAlertsCardConfig)[],
+): number {
+  let n = 0;
+  for (const key of keys) {
+    if (key in FIELDS) {
+      if (!isDefault(config, key as SimpleKey)) n++;
+    } else if (config[key] !== undefined) {
+      n++;
+    }
+  }
+  return n;
 }

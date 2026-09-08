@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render } from 'lit';
 import { WeatherAlertsCardEditor } from '../src/weather-alerts-card-editor';
 import {
-  FIELDS, PANELS, SELECT_FIELDS, TOGGLE_FIELDS,
+  DETAIL_SECTIONS, FIELDS, PANELS, SELECT_FIELDS, TOGGLE_FIELDS,
   effectiveValue, isDefault, isOn, withKey,
   type Field, type SimpleKey, type SimpleValue,
 } from '../src/editor-fields';
@@ -18,7 +18,6 @@ import type { HomeAssistant, WeatherAlertsCardConfig } from '../src/types';
 type EditorInternals = {
   _config: WeatherAlertsCardConfig;
   hass: HomeAssistant;
-  _showStyling: boolean;
   _writeKey(key: SimpleKey, value: SimpleValue): void;
   render(): unknown;
   addEventListener(type: string, listener: (ev: Event) => void): void;
@@ -51,14 +50,19 @@ function makeEditor(config: WeatherAlertsCardConfig): { editor: EditorInternals;
 }
 
 /** A config in which every gated control is rendered: details on, geometry
- *  on, dismissal on with a button trigger, styling group open. */
+ *  on, dismissal on with a button trigger. Collapsed panels are undefined
+ *  elements in jsdom, so their children stay ordinary light DOM. */
 function everythingVisible(): WeatherAlertsCardConfig {
   return base({ showGeometry: true, allowDismiss: true });
 }
 
+// The five detail-section toggles render as options of one list selector
+// rather than switches; their round trip is pinned in editor-panels.test.ts.
+const LIST_KEYS: readonly string[] = DETAIL_SECTIONS;
+const SWITCH_FIELDS = TOGGLE_FIELDS.filter(f => !LIST_KEYS.includes(f.key));
+
 type Control = { kind: 'toggle' | 'select'; el: Element; label: string };
 function renderControls(editor: EditorInternals): Control[] {
-  editor._showStyling = true;
   const host = document.createElement('div');
   render(editor.render() as never, host, { host: editor });
   const out: Control[] = [];
@@ -68,6 +72,12 @@ function renderControls(editor: EditorInternals): Control[] {
   }
   for (const sel of host.querySelectorAll('ha-select')) {
     out.push({ kind: 'select', el: sel, label: (sel as unknown as { label: string }).label });
+  }
+  const list = [...host.querySelectorAll('ha-selector')]
+    .map(el => el as unknown as { label?: string; selector?: { select?: { options?: { label: string }[] } } })
+    .find(el => el.label === 'Sections');
+  for (const o of list?.selector?.select?.options ?? []) {
+    out.push({ kind: 'toggle', el: list as unknown as Element, label: o.label });
   }
   return out;
 }
@@ -158,7 +168,7 @@ describe('rendered controls', () => {
     }
   });
 
-  it.each(TOGGLE_FIELDS.map(f => [f.key, f] as const))('%s switch writes through _writeKey', (key, f) => {
+  it.each(SWITCH_FIELDS.map(f => [f.key, f] as const))('%s switch writes through _writeKey', (key, f) => {
     const { editor, events } = makeEditor(everythingVisible());
     const control = renderControls(editor).find(c => c.kind === 'toggle' && c.label === translations.en[f.label])!;
     const sw = control.el as unknown as { checked: boolean };

@@ -194,11 +194,15 @@ export const en: TranslationMap = {
 
   // Editor section labels
   'editor.section_entity': 'Entities & Provider',
+  'editor.section_source': 'Source',
   'editor.section_filtering': 'Filtering',
   'editor.section_appearance': 'Appearance',
   'editor.section_detail_panel': 'Detail Panel',
   'editor.section_behavior': 'Behavior',
   'editor.section_dismissal': 'Dismissal',
+  'editor.section_advanced': 'Advanced',
+  'editor.detail_sections': 'Sections',
+  'editor.panel_changed': '{count} changed',
   'editor.dismiss_trigger': 'Dismiss trigger',
   'editor.dismiss_trigger_button': 'Button only',
   'editor.dismiss_trigger_swipe': 'Swipe only',
