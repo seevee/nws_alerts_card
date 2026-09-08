@@ -297,3 +297,139 @@ describe('detail sections list', () => {
     expect(events[0]).toEqual(base({ showMetadata: false, showDescription: false, showInstructions: false, showSourceLink: false }));
   });
 });
+
+describe('default option suffix', () => {
+  const optionsOf = (root: Element, label: string) => {
+    const sel = ([...root.querySelectorAll('ha-select')] as Labelled[]).find(s => s.label === label)!;
+    return [...sel.querySelectorAll('ha-dropdown-item')].map(i => (i.textContent || '').trim());
+  };
+
+  it('marks the default entry of every registry dropdown', () => {
+    const host = renderHost(makeEditor(base({ progressFill: 'background' })).editor);
+    expect(optionsOf(host, 'Progress fill')).toEqual(['Track (thin bar) (default)', 'Background wash']);
+    expect(optionsOf(host, 'Enhance contrast')).toEqual(['Off', 'Subtle (default)', 'Strict (WCAG AA)']);
+    expect(optionsOf(host, 'Alert provider')[0]).toBe('Auto-detect (default)');
+  });
+
+  it('leaves entries that already call themselves the default alone', () => {
+    const host = renderHost(makeEditor(base()).editor);
+    expect(optionsOf(host, 'Sort order')).toEqual(['Default', 'Onset time', 'Severity']);
+    expect(optionsOf(host, 'Font size')[1]).toBe('Default');
+    expect(optionsOf(host, 'Tap action')[0]).toBe('Inline expand (default)');
+  });
+
+  it('marks each phase select with its own default', () => {
+    const host = renderHost(makeEditor(base()).editor);
+    const phaseSelects = [...host.querySelectorAll('.phase-row ha-select')] as Labelled[];
+    const items = phaseSelects.map(s => [...s.querySelectorAll('ha-dropdown-item')].map(i => (i.textContent || '').trim()));
+    expect(items[0]).toContain('Striped (default)');   // preparation
+    expect(items[1]).toContain('Shimmer (default)');   // active
+    expect(items[2]).toContain('Pulse (default)');     // ongoing
+    expect(items[3]).toContain('Dashed (default)');    // icon preparation
+    expect(items[4]).toContain('Solid (default)');     // icon active
+  });
+});
+
+describe('reset links', () => {
+  const rows = (host: HTMLElement) =>
+    [...host.querySelectorAll('.field.changed')].map(f => ({
+      label: (f.querySelector('ha-formfield, ha-select, ha-input, ha-textfield, ha-selector') as Labelled | null)?.label,
+      link: f.querySelector(':scope > .reset-link') as HTMLElement | null,
+    }));
+  const click = (el: HTMLElement | null | undefined) => el!.dispatchEvent(new Event('click'));
+
+  it('renders none on a default card', () => {
+    expect(renderHost(makeEditor(base()).editor).querySelectorAll('.reset-link')).toHaveLength(0);
+  });
+
+  it('renders one under every changed row, registry and bespoke alike', () => {
+    const cfg = base({
+      provider: 'nsw_rfs', zones: ['A'], maxDistanceKm: 20, myLocationEntity: 'zone.work',
+      layout: 'compact', progressStyle: { active: 'striped' }, iconBorderStyle: { ongoing: 'dashed' },
+      tap_action: { action: 'none' }, hideNoAlerts: true, timezone: 'browser',
+    });
+    const r = rows(renderHost(makeEditor(cfg).editor));
+    expect(r.every(x => x.link !== null)).toBe(true);
+    expect(r.map(x => x.label).sort()).toEqual([
+      'Alert provider', 'Zones (optional)', 'Maximum distance (km)', 'My location',
+      'Compact layout', 'Active', 'Ongoing', 'Tap action',
+      'Hide card when there are no active alerts', 'Timezone',
+    ].sort());
+  });
+
+  it('resets a registry key to its default in one event', () => {
+    const { editor, events } = makeEditor(base({ layout: 'compact', colorTheme: 'nws' }));
+    click(rows(renderHost(editor)).find(x => x.label === 'Compact layout')?.link);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual(base({ colorTheme: 'nws' }));
+  });
+
+  it('deletes a bespoke key', () => {
+    for (const [cfg, label, key] of [
+      [base({ zones: ['A'] }), 'Zones (optional)', 'zones'],
+      [base({ provider: 'nsw_rfs', maxDistanceKm: 20 }), 'Maximum distance (km)', 'maxDistanceKm'],
+      [base({ tap_action: { action: 'navigate', navigation_path: '/x' } }), 'Tap action', 'tap_action'],
+    ] as const) {
+      const { editor, events } = makeEditor(cfg);
+      click(rows(renderHost(editor)).find(x => x.label === label)?.link);
+      expect(events, label).toHaveLength(1);
+      expect(key in events[0], label).toBe(false);
+    }
+  });
+
+  it('resets hideNoAlerts through the visibility sync', () => {
+    const cfg = base({ hideNoAlerts: true, visibility: [{ condition: 'state', entity: 'sensor.nws_alerts', state_not: '0' }] });
+    const { editor, events } = makeEditor(cfg);
+    click(rows(renderHost(editor)).find(x => x.label === 'Hide card when there are no active alerts')?.link);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual(base());
+  });
+
+  it('resets one phase and prunes the emptied styling object', () => {
+    const { editor, events } = makeEditor(base({ progressStyle: { active: 'striped' } }));
+    click(rows(renderHost(editor)).find(x => x.label === 'Active')?.link);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual(base());
+  });
+
+  it('activates from the keyboard', () => {
+    const { editor, events } = makeEditor(base({ layout: 'compact' }));
+    const link = rows(renderHost(editor))[0].link!;
+    link.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
+    expect(events).toHaveLength(0);
+    link.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(events).toHaveLength(1);
+  });
+});
+
+describe('hidden-but-set dependents', () => {
+  const alsoSet = (root: Element) =>
+    [...root.querySelectorAll('.also-set')].map(el => (el.textContent || '').replace(/\s+/g, ' ').trim());
+
+  it('renders nothing when no master hides a set key', () => {
+    expect(alsoSet(renderHost(makeEditor(base()).editor))).toEqual([]);
+    expect(alsoSet(renderHost(makeEditor(base({ showDetails: false, allowDismiss: false })).editor))).toEqual([]);
+  });
+
+  it('names the detail keys hidden under an off detail panel, and clears them in one event', () => {
+    const { editor, events } = makeEditor(base({ showDetails: false, showGeometry: true, geometryStyle: 'map', showSourceLink: false }));
+    const host = renderHost(editor);
+    const byPanel = panels(host);
+    expect(alsoSet(byPanel.details)).toEqual(['Also set: Show area map · Area map style · Show source link Reset to default']);
+    (byPanel.details.querySelector('.also-set .reset-link') as HTMLElement).dispatchEvent(new Event('click'));
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual(base({ showDetails: false }));
+  });
+
+  it('names geometry keys set while the map is off', () => {
+    const byPanel = panels(renderHost(makeEditor(base({ geometryStyle: 'map', showMyLocation: true })).editor));
+    expect(alsoSet(byPanel.details)).toEqual(['Also set: Area map style · Show my location on the map Reset to default']);
+  });
+
+  it('names dismissal keys under an off master, and the button style under a swipe trigger', () => {
+    const off = panels(renderHost(makeEditor(base({ dismissTrigger: 'swipe', showDismissUndo: false })).editor)).dismissal;
+    expect(alsoSet(off)).toEqual(['Also set: Dismiss trigger · Show undo notification on dismiss Reset to default']);
+    const swipe = panels(renderHost(makeEditor(base({ allowDismiss: true, dismissTrigger: 'swipe', dismissButtonStyle: 'labeled' })).editor)).dismissal;
+    expect(alsoSet(swipe)).toEqual(['Also set: Button style Reset to default']);
+  });
+});

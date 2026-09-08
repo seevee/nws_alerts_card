@@ -109,7 +109,7 @@ export const de: TranslationMap = {
   'editor.animations': 'Animationen aktivieren',
   'editor.enhance_contrast': 'Kontrast erhöhen',
   'editor.enhance_contrast_off': 'Aus',
-  'editor.enhance_contrast_subtle': 'Dezent (Standard)',
+  'editor.enhance_contrast_subtle': 'Dezent',
   'editor.enhance_contrast_strict': 'Streng (WCAG AA)',
   'editor.deduplicate': 'Warnungen deduplizieren',
   'editor.deduplicate_headlines': 'Überschriften deduplizieren',

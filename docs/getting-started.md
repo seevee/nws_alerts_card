@@ -45,7 +45,8 @@ Card"**.
 
 Settings are grouped into panels. Source is open; the rest start collapsed, and a
 collapsed panel's header names the settings you have changed. Open one and the
-changed rows are marked, so a customised card still reads at a glance.
+changed rows are marked, each with a link back to its default, so a customised
+card still reads at a glance.
 
 To hand-write it instead, add a **Manual** card with the YAML above. From there, see
 the [configuration reference](./configuration) for the full option list.

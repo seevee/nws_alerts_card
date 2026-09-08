@@ -109,7 +109,7 @@ export const nl: TranslationMap = {
   'editor.animations': 'Animaties inschakelen',
   'editor.enhance_contrast': 'Contrast verbeteren',
   'editor.enhance_contrast_off': 'Uit',
-  'editor.enhance_contrast_subtle': 'Subtiel (standaard)',
+  'editor.enhance_contrast_subtle': 'Subtiel',
   'editor.enhance_contrast_strict': 'Strikt (WCAG AA)',
   'editor.deduplicate': 'Waarschuwingen ontdubbelen',
   'editor.deduplicate_headlines': 'Kopteksten ontdubbelen',

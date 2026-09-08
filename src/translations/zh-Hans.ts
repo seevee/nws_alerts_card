@@ -109,7 +109,7 @@ export const zhHans: TranslationMap = {
   'editor.animations': '启用动画',
   'editor.enhance_contrast': '增强对比度',
   'editor.enhance_contrast_off': '关闭',
-  'editor.enhance_contrast_subtle': '柔和（默认）',
+  'editor.enhance_contrast_subtle': '柔和',
   'editor.enhance_contrast_strict': '严格（WCAG AA）',
   'editor.deduplicate': '去重警报',
   'editor.deduplicate_headlines': '去重标题',

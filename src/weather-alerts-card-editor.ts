@@ -166,6 +166,7 @@ export class WeatherAlertsCardEditor extends LitElement {
     step?: string;
     changed?: boolean;
     onChange: (ev: Event) => void;
+    onReset?: () => void;
   }): TemplateResult {
     return this._field(o.changed === true, this._useHaInput ? html`
         <ha-input
@@ -188,7 +189,7 @@ export class WeatherAlertsCardEditor extends LitElement {
           step=${ifDefined(o.step)}
           @change=${o.onChange}
         ></ha-textfield>
-      `);
+      `, o.onReset);
   }
 
   public setConfig(config: WeatherAlertsCardConfig): void {
@@ -480,8 +481,10 @@ export class WeatherAlertsCardEditor extends LitElement {
   };
 
   private _hideNoAlertsChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const hide = target.checked;
+    this._setHideNoAlerts((ev.target as HTMLInputElement).checked);
+  }
+
+  private _setHideNoAlerts(hide: boolean): void {
     if (hide === (this._config.hideNoAlerts === true)) return;
     const newConfig: WeatherAlertsCardConfig = { ...this._config };
     if (hide) {
@@ -656,7 +659,10 @@ export class WeatherAlertsCardEditor extends LitElement {
   // key and prune an emptied progressStyle object so configs stay minimal
   // (mirrors _writeKey); otherwise write the chosen decoration.
   private _progressStyleChanged(phase: DecoPhase, ev: CustomEvent): void {
-    const value = this._selectValue(ev) as ProgressDecoration;
+    this._setProgressStyle(phase, this._selectValue(ev) as ProgressDecoration);
+  }
+
+  private _setProgressStyle(phase: DecoPhase, value: ProgressDecoration): void {
     const current = this._config.progressStyle?.[phase] ?? PROGRESS_DECO_DEFAULTS[phase];
     if (value === current) return;
     const newConfig = { ...this._config };
@@ -677,7 +683,10 @@ export class WeatherAlertsCardEditor extends LitElement {
   // Per-phase icon-ring border style; same default-detection / pruning as
   // _progressStyleChanged.
   private _iconBorderStyleChanged(phase: DecoPhase, ev: CustomEvent): void {
-    const value = this._selectValue(ev) as IconBorderStyle;
+    this._setIconBorderStyle(phase, this._selectValue(ev) as IconBorderStyle);
+  }
+
+  private _setIconBorderStyle(phase: DecoPhase, value: IconBorderStyle): void {
     const current = this._config.iconBorderStyle?.[phase] ?? ICON_BORDER_DEFAULTS[phase];
     if (value === current) return;
     const newConfig = { ...this._config };
@@ -772,8 +781,72 @@ export class WeatherAlertsCardEditor extends LitElement {
   // which draws the accent rule in the panel gutter. That is the in-panel
   // half of the header's list of names: open the panel and the rows to look
   // at are marked.
-  private _field(changed: boolean, control: TemplateResult): TemplateResult {
-    return html`<div class="field ${changed ? 'changed' : ''}">${control}</div>`;
+  // A changed row also carries a "Reset to default" link when the caller
+  // knows how to reset it, so the rule says where to look and the link says
+  // what to do.
+  private _field(changed: boolean, control: TemplateResult, onReset?: () => void): TemplateResult {
+    return html`
+      <div class="field ${changed ? 'changed' : ''}">
+        ${control}
+        ${changed && onReset ? this._resetLink(onReset) : nothing}
+      </div>
+    `;
+  }
+
+  // Same text-link shape as "Restore all" in the dismissal status line.
+  private _resetLink(onReset: () => void): TemplateResult {
+    const activate = (ev: Event) => { ev.preventDefault(); onReset(); };
+    return html`
+      <a
+        class="reset-link"
+        role="button"
+        tabindex="0"
+        @click=${activate}
+        @keydown=${(ev: KeyboardEvent) => { if (ev.key === 'Enter' || ev.key === ' ') activate(ev); }}
+      >${t('editor.reset_default', this._lang)}</a>
+    `;
+  }
+
+  // Reset core: registry keys go back through `withKey` to their default,
+  // bespoke keys are deleted. One event for the lot, none when nothing
+  // changed. `hideNoAlerts` is the exception (visibility sync) and resets
+  // through `_setHideNoAlerts`.
+  private _resetKeys(keys: readonly (keyof WeatherAlertsCardConfig)[]): void {
+    let next = this._config;
+    for (const key of keys) {
+      if (key in FIELDS) {
+        next = withKey(next, key as SimpleKey, FIELDS[key as SimpleKey].default);
+      } else if (next[key] !== undefined) {
+        next = { ...next };
+        delete next[key];
+      }
+    }
+    if (next !== this._config) this._fireConfigChanged(next);
+  }
+
+  // The keys a master hides while it is off are inert but still saved. Name
+  // them under the master so the header's words have a row to land on, with
+  // one link that clears them all.
+  private _renderAlsoSet(keys: readonly (keyof WeatherAlertsCardConfig)[], lang: string): TemplateResult | typeof nothing {
+    const hidden = changedKeys(this._config, keys);
+    if (hidden.length === 0) return nothing;
+    const names = hidden.map(k => this._keyLabel(k, lang)).join(' · ');
+    return html`
+      <div class="also-set">
+        ${t('editor.also_set', lang, { names })}
+        ${this._resetLink(() => this._resetKeys(hidden))}
+      </div>
+    `;
+  }
+
+  // Menu entry label, with the default one saying so. Labels whose key ends
+  // in `_default` already name themselves ("Default", "Inline expand
+  // (default)") and are left alone.
+  private _optionLabel(labelKey: string, isDefault: boolean, lang: string): string {
+    const label = t(labelKey, lang);
+    return isDefault && !labelKey.endsWith('_default')
+      ? t('editor.option_default', lang, { label })
+      : label;
   }
 
   private _renderToggle(key: ToggleKey): TemplateResult {
@@ -785,7 +858,7 @@ export class WeatherAlertsCardEditor extends LitElement {
           @change=${(ev: Event) => this._writeKey(key, (ev.target as HTMLInputElement).checked ? field.on : field.off)}
         ></ha-switch>
       </ha-formfield>
-    `);
+    `, () => this._resetKeys([key]));
   }
 
   private _renderSelect(key: SelectKey): TemplateResult {
@@ -799,9 +872,9 @@ export class WeatherAlertsCardEditor extends LitElement {
         ?fixedMenuPosition=${this._legacyMenu}
         ?naturalMenuWidth=${this._legacyMenu}
       >
-        ${field.options.map(o => this._renderSelectItem(o.value, t(o.label, lang)))}
+        ${field.options.map(o => this._renderSelectItem(o.value, this._optionLabel(o.label, o.value === field.default, lang)))}
       </ha-select>
-    `);
+    `, () => this._resetKeys([key]));
   }
 
   /** The header-ready name of a config key: the registry label, or the
@@ -961,6 +1034,7 @@ export class WeatherAlertsCardEditor extends LitElement {
       ${this._renderTextField({
         label: t('editor.zones', lang),
         changed: this._config.zones !== undefined,
+        onReset: () => this._resetKeys(['zones']),
         value: zonesStr,
         helper: t('editor.zones_helper', lang),
         onChange: this._zonesChanged,
@@ -968,6 +1042,7 @@ export class WeatherAlertsCardEditor extends LitElement {
       ${this._renderTextField({
         label: t('editor.event_codes', lang),
         changed: this._config.eventCodes !== undefined,
+        onReset: () => this._resetKeys(['eventCodes']),
         value: eventCodesStr,
         helper: t('editor.event_codes_helper', lang),
         onChange: this._eventCodesChanged,
@@ -975,6 +1050,7 @@ export class WeatherAlertsCardEditor extends LitElement {
       ${this._renderTextField({
         label: t('editor.exclude_event_codes', lang),
         changed: this._config.excludeEventCodes !== undefined,
+        onReset: () => this._resetKeys(['excludeEventCodes']),
         value: excludeEventCodesStr,
         helper: t('editor.exclude_event_codes_helper', lang),
         onChange: this._excludeEventCodesChanged,
@@ -988,6 +1064,7 @@ export class WeatherAlertsCardEditor extends LitElement {
         step: '1',
         label: t('editor.max_distance', lang, { unit }),
         changed: this._config.maxDistanceKm !== undefined,
+        onReset: () => this._resetKeys(['maxDistanceKm']),
         value: this._config.maxDistanceKm !== undefined ? String(kmToDisplay(this._config.maxDistanceKm, unit)) : '',
         helper: t('editor.max_distance_helper', lang),
         onChange: this._maxDistanceChanged,
@@ -1004,7 +1081,7 @@ export class WeatherAlertsCardEditor extends LitElement {
           .helperPersistent=${true}
           @value-changed=${this._myLocationEntityChanged}
         ></ha-selector>
-      `) : nothing}
+      `, () => this._resetKeys(['myLocationEntity'])) : nothing}
     `;
   }
 
@@ -1045,12 +1122,10 @@ export class WeatherAlertsCardEditor extends LitElement {
                 ?fixedMenuPosition=${legacyMenu}
                 ?naturalMenuWidth=${legacyMenu}
               >
-                ${this._renderSelectItem('solid', t('editor.deco_solid', lang))}
-                ${this._renderSelectItem('striped', t('editor.deco_striped', lang))}
-                ${this._renderSelectItem('shimmer', t('editor.deco_shimmer', lang))}
-                ${this._renderSelectItem('pulse', t('editor.deco_pulse', lang))}
+                ${(['solid', 'striped', 'shimmer', 'pulse'] as ProgressDecoration[]).map(v =>
+                  this._renderSelectItem(v, this._optionLabel('editor.deco_' + v, v === PROGRESS_DECO_DEFAULTS[phase], lang)))}
               </ha-select>
-            `))}
+            `, () => this._setProgressStyle(phase, PROGRESS_DECO_DEFAULTS[phase])))}
           </div>
 
           <div class="sub-label">${t('editor.icon_border_style', lang)}</div>
@@ -1063,10 +1138,10 @@ export class WeatherAlertsCardEditor extends LitElement {
                 ?fixedMenuPosition=${legacyMenu}
                 ?naturalMenuWidth=${legacyMenu}
               >
-                ${this._renderSelectItem('dashed', t('editor.icon_border_dashed', lang))}
-                ${this._renderSelectItem('solid', t('editor.icon_border_solid', lang))}
+                ${(['dashed', 'solid'] as IconBorderStyle[]).map(v =>
+                  this._renderSelectItem(v, this._optionLabel('editor.icon_border_' + v, v === ICON_BORDER_DEFAULTS[phase], lang)))}
               </ha-select>
-            `))}
+            `, () => this._setIconBorderStyle(phase, ICON_BORDER_DEFAULTS[phase])))}
           </div>
         </div>
       </ha-expansion-panel>
@@ -1078,7 +1153,12 @@ export class WeatherAlertsCardEditor extends LitElement {
   // false`) keeps counting in the panel header and comes back when the master
   // is switched on.
   private _renderDetailsSection(lang: string): TemplateResult {
-    if (this._config.showDetails === false) return this._renderToggle('showDetails');
+    if (this._config.showDetails === false) {
+      return html`
+        ${this._renderToggle('showDetails')}
+        ${this._renderAlsoSet(PANELS.details.filter(k => k !== 'showDetails'), lang)}
+      `;
+    }
     // List options own their row markup, so a customised section is marked
     // in its label instead of with the gutter rule.
     const options = DETAIL_SECTIONS.map(key => ({
@@ -1100,7 +1180,7 @@ export class WeatherAlertsCardEditor extends LitElement {
       ${this._config.showGeometry === true ? html`
         ${this._renderSelect('geometryStyle')}
         ${this._renderToggle('showMyLocation')}
-      ` : nothing}
+      ` : this._renderAlsoSet(['geometryStyle', 'showMyLocation'], lang)}
     `;
   }
 
@@ -1128,7 +1208,7 @@ export class WeatherAlertsCardEditor extends LitElement {
             @change=${this._hideNoAlertsChanged}
           ></ha-switch>
         </ha-formfield>
-      `)}
+      `, () => this._setHideNoAlerts(false))}
 
       ${this._renderSelect('unavailableBehavior')}
       ${this._config.unavailableBehavior === 'hide'
@@ -1182,7 +1262,7 @@ export class WeatherAlertsCardEditor extends LitElement {
       ${action === 'details' && this._config.expandDetails !== true
         ? html`<ha-alert alert-type="info">${t('editor.tap_details_expand_hint', lang)}</ha-alert>`
         : ''}
-    `);
+    `, () => this._resetKeys(['tap_action']));
   }
 
   private _renderDismissalSection(lang: string): TemplateResult {
@@ -1192,9 +1272,11 @@ export class WeatherAlertsCardEditor extends LitElement {
 
       ${allow ? html`
         ${this._renderSelect('dismissTrigger')}
-        ${this._config.dismissTrigger !== 'swipe' ? this._renderSelect('dismissButtonStyle') : nothing}
+        ${this._config.dismissTrigger !== 'swipe'
+          ? this._renderSelect('dismissButtonStyle')
+          : this._renderAlsoSet(['dismissButtonStyle'], lang)}
         ${this._renderToggle('showDismissUndo')}
-      ` : nothing}
+      ` : this._renderAlsoSet(PANELS.dismissal.filter(k => k !== 'allowDismiss'), lang)}
 
       ${this._renderDismissedStatus(lang)}
     `;
@@ -1292,14 +1374,29 @@ export class WeatherAlertsCardEditor extends LitElement {
       color: var(--secondary-text-color);
       margin-top: 4px;
     }
-    .restore-link {
+    .restore-link,
+    .reset-link {
       color: var(--primary-color);
       cursor: pointer;
       text-decoration: underline;
       margin-left: 4px;
     }
-    .restore-link:hover {
+    .restore-link:hover,
+    .reset-link:hover {
       text-decoration: none;
+    }
+    /* Under a changed row: pulled up into the row's gap, right-aligned. */
+    .field > .reset-link {
+      align-self: flex-end;
+      font-size: 0.8rem;
+      margin: -8px 0 0;
+    }
+    /* Hidden-but-set dependents named under their master switch. */
+    .also-set {
+      font-size: 0.8rem;
+      color: var(--secondary-text-color);
+      padding-left: 48px;
+      margin-top: -8px;
     }
   `;
 }
