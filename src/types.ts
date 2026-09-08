@@ -224,7 +224,7 @@ export interface WeatherAlert {
   severityBadgeLabel?: string; // Optional override for the severity badge text (rendered raw, e.g. ECCC's `impact` field "High"/"Élevée"). Falls back to localized tier when absent.
   bbox?: [number, number, number, number]; // [minlon, minlat, maxlon, maxlat] (lon-first); synchronous from cap_alerts attributes. Drives the geometry mini-map frame.
   geometryRef?: string;    // Opaque handle for the out-of-band cap_alerts geometry fetch (full polygon). Empty/absent when unavailable.
-  point?: [number, number]; // [lon, lat] (lon-first, same convention as bbox) — where the incident IS, for point-incident providers; absent for area warnings. Never the centre of an affected area. Consumed by the maxDistanceKm filter.
+  point?: [number, number]; // [lon, lat] (lon-first, same convention as bbox) — where the incident IS, for point-incident providers; absent for area warnings. Never the centre of an affected area. Consumed by the maxDistanceKm filter and the detail panel's distance-from-home row.
 }
 
 // Adapter contract: converts raw entity attributes → WeatherAlert[]

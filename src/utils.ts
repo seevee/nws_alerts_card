@@ -344,6 +344,29 @@ export function displayToKm(value: number, unit: LengthUnit): number {
   return Math.round(value * KM_PER_MILE * 1000) / 1000;
 }
 
+// Resolves HA's `config.unit_system.length` to a LengthUnit. Anything but an
+// explicit 'mi' (including undefined and unrecognised values) is km, so the card
+// and the editor only switch to miles on a core that reports US customary.
+export function toLengthUnit(raw: unknown): LengthUnit {
+  return raw === 'mi' ? 'mi' : 'km';
+}
+
+// Human-readable distance for the detail panel: one decimal under 10, a whole
+// number from 10 up ("7.5 mi", "12 km", "713 km"). The unit symbol is not
+// translated — km is SI everywhere, and mi only appears on a US-customary
+// install. Intl handles the decimal separator ("7,5 km" for de).
+export function formatDistance(km: number, unit: LengthUnit, lang: string): string {
+  const value = kmToDisplay(km, unit);
+  const digits = value < 10 ? 1 : 0;
+  let text: string;
+  try {
+    text = new Intl.NumberFormat(lang, { minimumFractionDigits: 0, maximumFractionDigits: digits }).format(value);
+  } catch {
+    text = value.toFixed(digits);
+  }
+  return `${text} ${unit}`;
+}
+
 export function computeAlertProgress(alert: WeatherAlert): AlertProgress {
   const nowTs = Date.now() / 1000;
 

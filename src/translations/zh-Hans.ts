@@ -21,6 +21,7 @@ export const zhHans: TranslationMap = {
   'detail.onset': '开始时间',
   'detail.expires': '过期时间',
   'detail.area': '区域',
+  'detail.distance': '距离',
   'detail.source': '来源',
   'detail.description': '描述',
   'detail.instructions': '说明',

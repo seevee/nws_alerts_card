@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { Connection } from 'home-assistant-js-websocket';
 import { HomeAssistant, WeatherAlertsCardConfig, AlertSeverity, ContrastMode, EntityRegistryDisplayEntry, AlertProvider, DecoPhase, ProgressDecoration, IconBorderStyle, ProgressStyleConfig, IconBorderStyleConfig, ActionConfig, PROGRESS_DECO_DEFAULTS, ICON_BORDER_DEFAULTS } from './types';
 import { canHandleAny, ENTITY_NAME_PATTERNS, getAdapter, knownFeedSources, pointCapableProviders } from './adapters';
-import { LengthUnit, displayToKm, kmToDisplay } from './utils';
+import { LengthUnit, displayToKm, kmToDisplay, toLengthUnit } from './utils';
 import { resolveDeviceAlertEntities, subscribeEntityRegistry } from './registry';
 import { t } from './localize';
 import { scopeHashForConfig, loadDismissals, restoreAll, subscribeToDismissalChanges } from './dismissal';
@@ -945,7 +945,7 @@ export class WeatherAlertsCardEditor extends LitElement {
    *  explicitly reports a US-customary length unit. The stored config value is
    *  always km regardless. */
   private _lengthUnit(): LengthUnit {
-    return this.hass?.config?.unit_system?.length === 'mi' ? 'mi' : 'km';
+    return toLengthUnit(this.hass?.config?.unit_system?.length);
   }
 
   /** Whether to offer the radius control. A permanently inert field in front of

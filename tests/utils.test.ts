@@ -19,6 +19,8 @@ import {
   extractPoint,
   kmToDisplay,
   displayToKm,
+  toLengthUnit,
+  formatDistance,
 } from '../src/utils';
 import type { WeatherAlert, AlertProvider } from '../src/types';
 
@@ -1065,5 +1067,39 @@ describe('kmToDisplay / displayToKm', () => {
     for (const v of [1, 5, 30, 50, 100, 12.5]) {
       expect(kmToDisplay(displayToKm(v, 'mi'), 'mi')).toBe(v);
     }
+  });
+});
+
+describe('toLengthUnit', () => {
+  it('only switches to miles on an explicit "mi"', () => {
+    expect(toLengthUnit('mi')).toBe('mi');
+    expect(toLengthUnit('km')).toBe('km');
+    expect(toLengthUnit(undefined)).toBe('km');
+    expect(toLengthUnit('miles')).toBe('km');
+  });
+});
+
+describe('formatDistance', () => {
+  it('keeps one decimal under 10 and rounds to a whole number from 10 up', () => {
+    expect(formatDistance(7.46, 'km', 'en')).toBe('7.5 km');
+    expect(formatDistance(9.96, 'km', 'en')).toBe('10 km');
+    expect(formatDistance(12.4, 'km', 'en')).toBe('12 km');
+    expect(formatDistance(713.2, 'km', 'en')).toBe('713 km');
+  });
+
+  it('drops a trailing zero rather than printing "5.0 km"', () => {
+    expect(formatDistance(5, 'km', 'en')).toBe('5 km');
+    expect(formatDistance(0, 'km', 'en')).toBe('0 km');
+  });
+
+  it('converts to miles and applies the same rounding to the converted value', () => {
+    // 12.07 km = 7.5 mi: under 10 in miles even though over 10 in km.
+    expect(formatDistance(12.07, 'mi', 'en')).toBe('7.5 mi');
+    expect(formatDistance(100, 'mi', 'en')).toBe('62 mi');
+  });
+
+  it('uses the locale decimal separator', () => {
+    expect(formatDistance(7.5, 'km', 'de')).toBe('7,5 km');
+    expect(formatDistance(1234, 'km', 'en')).toBe('1,234 km');
   });
 });

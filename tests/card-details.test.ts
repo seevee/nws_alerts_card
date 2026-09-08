@@ -82,6 +82,41 @@ function nwsFullTimingHass(): HomeAssistant {
   } as unknown as HomeAssistant;
 }
 
+// Home: Sydney. The incident sits ~40 km west of it (the same fixture pair as
+// card-radius.test.ts). `config` is the hass.config the card resolves the home
+// point and unit system from; null omits it entirely.
+const HOME = { latitude: -33.8688, longitude: 151.2093 };
+const RFS_SOURCE = 'nsw_rural_fire_service_feed';
+
+function rfsHass(config: Record<string, unknown> | null = HOME): HomeAssistant {
+  const hass: Record<string, unknown> = {
+    states: {
+      'geo_location.fire_near': {
+        state: '40',
+        attributes: {
+          source: RFS_SOURCE,
+          external_id: 'https://incidents.rfs.nsw.gov.au/api/v1/incidents/1',
+          category: 'Advice',
+          status: 'Being controlled',
+          type: 'Bush Fire',
+          location: 'Near Fire',
+          council_area: 'Somewhere',
+          size: '5 ha',
+          fire: true,
+          responsible_agency: 'Rural Fire Service',
+          publication_date: new Date(Date.now() - HOUR).toISOString(),
+          latitude: -33.8688,
+          longitude: 150.7776,
+        },
+      },
+    },
+    locale: { language: 'en' },
+    entities: {},
+  };
+  if (config !== null) hass.config = config;
+  return hass as unknown as HomeAssistant;
+}
+
 async function mountCard(config: WeatherAlertsCardConfig, hass: HomeAssistant): Promise<{ card: CardInternals; cleanup: () => void }> {
   const card = document.createElement('weather-alerts-card') as unknown as CardInternals;
   card.setConfig(config);
@@ -173,4 +208,64 @@ describe('metadata-grid seam', () => {
     expect(grid['Expires']).not.toBe('');
     cleanup();
   });
+});
+
+// #244: the distance row reads `WeatherAlert.point` only. Point-incident
+// providers get it whether or not a radius is configured; area warnings never
+// see a placeholder row.
+describe('distance-from-home row', () => {
+  const rfsConfig = (extra: Partial<WeatherAlertsCardConfig> = {}): WeatherAlertsCardConfig => ({
+    type: 'custom:weather-alerts-card',
+    provider: 'nsw_rfs',
+    sources: [RFS_SOURCE],
+    expandDetails: true,
+    ...extra,
+  } as WeatherAlertsCardConfig);
+
+  it('shows the distance in km for a point incident with no radius configured', async () => {
+    const { card, cleanup } = await mountCard(rfsConfig(), rfsHass());
+    expect(metaGrid(card)['Distance']).toBe('40 km');
+    cleanup();
+  });
+
+  it('honours a US-customary unit system', async () => {
+    const { card, cleanup } = await mountCard(
+      rfsConfig(),
+      rfsHass({ ...HOME, unit_system: { length: 'mi' } }),
+    );
+    expect(metaGrid(card)['Distance']).toBe('25 mi');
+    cleanup();
+  });
+
+  it('sits ahead of the full-width Area row', async () => {
+    const { card, cleanup } = await mountCard(rfsConfig(), rfsHass());
+    const root = (card as unknown as { shadowRoot: ShadowRoot }).shadowRoot;
+    const labels = Array.from(root.querySelectorAll('.meta-label')).map(el => (el.textContent || '').trim());
+    expect(labels.indexOf('Distance')).toBeGreaterThan(labels.indexOf('Expires'));
+    expect(labels.indexOf('Distance')).toBeLessThan(labels.indexOf('Area'));
+    cleanup();
+  });
+
+  it('renders no row at all for an area warning (no point)', async () => {
+    const { card, cleanup } = await mountCard(baseConfig('sensor.nws_alerts'), nwsFullTimingHass());
+    expect(metaGrid(card)).not.toHaveProperty('Distance');
+    cleanup();
+  });
+
+  it('renders no row when the home location is unavailable', async () => {
+    const { card, cleanup } = await mountCard(rfsConfig(), rfsHass(null));
+    expect(metaGrid(card)).not.toHaveProperty('Distance');
+    cleanup();
+  });
+
+  it('is hidden with the rest of the grid by showMetadata: false', async () => {
+    const { card, cleanup } = await mountCard(rfsConfig({ showMetadata: false }), rfsHass());
+    const root = (card as unknown as { shadowRoot: ShadowRoot }).shadowRoot;
+    expect(root.querySelector('.meta-grid')).toBeNull();
+    cleanup();
+  });
+
+  function baseConfig(entity: string): WeatherAlertsCardConfig {
+    return { type: 'custom:weather-alerts-card', entity, expandDetails: true } as WeatherAlertsCardConfig;
+  }
 });

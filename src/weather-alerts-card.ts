@@ -41,6 +41,8 @@ import {
   alertMatchesZones,
   deduplicateAlerts,
   haversineKm,
+  formatDistance,
+  toLengthUnit,
   getNwsEventColor,
   getMeteoAlarmColor,
   getEcccColor,
@@ -1699,6 +1701,21 @@ export class WeatherAlertsCard extends LitElement {
     `;
   }
 
+  // Distance from the HA home point to a point-incident alert, for the detail
+  // grid. Reads `WeatherAlert.point` only (no provider branch, #205), so any
+  // source that publishes a point gets the row. Area warnings have no point
+  // and get no row at all — never an "unknown" placeholder. Shown whether or
+  // not `maxDistanceKm` is configured; the same home-point resolution as the
+  // filter, so an unset home location means no row rather than a bad number.
+  private _distanceFromHomeKm(alert: WeatherAlert): number | undefined {
+    if (!alert.point) return undefined;
+    const homeLat = this.hass?.config?.latitude;
+    const homeLon = this.hass?.config?.longitude;
+    if (typeof homeLat !== 'number' || !Number.isFinite(homeLat)) return undefined;
+    if (typeof homeLon !== 'number' || !Number.isFinite(homeLon)) return undefined;
+    return haversineKm(alert.point[0], alert.point[1], homeLon, homeLat);
+  }
+
   private _renderDetailsContent(alert: WeatherAlert, progress: AlertProgress): TemplateResult {
     const reformat = this._config?.reformatText !== false;
     let desc = this._normalizeText(alert.description);
@@ -1709,6 +1726,7 @@ export class WeatherAlertsCard extends LitElement {
     }
 
     const lang = this._lang;
+    const distanceKm = this._distanceFromHomeKm(alert);
 
     return html`
       <div class="details-content" @click=${(e: Event) => e.stopPropagation()}>
@@ -1732,6 +1750,12 @@ export class WeatherAlertsCard extends LitElement {
             <span class="meta-relative">${formatRelativeTime(progress.endsTs, progress.nowTs, lang)}</span>`
           : html`<span class="meta-value">${progress.isActive ? t('progress.ongoing', lang) : t('progress.tbd', lang)}</span>`}
           </div>
+          ${distanceKm !== undefined ? html`
+            <div class="meta-item">
+              <span class="meta-label">${t('detail.distance', lang)}</span>
+              <span class="meta-value">${formatDistance(distanceKm, toLengthUnit(this.hass?.config?.unit_system?.length), lang)}</span>
+            </div>
+          ` : nothing}
           ${alert.areaDesc ? html`
             <div class="meta-item" style="grid-column: 1 / -1;">
               <span class="meta-label">${t('detail.area', lang)}</span>

@@ -21,6 +21,7 @@ export const nl: TranslationMap = {
   'detail.onset': 'Begin',
   'detail.expires': 'Verloopt',
   'detail.area': 'Gebied',
+  'detail.distance': 'Afstand',
   'detail.source': 'Bron',
   'detail.description': 'Beschrijving',
   'detail.instructions': 'Instructies',

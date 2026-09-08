@@ -235,7 +235,7 @@ Then click the Download button, and click Reload when prompted.
 | `showDetails` | `true` | Show the expandable detail panel (hides entire "Read Details" section when `false`) |
 | `expandDetails` | `false` | Always show details inline without a toggle (ideal for wall-mounted displays) |
 | `showProvider` | `false` | Show provider label (e.g., NWS) above event title |
-| `showMetadata` | `true` | Show issued/onset/expires/area grid in detail panel |
+| `showMetadata` | `true` | Show issued/onset/expires/area grid in detail panel. Point-incident alerts (currently NSW RFS) also get a distance-from-home row, in km or miles per your unit system |
 | `showDescription` | `true` | Show description text in detail panel |
 | `showInstructions` | `true` | Show instructions text in detail panel |
 | `showGeometry` | `false` | Show an inline SVG mini-map of the affected-area outline in the detail panel. CAP Alerts (`cap_alerts`) only — other providers have no geometry. Draws the bbox frame immediately and overlays the polygon once fetched out-of-band (falls back to the frame on cache miss). |
@@ -396,9 +396,10 @@ expiry, so the card shows an honest "ongoing" state with no progress bar, and th
 `showGeometry` mini-map is unavailable (the entity carries only a point, not the
 fire-ground polygon).
 
-Because each incident *does* carry a location, you can trim a statewide feed down
-to your own surroundings with `maxDistanceKm` — kilometres from your Home
-Assistant home location:
+Because each incident *does* carry a location, the detail panel shows its distance
+from your Home Assistant home location (km, or miles on a US-customary install),
+and you can trim a statewide feed down to your own surroundings with
+`maxDistanceKm` — kilometres from that same home point:
 
 ```yaml
 type: custom:weather-alerts-card

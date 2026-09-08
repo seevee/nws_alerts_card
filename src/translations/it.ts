@@ -21,6 +21,7 @@ export const it: TranslationMap = {
   'detail.onset': 'Inizio',
   'detail.expires': 'Scadenza',
   'detail.area': 'Area',
+  'detail.distance': 'Distanza',
   'detail.source': 'Fonte',
   'detail.description': 'Descrizione',
   'detail.instructions': 'Istruzioni',
