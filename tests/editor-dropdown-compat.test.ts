@@ -5,20 +5,23 @@ import type { WeatherAlertsCardConfig } from '../src/types';
 
 // Component-system compatibility (#239). HA 2026.02 replaced MWC with
 // WebAwesome; emitting only the new item element left every dropdown inert on
-// older cores. These tests pin the detection, the event-shape fallback, and the
-// element the item renderer emits on each path.
+// older cores, and by 2026.09 `ha-textfield` was gone outright, so every text
+// field rendered as nothing on a current core. These tests pin the detection,
+// the event-shape fallback, and the element each renderer emits on each path.
 //
 // They cannot substitute for a real install — jsdom has neither component set —
 // but they do cover both branches, which is what regressed silently before.
 type EditorInternals = {
   _config: WeatherAlertsCardConfig;
   readonly _useWebAwesome: boolean;
+  readonly _useHaInput: boolean;
   _selectValue(ev: Event): string;
   _renderSelectItem(value: string, label: string): unknown;
+  _renderTextField(o: { label: string; value: string; helper?: string; type?: 'number'; min?: string; step?: string; onChange: (ev: Event) => void }): unknown;
   _tapActionChanged(ev: Event): void;
 };
 
-type EditorStatics = { _webAwesome?: boolean };
+type EditorStatics = { _webAwesome?: boolean; _haInput?: boolean };
 
 function makeEditor(): EditorInternals {
   const editor = new WeatherAlertsCardEditor() as unknown as EditorInternals;
@@ -43,7 +46,9 @@ function registryHas(...defined: string[]): void {
 }
 
 function resetDetection(): void {
-  (WeatherAlertsCardEditor as unknown as EditorStatics)._webAwesome = undefined;
+  const statics = WeatherAlertsCardEditor as unknown as EditorStatics;
+  statics._webAwesome = undefined;
+  statics._haInput = undefined;
 }
 
 beforeEach(resetDetection);
@@ -83,6 +88,93 @@ describe('_useWebAwesome', () => {
     expect(makeEditor()._useWebAwesome).toBe(false);
     registryHas('ha-dropdown-item');
     expect(makeEditor()._useWebAwesome).toBe(false);
+  });
+});
+
+describe('_useHaInput', () => {
+  it('detects ha-input, falls back to ha-textfield, assumes current HA when neither is registered', () => {
+    registryHas('ha-input');
+    expect(makeEditor()._useHaInput).toBe(true);
+    resetDetection();
+    registryHas('ha-textfield');
+    expect(makeEditor()._useHaInput).toBe(false);
+    resetDetection();
+    registryHas();
+    expect(makeEditor()._useHaInput).toBe(true);
+  });
+
+  it('is independent of the dropdown detection', () => {
+    // An old core registers MWC items *and* ha-textfield; a mid-2026 core may
+    // have swapped the dropdowns before the text field. Neither flag may
+    // decide the other.
+    registryHas('ha-dropdown-item', 'ha-textfield');
+    const editor = makeEditor();
+    expect(editor._useWebAwesome).toBe(true);
+    expect(editor._useHaInput).toBe(false);
+  });
+
+  it('does not cache the ambiguous answer, but caches a definite one', () => {
+    registryHas();
+    expect(makeEditor()._useHaInput).toBe(true);
+    registryHas('ha-textfield');
+    expect(makeEditor()._useHaInput).toBe(false);
+    registryHas('ha-input');
+    expect(makeEditor()._useHaInput).toBe(false);
+  });
+});
+
+type RenderedField = { label?: string; value?: string; hint?: string; helper?: string; helperPersistent?: boolean };
+function fieldOf(template: unknown): { tag: string; el: RenderedField & Element } {
+  const host = document.createElement('div');
+  render(template as never, host);
+  const el = host.firstElementChild!;
+  return { tag: el.localName, el: el as unknown as RenderedField & Element };
+}
+
+describe('_renderTextField', () => {
+  const opts = { label: 'Zones', value: 'A, B', helper: 'Comma-separated', onChange: () => {} };
+
+  it('emits ha-input with the helper on .hint on the current path', () => {
+    registryHas('ha-input');
+    const { tag, el } = fieldOf(makeEditor()._renderTextField(opts));
+    expect(tag).toBe('ha-input');
+    expect(el.label).toBe('Zones');
+    expect(el.value).toBe('A, B');
+    expect(el.hint).toBe('Comma-separated');
+    expect(el.hasAttribute('type')).toBe(false);
+  });
+
+  it('emits ha-textfield with a persistent .helper on the legacy path', () => {
+    registryHas('ha-textfield');
+    const { tag, el } = fieldOf(makeEditor()._renderTextField(opts));
+    expect(tag).toBe('ha-textfield');
+    expect(el.helper).toBe('Comma-separated');
+    expect(el.helperPersistent).toBe(true);
+  });
+
+  it('passes number-field attributes through on both paths', () => {
+    for (const registered of ['ha-input', 'ha-textfield']) {
+      resetDetection();
+      registryHas(registered);
+      const { el } = fieldOf(makeEditor()._renderTextField({ ...opts, type: 'number', min: '1', step: '1' }));
+      expect(el.getAttribute('type')).toBe('number');
+      expect(el.getAttribute('min')).toBe('1');
+      expect(el.getAttribute('step')).toBe('1');
+    }
+  });
+
+  it('delivers change through the target value on both paths', () => {
+    for (const registered of ['ha-input', 'ha-textfield']) {
+      resetDetection();
+      registryHas(registered);
+      let seen: string | undefined;
+      const { el } = fieldOf(makeEditor()._renderTextField({
+        ...opts, onChange: (ev) => { seen = (ev.target as HTMLInputElement).value; },
+      }));
+      (el as unknown as { value: string }).value = 'C';
+      el.dispatchEvent(new Event('change'));
+      expect(seen).toBe('C');
+    }
   });
 });
 

@@ -163,7 +163,7 @@ describe('rendered control', () => {
   function radiusField(editor: EditorInternals): { label?: string; value?: string } | undefined {
     const host = document.createElement('div');
     render(editor.render() as never, host);
-    const fields = [...host.querySelectorAll('ha-textfield')] as unknown as {
+    const fields = [...host.querySelectorAll('ha-input, ha-textfield')] as unknown as {
       label?: string; value?: string;
     }[];
     return fields.find(f => (f.label ?? '').startsWith('Maximum distance'));

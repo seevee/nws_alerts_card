@@ -1,5 +1,6 @@
 import { LitElement, html, css, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import type { Connection } from 'home-assistant-js-websocket';
 import { HomeAssistant, WeatherAlertsCardConfig, EntityRegistryDisplayEntry, DecoPhase, ProgressDecoration, IconBorderStyle, ProgressStyleConfig, IconBorderStyleConfig, ActionConfig, PROGRESS_DECO_DEFAULTS, ICON_BORDER_DEFAULTS } from './types';
 import { DETAIL_SECTIONS, PANELS, PANEL_LABELS, Panel, SELECTS, STYLING_KEYS, TOGGLES, SelectKey, SimpleKey, SimpleValue, ToggleKey, changedCount, effectiveValue, isOn, withKey } from './editor-fields';
@@ -131,6 +132,65 @@ export class WeatherAlertsCardEditor extends LitElement {
     return this._useWebAwesome
       ? html`<ha-dropdown-item value=${value}>${label}</ha-dropdown-item>`
       : html`<ha-list-item value=${value}>${label}</ha-list-item>`;
+  }
+
+  // The same swap took `ha-textfield` away: HA 2026.09 no longer defines it at
+  // all, so on a current core every text field rendered as nothing. `ha-input`
+  // (the WebAwesome wrapper `ha-selector-text` renders) is its replacement.
+  // Detected on its own rather than through `_webAwesome`: the two elements
+  // need not have changed hands in the same release. Same caching rule.
+  private static _haInput?: boolean;
+
+  private get _useHaInput(): boolean {
+    if (WeatherAlertsCardEditor._haInput !== undefined) {
+      return WeatherAlertsCardEditor._haInput;
+    }
+    const input = !!customElements.get('ha-input');
+    const textfield = !!customElements.get('ha-textfield');
+    if (input || textfield) {
+      WeatherAlertsCardEditor._haInput = input;
+      return input;
+    }
+    return true;
+  }
+
+  // One text field, whichever element this core registers. Both read back
+  // through `ev.target.value` on `change`; only the helper differs (`.hint` on
+  // ha-input, `.helper` + persistent on ha-textfield).
+  private _renderTextField(o: {
+    label: string;
+    value: string;
+    helper?: string;
+    type?: 'number';
+    min?: string;
+    step?: string;
+    onChange: (ev: Event) => void;
+  }): TemplateResult {
+    if (this._useHaInput) {
+      return html`
+        <ha-input
+          .label=${o.label}
+          .value=${o.value}
+          .hint=${o.helper ?? ''}
+          type=${ifDefined(o.type)}
+          min=${ifDefined(o.min)}
+          step=${ifDefined(o.step)}
+          @change=${o.onChange}
+        ></ha-input>
+      `;
+    }
+    return html`
+      <ha-textfield
+        .label=${o.label}
+        .value=${o.value}
+        .helper=${o.helper ?? ''}
+        .helperPersistent=${o.helper !== undefined}
+        type=${ifDefined(o.type)}
+        min=${ifDefined(o.min)}
+        step=${ifDefined(o.step)}
+        @change=${o.onChange}
+      ></ha-textfield>
+    `;
   }
 
   public setConfig(config: WeatherAlertsCardConfig): void {
@@ -859,11 +919,11 @@ export class WeatherAlertsCardEditor extends LitElement {
           `
         : nothing}
 
-      <ha-textfield
-        .label=${t('editor.title', lang)}
-        .value=${this._config.title || ''}
-        @change=${this._titleChanged}
-      ></ha-textfield>
+      ${this._renderTextField({
+        label: t('editor.title', lang),
+        value: this._config.title || '',
+        onChange: this._titleChanged,
+      })}
     `;
   }
 
@@ -874,44 +934,36 @@ export class WeatherAlertsCardEditor extends LitElement {
     const excludeEventCodesStr = this._config.excludeEventCodes ? this._config.excludeEventCodes.join(', ') : '';
 
     return html`
-      <ha-textfield
-        .label=${t('editor.zones', lang)}
-        .value=${zonesStr}
-        .helper=${t('editor.zones_helper', lang)}
-        .helperPersistent=${true}
-        @change=${this._zonesChanged}
-      ></ha-textfield>
-
-      <ha-textfield
-        .label=${t('editor.event_codes', lang)}
-        .value=${eventCodesStr}
-        .helper=${t('editor.event_codes_helper', lang)}
-        .helperPersistent=${true}
-        @change=${this._eventCodesChanged}
-      ></ha-textfield>
-
-      <ha-textfield
-        .label=${t('editor.exclude_event_codes', lang)}
-        .value=${excludeEventCodesStr}
-        .helper=${t('editor.exclude_event_codes_helper', lang)}
-        .helperPersistent=${true}
-        @change=${this._excludeEventCodesChanged}
-      ></ha-textfield>
+      ${this._renderTextField({
+        label: t('editor.zones', lang),
+        value: zonesStr,
+        helper: t('editor.zones_helper', lang),
+        onChange: this._zonesChanged,
+      })}
+      ${this._renderTextField({
+        label: t('editor.event_codes', lang),
+        value: eventCodesStr,
+        helper: t('editor.event_codes_helper', lang),
+        onChange: this._eventCodesChanged,
+      })}
+      ${this._renderTextField({
+        label: t('editor.exclude_event_codes', lang),
+        value: excludeEventCodesStr,
+        helper: t('editor.exclude_event_codes_helper', lang),
+        onChange: this._excludeEventCodesChanged,
+      })}
 
       ${this._renderSelect('minSeverity')}
 
-      ${this._showsRadiusControl() ? html`
-        <ha-textfield
-          type="number"
-          min="1"
-          step="1"
-          .label=${t('editor.max_distance', lang, { unit })}
-          .value=${this._config.maxDistanceKm !== undefined ? String(kmToDisplay(this._config.maxDistanceKm, unit)) : ''}
-          .helper=${t('editor.max_distance_helper', lang)}
-          .helperPersistent=${true}
-          @change=${this._maxDistanceChanged}
-        ></ha-textfield>
-      ` : nothing}
+      ${this._showsRadiusControl() ? this._renderTextField({
+        type: 'number',
+        min: '1',
+        step: '1',
+        label: t('editor.max_distance', lang, { unit }),
+        value: this._config.maxDistanceKm !== undefined ? String(kmToDisplay(this._config.maxDistanceKm, unit)) : '',
+        helper: t('editor.max_distance_helper', lang),
+        onChange: this._maxDistanceChanged,
+      }) : nothing}
 
       ${this._showsMyLocationEntityControl() ? html`
         <ha-selector
@@ -919,6 +971,7 @@ export class WeatherAlertsCardEditor extends LitElement {
           .selector=${{ entity: { domain: ['device_tracker', 'person', 'zone'] } }}
           .value=${this._config.myLocationEntity || ''}
           .label=${t('editor.my_location_entity', lang)}
+          .required=${false}
           .helper=${t('editor.my_location_entity_helper', lang)}
           .helperPersistent=${true}
           @value-changed=${this._myLocationEntityChanged}
@@ -1076,18 +1129,18 @@ export class WeatherAlertsCardEditor extends LitElement {
       </ha-select>
       <div class="helper-text">${t('editor.tap_action_helper', lang)}</div>
       ${action === 'navigate'
-        ? html`<ha-textfield
-            .label=${t('editor.tap_navigation_path', lang)}
-            .value=${this._config.tap_action?.navigation_path || ''}
-            @change=${this._tapNavigationPathChanged}
-          ></ha-textfield>`
+        ? this._renderTextField({
+            label: t('editor.tap_navigation_path', lang),
+            value: this._config.tap_action?.navigation_path || '',
+            onChange: this._tapNavigationPathChanged,
+          })
         : ''}
       ${action === 'url'
-        ? html`<ha-textfield
-            .label=${t('editor.tap_url_path', lang)}
-            .value=${this._config.tap_action?.url_path || ''}
-            @change=${this._tapUrlPathChanged}
-          ></ha-textfield>`
+        ? this._renderTextField({
+            label: t('editor.tap_url_path', lang),
+            value: this._config.tap_action?.url_path || '',
+            onChange: this._tapUrlPathChanged,
+          })
         : ''}
       ${action === 'perform-action' || action === 'call-service' || action === 'fire-dom-event'
         ? html`<ha-alert alert-type="info">${t('editor.tap_yaml_managed', lang)}</ha-alert>`
