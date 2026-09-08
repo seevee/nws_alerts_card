@@ -189,7 +189,6 @@ export const zhHans: TranslationMap = {
   'editor.no_device_alerts_hint': '所选设备下尚未找到活跃警报传感器。当集成发布警报时，卡片将自动填充。',
 
   // Editor section labels
-  'editor.section_entity': '实体与提供方',
   'editor.section_filtering': '过滤',
   'editor.section_appearance': '外观',
   'editor.section_detail_panel': '详情面板',

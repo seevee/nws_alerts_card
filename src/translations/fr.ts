@@ -189,7 +189,6 @@ export const fr: TranslationMap = {
   'editor.no_device_alerts_hint': 'Aucun capteur d\'alerte actif trouvé sous les appareils sélectionnés pour le moment. La carte se remplira automatiquement lorsque l\'intégration publiera des alertes.',
 
   // Editor section labels
-  'editor.section_entity': 'Entite et fournisseur',
   'editor.section_filtering': 'Filtrage',
   'editor.section_appearance': 'Apparence',
   'editor.section_detail_panel': 'Panneau de details',

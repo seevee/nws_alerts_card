@@ -193,7 +193,6 @@ export const en: TranslationMap = {
   'editor.no_device_alerts_hint': 'No active alert sensors found under the selected devices yet. The card will populate automatically when the integration publishes alerts.',
 
   // Editor section labels
-  'editor.section_entity': 'Entities & Provider',
   'editor.section_source': 'Source',
   'editor.section_filtering': 'Filtering',
   'editor.section_appearance': 'Appearance',

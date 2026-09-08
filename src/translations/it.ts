@@ -189,7 +189,6 @@ export const it: TranslationMap = {
   'editor.no_device_alerts_hint': 'Nessun sensore di allerta attivo trovato sotto i dispositivi selezionati per ora. La scheda si popolerà automaticamente quando l\'integrazione pubblicherà delle allerte.',
 
   // Editor section labels
-  'editor.section_entity': 'Entità e fornitore',
   'editor.section_filtering': 'Filtraggio',
   'editor.section_appearance': 'Aspetto',
   'editor.section_detail_panel': 'Pannello dettagli',

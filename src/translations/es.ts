@@ -189,7 +189,6 @@ export const es: TranslationMap = {
   'editor.no_device_alerts_hint': 'Aún no se encontraron sensores de alerta activos bajo los dispositivos seleccionados. La tarjeta se rellenará automáticamente cuando la integración publique alertas.',
 
   // Editor section labels
-  'editor.section_entity': 'Entidad y proveedor',
   'editor.section_filtering': 'Filtrado',
   'editor.section_appearance': 'Apariencia',
   'editor.section_detail_panel': 'Panel de detalles',
