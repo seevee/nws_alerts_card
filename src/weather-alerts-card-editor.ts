@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { Connection } from 'home-assistant-js-websocket';
 import { HomeAssistant, WeatherAlertsCardConfig, EntityRegistryDisplayEntry, DecoPhase, ProgressDecoration, IconBorderStyle, ProgressStyleConfig, IconBorderStyleConfig, ActionConfig, PROGRESS_DECO_DEFAULTS, ICON_BORDER_DEFAULTS } from './types';
-import { DETAIL_SECTIONS, PANELS, PANEL_LABELS, Panel, SELECTS, STYLING_KEYS, TOGGLES, SelectKey, SimpleKey, SimpleValue, ToggleKey, changedCount, effectiveValue, isOn, withKey } from './editor-fields';
+import { BESPOKE_LABELS, DETAIL_SECTIONS, FIELDS, PANELS, PANEL_LABELS, Panel, SELECTS, STYLING_KEYS, TOGGLES, SelectKey, SimpleKey, SimpleValue, ToggleKey, changedKeys, effectiveValue, isChanged, isOn, shortLabel, withKey } from './editor-fields';
 import { canHandleAny, ENTITY_NAME_PATTERNS, getAdapter, knownFeedSources, pointCapableProviders } from './adapters';
 import { LengthUnit, displayToKm, kmToDisplay, toLengthUnit } from './utils';
 import { configuredDevices, deviceEntityIds, resolveDeviceAlertEntities, subscribeEntityRegistry } from './registry';
@@ -164,10 +164,10 @@ export class WeatherAlertsCardEditor extends LitElement {
     type?: 'number';
     min?: string;
     step?: string;
+    changed?: boolean;
     onChange: (ev: Event) => void;
   }): TemplateResult {
-    if (this._useHaInput) {
-      return html`
+    return this._field(o.changed === true, this._useHaInput ? html`
         <ha-input
           .label=${o.label}
           .value=${o.value}
@@ -177,20 +177,18 @@ export class WeatherAlertsCardEditor extends LitElement {
           step=${ifDefined(o.step)}
           @change=${o.onChange}
         ></ha-input>
-      `;
-    }
-    return html`
-      <ha-textfield
-        .label=${o.label}
-        .value=${o.value}
-        .helper=${o.helper ?? ''}
-        .helperPersistent=${o.helper !== undefined}
-        type=${ifDefined(o.type)}
-        min=${ifDefined(o.min)}
-        step=${ifDefined(o.step)}
-        @change=${o.onChange}
-      ></ha-textfield>
-    `;
+      ` : html`
+        <ha-textfield
+          .label=${o.label}
+          .value=${o.value}
+          .helper=${o.helper ?? ''}
+          .helperPersistent=${o.helper !== undefined}
+          type=${ifDefined(o.type)}
+          min=${ifDefined(o.min)}
+          step=${ifDefined(o.step)}
+          @change=${o.onChange}
+        ></ha-textfield>
+      `);
   }
 
   public setConfig(config: WeatherAlertsCardConfig): void {
@@ -770,22 +768,30 @@ export class WeatherAlertsCardEditor extends LitElement {
     if (next !== this._config) this._fireConfigChanged(next);
   }
 
+  // Every control sits in a `.field` row; a customised one carries `changed`,
+  // which draws the accent rule in the panel gutter. That is the in-panel
+  // half of the header's list of names: open the panel and the rows to look
+  // at are marked.
+  private _field(changed: boolean, control: TemplateResult): TemplateResult {
+    return html`<div class="field ${changed ? 'changed' : ''}">${control}</div>`;
+  }
+
   private _renderToggle(key: ToggleKey): TemplateResult {
     const field = TOGGLES[key];
-    return html`
+    return this._field(isChanged(this._config, key), html`
       <ha-formfield .label=${t(field.label, this._lang)}>
         <ha-switch
           .checked=${isOn(this._config, field)}
           @change=${(ev: Event) => this._writeKey(key, (ev.target as HTMLInputElement).checked ? field.on : field.off)}
         ></ha-switch>
       </ha-formfield>
-    `;
+    `);
   }
 
   private _renderSelect(key: SelectKey): TemplateResult {
     const field = SELECTS[key];
     const lang = this._lang;
-    return html`
+    return this._field(isChanged(this._config, key), html`
       <ha-select
         .label=${t(field.label, lang)}
         .value=${effectiveValue(this._config, key)}
@@ -795,7 +801,26 @@ export class WeatherAlertsCardEditor extends LitElement {
       >
         ${field.options.map(o => this._renderSelectItem(o.value, t(o.label, lang)))}
       </ha-select>
-    `;
+    `);
+  }
+
+  /** The header-ready name of a config key: the registry label, or the
+   *  bespoke map's, minus any trailing parenthetical. */
+  private _keyLabel(key: keyof WeatherAlertsCardConfig, lang: string): string {
+    const labelKey = key in FIELDS ? FIELDS[key as SimpleKey].label : BESPOKE_LABELS[key];
+    return shortLabel(labelKey ? t(labelKey, lang, { unit: '' }) : String(key));
+  }
+
+  // Collapsed-panel secondary line: the customised keys by name, up to three,
+  // then "+n more". Empty when nothing is customised.
+  private _changedSummary(keys: readonly (keyof WeatherAlertsCardConfig)[], lang: string): string {
+    const changed = changedKeys(this._config, keys);
+    if (changed.length === 0) return '';
+    const shown = changed.slice(0, 3).map(k => this._keyLabel(k, lang));
+    const more = changed.length - shown.length;
+    return more > 0
+      ? `${shown.join(' · ')} ${t('editor.panel_more', lang, { count: more })}`
+      : shown.join(' · ');
   }
 
   // Each panel binds `.header` / `.secondary` as properties rather than
@@ -803,16 +828,15 @@ export class WeatherAlertsCardEditor extends LitElement {
   // fallback content *inside* the header slot, so a slotted header would drop
   // the count. `.expanded` is a constant per panel — Lit never re-commits an
   // unchanged binding — so the element owns its open/closed state across
-  // re-renders and the editor tracks nothing. Source carries no count: its
+  // re-renders and the editor tracks nothing. Source carries no summary: its
   // keys are the configuration, not a deviation from defaults.
   private _renderPanel(panel: Panel, expanded: boolean, lang: string, content: TemplateResult): TemplateResult {
-    const n = panel === 'source' ? 0 : changedCount(this._config, PANELS[panel]);
     return html`
       <ha-expansion-panel
         outlined
         .expanded=${expanded}
         .header=${t(PANEL_LABELS[panel], lang)}
-        .secondary=${n > 0 ? t('editor.panel_changed', lang, { count: n }) : ''}
+        .secondary=${panel === 'source' ? '' : this._changedSummary(PANELS[panel], lang)}
       >
         <div class="content">${content}</div>
       </ha-expansion-panel>
@@ -936,18 +960,21 @@ export class WeatherAlertsCardEditor extends LitElement {
     return html`
       ${this._renderTextField({
         label: t('editor.zones', lang),
+        changed: this._config.zones !== undefined,
         value: zonesStr,
         helper: t('editor.zones_helper', lang),
         onChange: this._zonesChanged,
       })}
       ${this._renderTextField({
         label: t('editor.event_codes', lang),
+        changed: this._config.eventCodes !== undefined,
         value: eventCodesStr,
         helper: t('editor.event_codes_helper', lang),
         onChange: this._eventCodesChanged,
       })}
       ${this._renderTextField({
         label: t('editor.exclude_event_codes', lang),
+        changed: this._config.excludeEventCodes !== undefined,
         value: excludeEventCodesStr,
         helper: t('editor.exclude_event_codes_helper', lang),
         onChange: this._excludeEventCodesChanged,
@@ -960,12 +987,13 @@ export class WeatherAlertsCardEditor extends LitElement {
         min: '1',
         step: '1',
         label: t('editor.max_distance', lang, { unit }),
+        changed: this._config.maxDistanceKm !== undefined,
         value: this._config.maxDistanceKm !== undefined ? String(kmToDisplay(this._config.maxDistanceKm, unit)) : '',
         helper: t('editor.max_distance_helper', lang),
         onChange: this._maxDistanceChanged,
       }) : nothing}
 
-      ${this._showsMyLocationEntityControl() ? html`
+      ${this._showsMyLocationEntityControl() ? this._field(this._config.myLocationEntity !== undefined, html`
         <ha-selector
           .hass=${this.hass}
           .selector=${{ entity: { domain: ['device_tracker', 'person', 'zone'] } }}
@@ -976,7 +1004,7 @@ export class WeatherAlertsCardEditor extends LitElement {
           .helperPersistent=${true}
           @value-changed=${this._myLocationEntityChanged}
         ></ha-selector>
-      ` : nothing}
+      `) : nothing}
     `;
   }
 
@@ -995,12 +1023,11 @@ export class WeatherAlertsCardEditor extends LitElement {
   // nested (not outlined) panel so they cost one row until opened.
   private _renderStylingGroup(lang: string): TemplateResult {
     const legacyMenu = this._legacyMenu;
-    const n = changedCount(this._config, STYLING_KEYS);
     return html`
       <ha-expansion-panel
         .expanded=${false}
         .header=${t('editor.styling_section', lang)}
-        .secondary=${n > 0 ? t('editor.panel_changed', lang, { count: n }) : ''}
+        .secondary=${this._changedSummary(STYLING_KEYS, lang)}
       >
         <div class="content">
           ${this._renderSelect('progressFill')}
@@ -1010,7 +1037,7 @@ export class WeatherAlertsCardEditor extends LitElement {
             ? html`<div class="preview-hint">${t('editor.progress_style_wash_note', lang)}</div>`
             : nothing}
           <div class="phase-row">
-            ${(['preparation', 'active', 'ongoing'] as DecoPhase[]).map(phase => html`
+            ${(['preparation', 'active', 'ongoing'] as DecoPhase[]).map(phase => this._field(this._config.progressStyle?.[phase] !== undefined, html`
               <ha-select
                 .label=${t('editor.progress_style_' + phase, lang)}
                 .value=${this._config.progressStyle?.[phase] || PROGRESS_DECO_DEFAULTS[phase]}
@@ -1023,12 +1050,12 @@ export class WeatherAlertsCardEditor extends LitElement {
                 ${this._renderSelectItem('shimmer', t('editor.deco_shimmer', lang))}
                 ${this._renderSelectItem('pulse', t('editor.deco_pulse', lang))}
               </ha-select>
-            `)}
+            `))}
           </div>
 
           <div class="sub-label">${t('editor.icon_border_style', lang)}</div>
           <div class="phase-row">
-            ${(['preparation', 'active', 'ongoing'] as DecoPhase[]).map(phase => html`
+            ${(['preparation', 'active', 'ongoing'] as DecoPhase[]).map(phase => this._field(this._config.iconBorderStyle?.[phase] !== undefined, html`
               <ha-select
                 .label=${t('editor.progress_style_' + phase, lang)}
                 .value=${this._config.iconBorderStyle?.[phase] || ICON_BORDER_DEFAULTS[phase]}
@@ -1039,7 +1066,7 @@ export class WeatherAlertsCardEditor extends LitElement {
                 ${this._renderSelectItem('dashed', t('editor.icon_border_dashed', lang))}
                 ${this._renderSelectItem('solid', t('editor.icon_border_solid', lang))}
               </ha-select>
-            `)}
+            `))}
           </div>
         </div>
       </ha-expansion-panel>
@@ -1052,7 +1079,12 @@ export class WeatherAlertsCardEditor extends LitElement {
   // is switched on.
   private _renderDetailsSection(lang: string): TemplateResult {
     if (this._config.showDetails === false) return this._renderToggle('showDetails');
-    const options = DETAIL_SECTIONS.map(key => ({ value: key, label: t(TOGGLES[key].label, lang) }));
+    // List options own their row markup, so a customised section is marked
+    // in its label instead of with the gutter rule.
+    const options = DETAIL_SECTIONS.map(key => ({
+      value: key,
+      label: t(TOGGLES[key].label, lang) + (isChanged(this._config, key) ? ' •' : ''),
+    }));
     return html`
       ${this._renderToggle('showDetails')}
       ${this._renderToggle('expandDetails')}
@@ -1089,12 +1121,14 @@ export class WeatherAlertsCardEditor extends LitElement {
       ${this._renderSelect('sortOrder')}
       ${this._renderToggle('hideExpired')}
 
-      <ha-formfield .label=${t('editor.hide_no_alerts', lang)}>
-        <ha-switch
-          .checked=${this._config.hideNoAlerts === true}
-          @change=${this._hideNoAlertsChanged}
-        ></ha-switch>
-      </ha-formfield>
+      ${this._field(this._config.hideNoAlerts !== undefined, html`
+        <ha-formfield .label=${t('editor.hide_no_alerts', lang)}>
+          <ha-switch
+            .checked=${this._config.hideNoAlerts === true}
+            @change=${this._hideNoAlertsChanged}
+          ></ha-switch>
+        </ha-formfield>
+      `)}
 
       ${this._renderSelect('unavailableBehavior')}
       ${this._config.unavailableBehavior === 'hide'
@@ -1106,7 +1140,7 @@ export class WeatherAlertsCardEditor extends LitElement {
   private _renderTapAction(lang: string): TemplateResult {
     const legacyMenu = this._legacyMenu;
     const action = this._config.tap_action?.action;
-    return html`
+    return this._field(this._config.tap_action !== undefined, html`
       <ha-select
         .label=${t('editor.tap_action', lang)}
         .value=${action ?? 'default'}
@@ -1148,7 +1182,7 @@ export class WeatherAlertsCardEditor extends LitElement {
       ${action === 'details' && this._config.expandDetails !== true
         ? html`<ha-alert alert-type="info">${t('editor.tap_details_expand_hint', lang)}</ha-alert>`
         : ''}
-    `;
+    `);
   }
 
   private _renderDismissalSection(lang: string): TemplateResult {
@@ -1208,6 +1242,19 @@ export class WeatherAlertsCardEditor extends LitElement {
       flex-direction: column;
       gap: 16px;
       padding: 12px;
+    }
+    /* A customised control: accent rule in the panel gutter, content edge
+       unchanged. Position and shape, not a new color. */
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-left: -11px;
+      padding-left: 8px;
+      border-left: 3px solid transparent;
+    }
+    .field.changed {
+      border-left-color: var(--primary-color);
     }
     /* Sub-heading inside the styling group. */
     .sub-label {

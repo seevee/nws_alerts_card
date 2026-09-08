@@ -238,20 +238,40 @@ export function withKey(
   return next;
 }
 
-/** How many of `keys` are customised: registry keys whose effective value
- *  differs from the default, plus bespoke keys that are present. An explicit
- *  `showDetails: true` is not customised; a `zones: []` is. */
-export function changedCount(
+/** Which of `keys` are customised, in the order given: registry keys whose
+ *  effective value differs from the default, plus bespoke keys that are
+ *  present. An explicit `showDetails: true` is not customised; a `zones: []`
+ *  is. */
+export function changedKeys(
   config: WeatherAlertsCardConfig,
   keys: readonly (keyof WeatherAlertsCardConfig)[],
-): number {
-  let n = 0;
-  for (const key of keys) {
-    if (key in FIELDS) {
-      if (!isDefault(config, key as SimpleKey)) n++;
-    } else if (config[key] !== undefined) {
-      n++;
-    }
-  }
-  return n;
+): (keyof WeatherAlertsCardConfig)[] {
+  return keys.filter(key =>
+    key in FIELDS ? !isDefault(config, key as SimpleKey) : config[key] !== undefined,
+  );
+}
+
+/** Whether one key is customised (see `changedKeys`). */
+export function isChanged(config: WeatherAlertsCardConfig, key: keyof WeatherAlertsCardConfig): boolean {
+  return changedKeys(config, [key]).length === 1;
+}
+
+/** Label keys for the bespoke keys a panel header may need to name. Registry
+ *  keys carry their own label. */
+export const BESPOKE_LABELS: Readonly<Partial<Record<keyof WeatherAlertsCardConfig, string>>> = {
+  zones: 'editor.zones',
+  eventCodes: 'editor.event_codes',
+  excludeEventCodes: 'editor.exclude_event_codes',
+  maxDistanceKm: 'editor.max_distance',
+  myLocationEntity: 'editor.my_location_entity',
+  progressStyle: 'editor.progress_style',
+  iconBorderStyle: 'editor.icon_border_style',
+  tap_action: 'editor.tap_action',
+  hideNoAlerts: 'editor.hide_no_alerts',
+};
+
+/** A label fit for a header: the trailing parenthetical every "(optional)" or
+ *  "(km)" label carries is noise there. */
+export function shortLabel(label: string): string {
+  return label.replace(/\s*\([^)]*\)\s*$/, '');
 }

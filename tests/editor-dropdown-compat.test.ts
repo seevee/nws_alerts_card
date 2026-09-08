@@ -127,7 +127,8 @@ type RenderedField = { label?: string; value?: string; hint?: string; helper?: s
 function fieldOf(template: unknown): { tag: string; el: RenderedField & Element } {
   const host = document.createElement('div');
   render(template as never, host);
-  const el = host.firstElementChild!;
+  // The control sits inside its `.field` row wrapper.
+  const el = host.querySelector('ha-input, ha-textfield')!;
   return { tag: el.localName, el: el as unknown as RenderedField & Element };
 }
 

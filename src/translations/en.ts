@@ -202,7 +202,7 @@ export const en: TranslationMap = {
   'editor.section_dismissal': 'Dismissal',
   'editor.section_advanced': 'Advanced',
   'editor.detail_sections': 'Sections',
-  'editor.panel_changed': '{count} changed',
+  'editor.panel_more': '+{count} more',
   'editor.dismiss_trigger': 'Dismiss trigger',
   'editor.dismiss_trigger_button': 'Button only',
   'editor.dismiss_trigger_swipe': 'Swipe only',

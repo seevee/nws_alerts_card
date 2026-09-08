@@ -77,7 +77,8 @@ function renderControls(editor: EditorInternals): Control[] {
     .map(el => el as unknown as { label?: string; selector?: { select?: { options?: { label: string }[] } } })
     .find(el => el.label === 'Sections');
   for (const o of list?.selector?.select?.options ?? []) {
-    out.push({ kind: 'toggle', el: list as unknown as Element, label: o.label });
+    // A customised section carries a " •" suffix; the registry label is the rest.
+    out.push({ kind: 'toggle', el: list as unknown as Element, label: o.label.replace(/ •$/, '') });
   }
   return out;
 }

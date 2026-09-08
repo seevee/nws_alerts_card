@@ -2,15 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { render } from 'lit';
 import { WeatherAlertsCardEditor } from '../src/weather-alerts-card-editor';
 import {
-  DETAIL_SECTIONS, PANELS, PANEL_LABELS, SELECT_FIELDS, TOGGLE_FIELDS, changedCount,
+  DETAIL_SECTIONS, PANELS, PANEL_LABELS, SELECT_FIELDS, TOGGLE_FIELDS, changedKeys, shortLabel,
   type Panel,
 } from '../src/editor-fields';
 import { translations } from '../src/translations';
 import type { HomeAssistant, WeatherAlertsCardConfig } from '../src/types';
 
 // The regrouped editor: seven ha-expansion-panels, each declaring its header
-// and a "n changed" secondary from the registry; dependents hidden (never
-// disabled) behind their master; the detail sections as one list selector.
+// and a secondary naming its customised keys from the registry, with the
+// matching rows marked inside; dependents hidden (never disabled) behind
+// their master; the detail sections as one list selector.
 // ha-expansion-panel is undefined in jsdom, so panel children stay ordinary
 // light DOM and querySelector reaches them.
 type EditorInternals = {
@@ -83,7 +84,7 @@ describe('panel layout', () => {
       const label = en[f.label];
       const panel = byPanel[f.panel];
       if ((DETAIL_SECTIONS as readonly string[]).includes(f.key)) {
-        expect(sectionsList(panel)?.selector?.select?.options?.map(o => o.label), f.key).toContain(label);
+        expect(sectionsList(panel)?.selector?.select?.options?.map(o => o.label.replace(/ •$/, '')), f.key).toContain(label);
       } else {
         expect(formfieldLabels(panel), f.key).toContain(label);
       }
@@ -109,48 +110,104 @@ describe('panel layout', () => {
     expect(nested.header).toBe('Progress & icon styling');
     expect(nested.hasAttribute('outlined')).toBe(false);
     expect(nested.expanded).toBe(false);
-    expect(nested.secondary).toBe('2 changed');
+    expect(nested.secondary).toBe('Progress fill · Progress bar decoration');
     expect(selectLabels(nested)).toContain('Progress fill');
   });
 });
 
-describe('panel header counts', () => {
-  it('shows no count anywhere on a default card', () => {
+describe('panel header summaries', () => {
+  it('shows no summary anywhere on a default card', () => {
     const byPanel = panels(renderHost(makeEditor(base()).editor));
     for (const id of ORDER) expect(byPanel[id].secondary, id).toBe('');
   });
 
-  it('never counts Source, even with every source key set', () => {
+  it('never summarises Source, even with every source key set', () => {
     const byPanel = panels(renderHost(makeEditor(base({ entities: ['a'], device: 'd', sources: ['s'], title: 'T' })).editor));
     expect(byPanel.source.secondary).toBe('');
   });
 
-  it('counts registry keys off their default plus present bespoke keys', () => {
+  it('names registry keys off their default and present bespoke keys, in panel order', () => {
     const cfg = base({
-      zones: ['A'], minSeverity: 'severe',                       // filtering: 2
-      layout: 'compact', showProvider: true, progressStyle: { active: 'striped' }, // appearance: 3
-      showDetails: false, showGeometry: true,                    // details: 2 (hidden key still counts)
-      tap_action: { action: 'none' }, hideNoAlerts: true,        // behavior: 2
-      allowDismiss: true,                                        // dismissal: 1
-      provider: 'bom', deduplicate: false, timezone: 'browser', reformatText: false, // advanced: 4
+      zones: ['A'], minSeverity: 'severe',                       // filtering
+      layout: 'compact', showProvider: true, progressStyle: { active: 'striped' }, // appearance
+      showDetails: false, showGeometry: true,                    // details (hidden key still counts)
+      tap_action: { action: 'none' }, hideNoAlerts: true,        // behavior
+      allowDismiss: true,                                        // dismissal
     });
     const byPanel = panels(renderHost(makeEditor(cfg).editor));
-    expect(byPanel.filtering.secondary).toBe('2 changed');
-    expect(byPanel.appearance.secondary).toBe('3 changed');
-    expect(byPanel.details.secondary).toBe('2 changed');
-    expect(byPanel.behavior.secondary).toBe('2 changed');
-    expect(byPanel.dismissal.secondary).toBe('1 changed');
-    expect(byPanel.advanced.secondary).toBe('4 changed');
-    for (const id of ORDER) {
-      if (id !== 'source') expect(changedCount(cfg, PANELS[id]), id).toBe(Number(byPanel[id].secondary!.split(' ')[0]));
-    }
+    expect(byPanel.filtering.secondary).toBe('Zones · Minimum severity');
+    expect(byPanel.appearance.secondary).toBe('Compact layout · Show provider label · Progress bar decoration');
+    expect(byPanel.details.secondary).toBe('Show detail panel · Show area map');
+    expect(byPanel.behavior.secondary).toBe('Tap action · Hide card when there are no active alerts');
+    expect(byPanel.dismissal.secondary).toBe('Allow dismissing alerts');
+    expect(byPanel.advanced.secondary).toBe('');
   });
 
-  it('does not count a key stored explicitly at its default', () => {
+  it('caps the list at three names and counts the rest', () => {
+    const cfg = base({ provider: 'bom', deduplicate: false, timezone: 'browser', reformatText: false, enhanceContrast: 'off' });
+    const byPanel = panels(renderHost(makeEditor(cfg).editor));
+    expect(changedKeys(cfg, PANELS.advanced)).toHaveLength(5);
+    expect(byPanel.advanced.secondary).toBe('Alert provider · Timezone · Reflow alert text +2 more');
+  });
+
+  it('strips a trailing parenthetical from a header name', () => {
+    expect(shortLabel('Zones (optional)')).toBe('Zones');
+    expect(shortLabel('Maximum distance (km)')).toBe('Maximum distance');
+    expect(shortLabel('Reflow alert text (strip hard line breaks)')).toBe('Reflow alert text');
+    expect(shortLabel('NWS (United States) feed')).toBe('NWS (United States) feed');
+    const byPanel = panels(renderHost(makeEditor(base({ provider: 'nsw_rfs', maxDistanceKm: 20, eventCodes: ['X'] })).editor));
+    expect(byPanel.filtering.secondary).toBe('Event codes · Maximum distance');
+  });
+
+  it('does not name a key stored explicitly at its default', () => {
     const byPanel = panels(renderHost(makeEditor(base({ showDetails: true, animations: true, sortOrder: 'default' })).editor));
     expect(byPanel.details.secondary).toBe('');
     expect(byPanel.appearance.secondary).toBe('');
     expect(byPanel.behavior.secondary).toBe('');
+  });
+});
+
+describe('changed-row markers', () => {
+  const markedLabels = (root: Element) =>
+    [...root.querySelectorAll('.field.changed')].map(f => {
+      const el = f.querySelector('ha-formfield, ha-select, ha-input, ha-textfield, ha-selector') as Labelled | null;
+      return el?.label;
+    });
+
+  it('marks exactly the customised rows, registry and bespoke alike', () => {
+    const cfg = base({
+      provider: 'nsw_rfs', zones: ['A'], maxDistanceKm: 20, myLocationEntity: 'zone.work',
+      layout: 'compact', progressStyle: { active: 'striped' },
+      showGeometry: true, geometryStyle: 'map',
+      tap_action: { action: 'none' }, hideNoAlerts: true, sortOrder: 'severity',
+      allowDismiss: true, dismissTrigger: 'swipe',
+      timezone: 'browser',
+    });
+    const host = renderHost(makeEditor(cfg).editor);
+    expect(markedLabels(host).sort()).toEqual([
+      'Zones (optional)', 'Maximum distance (km)', 'My location',
+      'Compact layout', 'Active',
+      'Area map style',
+      'Tap action', 'Hide card when there are no active alerts', 'Sort order',
+      'Allow dismissing alerts', 'Dismiss trigger',
+      'Timezone', 'Alert provider',
+    ].sort());
+    // The unchanged phase selects beside the marked one carry the row but not the mark.
+    expect(host.querySelectorAll('.phase-row .field').length).toBe(6);
+    expect(host.querySelectorAll('.phase-row .field.changed').length).toBe(1);
+  });
+
+  it('marks nothing on a default card, and every row is still a .field', () => {
+    const host = renderHost(makeEditor(base()).editor);
+    expect(host.querySelectorAll('.field.changed')).toHaveLength(0);
+    expect(host.querySelectorAll('.editor > ha-expansion-panel .content > ha-formfield, .editor > ha-expansion-panel .content > ha-select')).toHaveLength(0);
+  });
+
+  it('suffixes a customised section in the list options', () => {
+    const list = sectionsList(renderHost(makeEditor(base({ showDescription: false, showGeometry: true })).editor))!;
+    expect(list.selector?.select?.options?.map(o => o.label)).toEqual([
+      'Show metadata', 'Show description •', 'Show instructions', 'Show source link', 'Show area map •',
+    ]);
   });
 });
 
