@@ -24,6 +24,7 @@ Always run `npm run lint` and `npm run test` before committing.
 |------|---------|
 | `src/weather-alerts-card.ts` | Main LitElement card class. Implements HA card contract: `setConfig()`, `hass` property, `getCardSize()`, `getStubConfig()`, `window.customCards` registration. Wraps output in `<ha-card>`. Consumes normalized `WeatherAlert` objects. |
 | `src/weather-alerts-card-editor.ts` | Visual configuration editor. |
+| `src/editor-fields.ts` | The editor's field registry: the single place a *simple* config key (switch or dropdown, scalar value, delete-on-default) is declared — default, label key, panel, options. `withKey()` is the pure write core the editor's `_writeKey` fires from; `PANELS` maps every key (registry and bespoke) to its panel. |
 | `src/types.ts` | TypeScript interfaces: `WeatherAlert` (normalized, provider-agnostic), `WeatherAlertsCardConfig`, `AlertAdapter`, `NwsAlert` (raw NWS shape), `BomWarning` (raw BoM shape), `NswRfsIncident` (raw NSW RFS geo_location shape), `AlertProgress`. |
 | `src/adapters/index.ts` | Adapter registry with auto-detection. Exports `getAdapter(provider, attributes)`, `knownFeedSources()`, `pointCapableProviders()`. |
 | `src/adapters/nws.ts` | NWS adapter: parses `attributes.Alerts` → `WeatherAlert[]`. |

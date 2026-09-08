@@ -10,7 +10,7 @@ type EditorInternals = {
   _config: WeatherAlertsCardConfig;
   hass: HomeAssistant;
   _showsMyLocationEntityControl(): boolean;
-  _showMyLocationChanged(ev: Event): void;
+  _writeKey(key: 'showMyLocation', value: boolean): void;
   _myLocationEntityChanged(ev: CustomEvent): void;
   render(): unknown;
   addEventListener(type: string, listener: (ev: Event) => void): void;
@@ -101,18 +101,18 @@ describe('rendered controls', () => {
   });
 });
 
-describe('_showMyLocationChanged', () => {
+describe('showMyLocation write path', () => {
   it('writes showMyLocation: true when switched on', () => {
     const editor = makeEditor({ provider: 'nsw_rfs', showGeometry: true });
     const emitted = capture(editor);
-    editor._showMyLocationChanged({ target: { checked: true } } as unknown as Event);
+    editor._writeKey('showMyLocation', true);
     expect(emitted()?.showMyLocation).toBe(true);
   });
 
   it('deletes the key (never writes false) when switched off', () => {
     const editor = makeEditor({ provider: 'nsw_rfs', showGeometry: true, showMyLocation: true });
     const emitted = capture(editor);
-    editor._showMyLocationChanged({ target: { checked: false } } as unknown as Event);
+    editor._writeKey('showMyLocation', false);
     expect(emitted()).toBeDefined();
     expect('showMyLocation' in emitted()!).toBe(false);
   });
@@ -120,7 +120,7 @@ describe('_showMyLocationChanged', () => {
   it('does not fire on a no-op', () => {
     const editor = makeEditor({ provider: 'nsw_rfs', showGeometry: true });
     const emitted = capture(editor);
-    editor._showMyLocationChanged({ target: { checked: false } } as unknown as Event);
+    editor._writeKey('showMyLocation', false);
     expect(emitted()).toBeUndefined();
   });
 });

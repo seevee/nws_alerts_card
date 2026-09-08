@@ -3,13 +3,13 @@ import { WeatherAlertsCardEditor } from '../src/weather-alerts-card-editor';
 import type { WeatherAlertsCardConfig, ProgressDecoration, IconBorderStyle } from '../src/types';
 
 // Reach into the private per-phase handlers; this suite pins the default
-// detection + key-pruning contract (mirrors _fontSizeChanged) and that each
-// change emits config-changed.
+// detection + key-pruning contract (mirrors _writeKey) and that each change
+// emits config-changed.
 type EditorInternals = {
   _config: WeatherAlertsCardConfig;
   _progressStyleChanged(phase: 'preparation' | 'active' | 'ongoing', ev: CustomEvent): void;
   _iconBorderStyleChanged(phase: 'preparation' | 'active' | 'ongoing', ev: CustomEvent): void;
-  _progressFillChanged(ev: CustomEvent): void;
+  _writeKey(key: 'progressFill', value: string): void;
 };
 
 function makeEditor(config: Partial<WeatherAlertsCardConfig> = {}): {
@@ -78,10 +78,10 @@ describe('_iconBorderStyleChanged', () => {
   });
 });
 
-describe('_progressFillChanged', () => {
+describe('progressFill write path', () => {
   it('writes progressFill on selecting background and emits config-changed', () => {
     const { editor, events } = makeEditor();
-    editor._progressFillChanged(sel('background'));
+    editor._writeKey('progressFill', 'background');
     expect(editor._config.progressFill).toBe('background');
     expect(events).toHaveLength(1);
     expect(events[0].progressFill).toBe('background');
@@ -89,14 +89,14 @@ describe('_progressFillChanged', () => {
 
   it('deletes the key on returning to the track default', () => {
     const { editor, events } = makeEditor({ progressFill: 'background' });
-    editor._progressFillChanged(sel('track'));
+    editor._writeKey('progressFill', 'track');
     expect(editor._config.progressFill).toBeUndefined();
     expect(events).toHaveLength(1);
   });
 
   it('is a no-op when unchanged (default track, no event)', () => {
     const { editor, events } = makeEditor();
-    editor._progressFillChanged(sel('track'));
+    editor._writeKey('progressFill', 'track');
     expect(events).toHaveLength(0);
     expect(editor._config.progressFill).toBeUndefined();
   });

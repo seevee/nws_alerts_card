@@ -1,7 +1,8 @@
 import { LitElement, html, css, nothing, TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Connection } from 'home-assistant-js-websocket';
-import { HomeAssistant, WeatherAlertsCardConfig, AlertSeverity, ContrastMode, EntityRegistryDisplayEntry, AlertProvider, DecoPhase, ProgressDecoration, IconBorderStyle, ProgressStyleConfig, IconBorderStyleConfig, ActionConfig, PROGRESS_DECO_DEFAULTS, ICON_BORDER_DEFAULTS } from './types';
+import { HomeAssistant, WeatherAlertsCardConfig, EntityRegistryDisplayEntry, DecoPhase, ProgressDecoration, IconBorderStyle, ProgressStyleConfig, IconBorderStyleConfig, ActionConfig, PROGRESS_DECO_DEFAULTS, ICON_BORDER_DEFAULTS } from './types';
+import { SELECTS, TOGGLES, SelectKey, SimpleKey, SimpleValue, ToggleKey, effectiveValue, isOn, withKey } from './editor-fields';
 import { canHandleAny, ENTITY_NAME_PATTERNS, getAdapter, knownFeedSources, pointCapableProviders } from './adapters';
 import { LengthUnit, displayToKm, kmToDisplay, toLengthUnit } from './utils';
 import { configuredDevices, deviceEntityIds, resolveDeviceAlertEntities, subscribeEntityRegistry } from './registry';
@@ -371,22 +372,6 @@ export class WeatherAlertsCardEditor extends LitElement {
     this._fireConfigChanged(newConfig);
   }
 
-  private _providerChanged(ev: CustomEvent): void {
-    const value = this._selectValue(ev) as string;
-    if (value === (this._config.provider || 'auto')) return;
-    // `provider` is a pure parsing *override* — it forces one adapter for every
-    // resolved entity. It is deliberately decoupled from feed collection (the
-    // `sources` field / feed picker), so leaving it on Auto keeps mixed-provider
-    // cards auto-detecting per entity.
-    const newConfig = { ...this._config };
-    if (value === 'auto') {
-      delete newConfig.provider;
-    } else {
-      newConfig.provider = value as AlertProvider;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
   private _feedsChanged(ev: CustomEvent): void {
     const value = ev.detail.value;
     const selected: string[] = Array.isArray(value) ? value : (value ? [value] : []);
@@ -395,149 +380,6 @@ export class WeatherAlertsCardEditor extends LitElement {
       newConfig.sources = selected;
     } else {
       delete newConfig.sources;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _enhanceContrastChanged(ev: CustomEvent): void {
-    const value = this._selectValue(ev) as ContrastMode;
-    if (value === (this._config.enhanceContrast || 'subtle')) return;
-    const newConfig = { ...this._config };
-    if (value === 'subtle') {
-      delete newConfig.enhanceContrast;
-    } else {
-      newConfig.enhanceContrast = value;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _animationsChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const animations = target.checked;
-    if (animations === (this._config.animations !== false)) return;
-    const newConfig = { ...this._config };
-    if (animations) {
-      delete newConfig.animations;
-    } else {
-      newConfig.animations = false;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _deduplicateHeadlinesChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const dedup = target.checked;
-    const current = this._config.deduplicateHeadlines !== false;
-    if (dedup === current) return;
-    const newConfig = { ...this._config };
-    if (dedup) {
-      delete newConfig.deduplicateHeadlines;
-    } else {
-      newConfig.deduplicateHeadlines = false;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _deduplicateChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const deduplicate = target.checked;
-    if (deduplicate === (this._config.deduplicate !== false)) return;
-    const newConfig = { ...this._config };
-    if (deduplicate) {
-      delete newConfig.deduplicate;
-    } else {
-      newConfig.deduplicate = false;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _showDetailsChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const show = target.checked;
-    if (show === (this._config.showDetails !== false)) return;
-    const newConfig = { ...this._config };
-    if (show) {
-      delete newConfig.showDetails;
-    } else {
-      newConfig.showDetails = false;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _expandDetailsChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const expand = target.checked;
-    if (expand === (this._config.expandDetails === true)) return;
-    const newConfig = { ...this._config };
-    if (expand) {
-      newConfig.expandDetails = true;
-    } else {
-      delete newConfig.expandDetails;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _showMetadataChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const show = target.checked;
-    if (show === (this._config.showMetadata !== false)) return;
-    const newConfig = { ...this._config };
-    if (show) {
-      delete newConfig.showMetadata;
-    } else {
-      newConfig.showMetadata = false;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _showDescriptionChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const show = target.checked;
-    if (show === (this._config.showDescription !== false)) return;
-    const newConfig = { ...this._config };
-    if (show) {
-      delete newConfig.showDescription;
-    } else {
-      newConfig.showDescription = false;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _showInstructionsChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const show = target.checked;
-    if (show === (this._config.showInstructions !== false)) return;
-    const newConfig = { ...this._config };
-    if (show) {
-      delete newConfig.showInstructions;
-    } else {
-      newConfig.showInstructions = false;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _showGeometryChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const show = target.checked;
-    if (show === (this._config.showGeometry === true)) return;
-    const newConfig = { ...this._config };
-    if (show) {
-      newConfig.showGeometry = true;
-    } else {
-      delete newConfig.showGeometry;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _showMyLocationChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const show = target.checked;
-    if (show === (this._config.showMyLocation === true)) return;
-    const newConfig = { ...this._config };
-    if (show) {
-      newConfig.showMyLocation = true;
-    } else {
-      delete newConfig.showMyLocation;
     }
     this._fireConfigChanged(newConfig);
   }
@@ -559,107 +401,6 @@ export class WeatherAlertsCardEditor extends LitElement {
    *  the radius filter measures from it, and the mini-map can mark it. */
   private _showsMyLocationEntityControl(): boolean {
     return this._showsRadiusControl() || this._config?.showGeometry === true;
-  }
-
-  private _geometryStyleChanged(ev: CustomEvent): void {
-    const value = this._selectValue(ev) as 'shape' | 'map';
-    if (value === (this._config.geometryStyle || 'shape')) return;
-    const newConfig = { ...this._config };
-    if (value === 'shape') {
-      delete newConfig.geometryStyle;
-    } else {
-      newConfig.geometryStyle = value;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _showProviderChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const show = target.checked;
-    if (show === (this._config.showProvider === true)) return;
-    const newConfig = { ...this._config };
-    if (show) {
-      newConfig.showProvider = true;
-    } else {
-      delete newConfig.showProvider;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _showSourceLinkChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const showSourceLink = target.checked;
-    if (showSourceLink === (this._config.showSourceLink !== false)) return;
-    const newConfig = { ...this._config };
-    if (showSourceLink) {
-      delete newConfig.showSourceLink;
-    } else {
-      newConfig.showSourceLink = false;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _hideExpiredChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const hide = target.checked;
-    if (hide === (this._config.hideExpired !== false)) return;
-    const newConfig: WeatherAlertsCardConfig = { ...this._config };
-    if (!hide) {
-      newConfig.hideExpired = false;
-    } else {
-      delete newConfig.hideExpired;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _allowDismissChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const allow = target.checked;
-    if (allow === (this._config.allowDismiss === true)) return;
-    const newConfig = { ...this._config };
-    if (allow) {
-      newConfig.allowDismiss = true;
-    } else {
-      delete newConfig.allowDismiss;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _showDismissUndoChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const show = target.checked;
-    if (show === (this._config.showDismissUndo !== false)) return;
-    const newConfig = { ...this._config };
-    if (show) {
-      delete newConfig.showDismissUndo;
-    } else {
-      newConfig.showDismissUndo = false;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _dismissTriggerChanged(ev: CustomEvent): void {
-    const value = this._selectValue(ev) as 'button' | 'swipe' | 'both';
-    if (value === (this._config.dismissTrigger || 'button')) return;
-    const newConfig = { ...this._config };
-    if (value === 'button') {
-      delete newConfig.dismissTrigger;
-    } else {
-      newConfig.dismissTrigger = value;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _dismissButtonStyleChanged(ev: CustomEvent): void {
-    const value = this._selectValue(ev) as 'icon' | 'labeled';
-    if (value === (this._config.dismissButtonStyle || 'icon')) return;
-    const newConfig = { ...this._config };
-    if (value === 'icon') {
-      delete newConfig.dismissButtonStyle;
-    } else {
-      newConfig.dismissButtonStyle = value;
-    }
-    this._fireConfigChanged(newConfig);
   }
 
   private _currentScopeHash(): string {
@@ -771,32 +512,6 @@ export class WeatherAlertsCardEditor extends LitElement {
     return conditions.length > 0 ? conditions : undefined;
   }
 
-  private _reformatTextChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const reformat = target.checked;
-    if (reformat === (this._config.reformatText !== false)) return;
-    const newConfig = { ...this._config };
-    if (reformat) {
-      delete newConfig.reformatText;
-    } else {
-      newConfig.reformatText = false;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _layoutChanged(ev: Event): void {
-    const target = ev.target as HTMLInputElement;
-    const compact = target.checked;
-    if (compact === (this._config.layout === 'compact')) return;
-    const newConfig = { ...this._config };
-    if (compact) {
-      newConfig.layout = 'compact';
-    } else {
-      delete newConfig.layout;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
   private _zonesChanged(ev: Event): void {
     const target = ev.target as HTMLInputElement;
     const raw = target.value;
@@ -833,46 +548,10 @@ export class WeatherAlertsCardEditor extends LitElement {
     this._fireConfigChanged(newConfig);
   }
 
-  private _sortOrderChanged(ev: CustomEvent): void {
-    const value = this._selectValue(ev) as 'default' | 'onset' | 'severity';
-    if (value === (this._config.sortOrder || 'default')) return;
-    const newConfig = { ...this._config };
-    if (value === 'default') {
-      delete newConfig.sortOrder;
-    } else {
-      newConfig.sortOrder = value;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _unavailableBehaviorChanged(ev: CustomEvent): void {
-    const value = this._selectValue(ev) as 'message' | 'compact' | 'hide';
-    if (value === (this._config.unavailableBehavior || 'message')) return;
-    const newConfig = { ...this._config };
-    if (value === 'message') {
-      delete newConfig.unavailableBehavior;
-    } else {
-      newConfig.unavailableBehavior = value;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _colorThemeChanged(ev: CustomEvent): void {
-    const value = this._selectValue(ev) as 'severity' | 'nws' | 'meteoalarm' | 'eccc';
-    if (value === (this._config.colorTheme || 'severity')) return;
-    const newConfig = { ...this._config };
-    if (value === 'severity') {
-      delete newConfig.colorTheme;
-    } else {
-      newConfig.colorTheme = value;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
   // Tap action. `tap_action` is *presence*-based in the card — `{action:'none'}`
   // is an inert row that still replaces the inline expand, which is a different
   // state from "unset". The 'default' sentinel deletes the key (mirrors
-  // _fontSizeChanged); every other value spreads the existing object so
+  // _writeKey); every other value spreads the existing object so
   // YAML-authored payloads (fire-dom-event `browser_mod`, service `data`,
   // `target`, …) survive an action switch untouched.
   private _tapActionChanged(ev: CustomEvent): void {
@@ -918,35 +597,9 @@ export class WeatherAlertsCardEditor extends LitElement {
     this._fireConfigChanged({ ...this._config, tap_action: next });
   }
 
-  private _fontSizeChanged(ev: CustomEvent): void {
-    const value = this._selectValue(ev) as string;
-    if (value === (this._config.fontSize || 'default')) return;
-    const newConfig = { ...this._config };
-    if (value === 'default') {
-      delete newConfig.fontSize;
-    } else {
-      newConfig.fontSize = value as 'small' | 'large' | 'x-large';
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  // Progress-indication surface (track vs whole-row background wash). Default
-  // 'track' clears the key so configs stay minimal (mirrors _fontSizeChanged).
-  private _progressFillChanged(ev: CustomEvent): void {
-    const value = this._selectValue(ev) as string;
-    if (value === (this._config.progressFill || 'track')) return;
-    const newConfig = { ...this._config };
-    if (value === 'track') {
-      delete newConfig.progressFill;
-    } else {
-      newConfig.progressFill = value as 'background';
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
   // Per-phase progress-bar decoration. On the phase default, delete the phase
   // key and prune an emptied progressStyle object so configs stay minimal
-  // (mirrors _fontSizeChanged); otherwise write the chosen decoration.
+  // (mirrors _writeKey); otherwise write the chosen decoration.
   private _progressStyleChanged(phase: DecoPhase, ev: CustomEvent): void {
     const value = this._selectValue(ev) as ProgressDecoration;
     const current = this._config.progressStyle?.[phase] ?? PROGRESS_DECO_DEFAULTS[phase];
@@ -983,30 +636,6 @@ export class WeatherAlertsCardEditor extends LitElement {
       delete newConfig.iconBorderStyle;
     } else {
       newConfig.iconBorderStyle = iconBorderStyle;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _timezoneChanged(ev: CustomEvent): void {
-    const value = this._selectValue(ev) as 'server' | 'browser';
-    if (value === (this._config.timezone || 'server')) return;
-    const newConfig = { ...this._config };
-    if (value === 'server') {
-      delete newConfig.timezone;
-    } else {
-      newConfig.timezone = value;
-    }
-    this._fireConfigChanged(newConfig);
-  }
-
-  private _minSeverityChanged(ev: CustomEvent): void {
-    const value = this._selectValue(ev) as AlertSeverity | 'all';
-    if (value === (this._config.minSeverity || 'all')) return;
-    const newConfig = { ...this._config };
-    if (value !== 'all') {
-      newConfig.minSeverity = value as AlertSeverity;
-    } else {
-      delete newConfig.minSeverity;
     }
     this._fireConfigChanged(newConfig);
   }
@@ -1070,18 +699,66 @@ export class WeatherAlertsCardEditor extends LitElement {
     this._fireConfigChanged(newConfig);
   }
 
+  // MWC's ha-select renders its menu inside the editor panel's stacking
+  // context, so it needs both attributes to escape; WebAwesome's warns on
+  // them. A false boolean binding removes the attribute outright.
+  private get _legacyMenu(): boolean {
+    return !this._useWebAwesome;
+  }
+
+  // Write core for every registry key: one `config-changed` when the config
+  // identity changes, none otherwise (see `withKey`).
+  private _writeKey(key: SimpleKey, value: SimpleValue): void {
+    const next = withKey(this._config, key, value);
+    if (next !== this._config) this._fireConfigChanged(next);
+  }
+
+  private _renderToggle(key: ToggleKey, disabled?: boolean): TemplateResult {
+    const field = TOGGLES[key];
+    return html`
+      <ha-formfield .label=${t(field.label, this._lang)}>
+        <ha-switch
+          .checked=${isOn(this._config, field)}
+          .disabled=${disabled ?? nothing}
+          @change=${(ev: Event) => this._writeKey(key, (ev.target as HTMLInputElement).checked ? field.on : field.off)}
+        ></ha-switch>
+      </ha-formfield>
+    `;
+  }
+
+  private _renderSelect(key: SelectKey, disabled?: boolean): TemplateResult {
+    const field = SELECTS[key];
+    const lang = this._lang;
+    return html`
+      <ha-select
+        .label=${t(field.label, lang)}
+        .value=${effectiveValue(this._config, key)}
+        .disabled=${disabled ?? nothing}
+        @selected=${(ev: CustomEvent) => this._writeKey(key, this._selectValue(ev))}
+        ?fixedMenuPosition=${this._legacyMenu}
+        ?naturalMenuWidth=${this._legacyMenu}
+      >
+        ${field.options.map(o => this._renderSelectItem(o.value, t(o.label, lang)))}
+      </ha-select>
+    `;
+  }
+
   protected render(): TemplateResult {
     if (!this.hass || !this._config) return html``;
-
     const lang = this._lang;
-    const unit = this._lengthUnit();
-    // MWC's ha-select renders its menu inside the editor panel's stacking
-    // context, so it needs both attributes to escape; WebAwesome's warns on
-    // them. A false boolean binding removes the attribute outright.
-    const legacyMenu = !this._useWebAwesome;
-    const zonesStr = this._config.zones ? this._config.zones.join(', ') : '';
-    const eventCodesStr = this._config.eventCodes ? this._config.eventCodes.join(', ') : '';
-    const excludeEventCodesStr = this._config.excludeEventCodes ? this._config.excludeEventCodes.join(', ') : '';
+    return html`
+      <div class="editor">
+        ${this._renderSourceSection(lang)}
+        ${this._renderFilteringSection(lang)}
+        ${this._renderAppearanceSection(lang)}
+        ${this._renderDetailsSection(lang)}
+        ${this._renderBehaviorSection(lang)}
+        ${this._renderDismissalSection(lang)}
+      </div>
+    `;
+  }
+
+  private _renderSourceSection(lang: string): TemplateResult {
     // Per-incident feeds a user can auto-collect (currently NSW RFS), labelled
     // by the provider that parses them. Independent of the provider override.
     // Only offer a feed whose integration is actually present in this HA — i.e.
@@ -1103,531 +780,328 @@ export class WeatherAlertsCardEditor extends LitElement {
       }));
 
     return html`
-      <div class="editor">
-        <!-- Entity & Provider -->
-        <div class="section-label">${t('editor.section_entity', lang)}</div>
+      <div class="section-label">${t('editor.section_entity', lang)}</div>
 
-        <ha-selector
-          .hass=${this.hass}
-          .selector=${{ entity: { multiple: true, include_entities: this._getMatchingEntityIds() } }}
-          .value=${this._getSelectedEntities()}
-          .label=${t('editor.entities', lang)}
-          .required=${!configuredDevices(this._config).length && !this._config?.sources?.length}
-          @value-changed=${this._entityChanged}
-        ></ha-selector>
-        ${this._renderEntityWarning(lang)}
-        ${this._renderNoEntitiesHint(lang)}
+      <ha-selector
+        .hass=${this.hass}
+        .selector=${{ entity: { multiple: true, include_entities: this._getMatchingEntityIds() } }}
+        .value=${this._getSelectedEntities()}
+        .label=${t('editor.entities', lang)}
+        .required=${!configuredDevices(this._config).length && !this._config?.sources?.length}
+        @value-changed=${this._entityChanged}
+      ></ha-selector>
+      ${this._renderEntityWarning(lang)}
+      ${this._renderNoEntitiesHint(lang)}
 
-        <ha-selector
-          .hass=${this.hass}
-          .selector=${{
-            device: {
-              multiple: true,
-              // Every integration that publishes one alert per entity under a
-              // device. cap_alerts is the general case; NINA is the built-in
-              // one the docs already send users here for.
-              filter: [{ integration: 'cap_alerts' }, { integration: 'nina' }],
-            },
-          }}
-          .value=${configuredDevices(this._config)}
-          .label=${t('editor.devices', lang)}
-          .helper=${t('editor.devices_helper', lang)}
-          .helperPersistent=${true}
-          @value-changed=${this._deviceChanged}
-        ></ha-selector>
+      <ha-selector
+        .hass=${this.hass}
+        .selector=${{
+          device: {
+            multiple: true,
+            // Every integration that publishes one alert per entity under a
+            // device. cap_alerts is the general case; NINA is the built-in
+            // one the docs already send users here for.
+            filter: [{ integration: 'cap_alerts' }, { integration: 'nina' }],
+          },
+        }}
+        .value=${configuredDevices(this._config)}
+        .label=${t('editor.devices', lang)}
+        .helper=${t('editor.devices_helper', lang)}
+        .helperPersistent=${true}
+        @value-changed=${this._deviceChanged}
+      ></ha-selector>
 
-        ${feedOptions.length > 0
-          ? html`
-              <ha-selector
-                .hass=${this.hass}
-                .selector=${{ select: { multiple: true, mode: 'list', options: feedOptions } }}
-                .value=${this._config.sources || []}
-                .label=${t('editor.feeds', lang)}
-                .helper=${t('editor.feeds_helper', lang)}
-                .helperPersistent=${true}
-                @value-changed=${this._feedsChanged}
-              ></ha-selector>
-              ${this._renderSourceHint(lang)}
-            `
-          : nothing}
-
-        <div class="preview-tools">
-          <ha-formfield .label=${t('editor.show_preview', lang)}>
-            <ha-switch
-              .checked=${this._showPreview}
-              @change=${this._previewChanged}
-            ></ha-switch>
-          </ha-formfield>
-          ${this._hasNoRealAlerts() && !this._showPreview
-            ? html`<div class="preview-nudge">${t('editor.preview_nudge', lang)}</div>`
-            : html`<div class="preview-hint">${t('editor.preview_hint', lang)}</div>`}
-        </div>
-
-        <ha-formfield .label=${t('editor.show_provider', lang)}>
-          <ha-switch
-            .checked=${this._config.showProvider === true}
-            @change=${this._showProviderChanged}
-          ></ha-switch>
-        </ha-formfield>
-
-        <ha-textfield
-          .label=${t('editor.title', lang)}
-          .value=${this._config.title || ''}
-          @change=${this._titleChanged}
-        ></ha-textfield>
-
-        <ha-select
-          .label=${t('editor.provider', lang)}
-          .value=${this._config.provider || 'auto'}
-          @selected=${this._providerChanged}
-          ?fixedMenuPosition=${legacyMenu}
-          ?naturalMenuWidth=${legacyMenu}
-        >
-          ${this._renderSelectItem('auto', t('editor.provider_auto', lang))}
-          ${this._renderSelectItem('nws', t('editor.provider_nws', lang))}
-          ${this._renderSelectItem('bom', t('editor.provider_bom', lang))}
-          ${this._renderSelectItem('meteoalarm', t('editor.provider_meteoalarm', lang))}
-          ${this._renderSelectItem('dwd', t('editor.provider_dwd', lang))}
-          ${this._renderSelectItem('nina', t('editor.provider_nina', lang))}
-          ${this._renderSelectItem('meteoswiss', t('editor.provider_meteoswiss', lang))}
-          ${this._renderSelectItem('eccc', t('editor.provider_eccc', lang))}
-          ${this._renderSelectItem('nsw_rfs', t('editor.provider_nsw_rfs', lang))}
-          ${this._renderSelectItem('pirateweather', t('editor.provider_pirateweather', lang))}
-          ${this._renderSelectItem('cap', t('editor.provider_cap', lang))}
-        </ha-select>
-
-        <!-- Filtering -->
-        <div class="section-label">${t('editor.section_filtering', lang)}</div>
-
-        <ha-textfield
-          .label=${t('editor.zones', lang)}
-          .value=${zonesStr}
-          .helper=${t('editor.zones_helper', lang)}
-          .helperPersistent=${true}
-          @change=${this._zonesChanged}
-        ></ha-textfield>
-
-        <ha-textfield
-          .label=${t('editor.event_codes', lang)}
-          .value=${eventCodesStr}
-          .helper=${t('editor.event_codes_helper', lang)}
-          .helperPersistent=${true}
-          @change=${this._eventCodesChanged}
-        ></ha-textfield>
-
-        <ha-textfield
-          .label=${t('editor.exclude_event_codes', lang)}
-          .value=${excludeEventCodesStr}
-          .helper=${t('editor.exclude_event_codes_helper', lang)}
-          .helperPersistent=${true}
-          @change=${this._excludeEventCodesChanged}
-        ></ha-textfield>
-
-        <ha-select
-          .label=${t('editor.min_severity', lang)}
-          .value=${this._config.minSeverity || 'all'}
-          @selected=${this._minSeverityChanged}
-          ?fixedMenuPosition=${legacyMenu}
-          ?naturalMenuWidth=${legacyMenu}
-        >
-          ${this._renderSelectItem('all', t('editor.severity_all', lang))}
-          ${this._renderSelectItem('minor', t('editor.severity_minor', lang))}
-          ${this._renderSelectItem('moderate', t('editor.severity_moderate', lang))}
-          ${this._renderSelectItem('severe', t('editor.severity_severe', lang))}
-          ${this._renderSelectItem('extreme', t('editor.severity_extreme', lang))}
-        </ha-select>
-
-        ${this._showsRadiusControl() ? html`
-          <ha-textfield
-            type="number"
-            min="1"
-            step="1"
-            .label=${t('editor.max_distance', lang, { unit })}
-            .value=${this._config.maxDistanceKm !== undefined ? String(kmToDisplay(this._config.maxDistanceKm, unit)) : ''}
-            .helper=${t('editor.max_distance_helper', lang)}
-            .helperPersistent=${true}
-            @change=${this._maxDistanceChanged}
-          ></ha-textfield>
-        ` : nothing}
-
-        ${this._showsMyLocationEntityControl() ? html`
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{ entity: { domain: ['device_tracker', 'person', 'zone'] } }}
-            .value=${this._config.myLocationEntity || ''}
-            .label=${t('editor.my_location_entity', lang)}
-            .helper=${t('editor.my_location_entity_helper', lang)}
-            .helperPersistent=${true}
-            @value-changed=${this._myLocationEntityChanged}
-          ></ha-selector>
-        ` : nothing}
-
-        <!-- Appearance -->
-        <div class="section-label">${t('editor.section_appearance', lang)}</div>
-
-        <ha-formfield .label=${t('editor.compact', lang)}>
-          <ha-switch
-            .checked=${this._config.layout === 'compact'}
-            @change=${this._layoutChanged}
-          ></ha-switch>
-        </ha-formfield>
-
-        <ha-select
-          .label=${t('editor.color_theme', lang)}
-          .value=${this._config.colorTheme || 'severity'}
-          @selected=${this._colorThemeChanged}
-          ?fixedMenuPosition=${legacyMenu}
-          ?naturalMenuWidth=${legacyMenu}
-        >
-          ${this._renderSelectItem('severity', t('editor.color_severity', lang))}
-          ${this._renderSelectItem('nws', t('editor.color_nws', lang))}
-          ${this._renderSelectItem('meteoalarm', t('editor.color_meteoalarm', lang))}
-          ${this._renderSelectItem('eccc', t('editor.color_eccc', lang))}
-        </ha-select>
-
-        <ha-select
-          .label=${t('editor.enhance_contrast', lang)}
-          .value=${this._config.enhanceContrast || 'subtle'}
-          @selected=${this._enhanceContrastChanged}
-          ?fixedMenuPosition=${legacyMenu}
-          ?naturalMenuWidth=${legacyMenu}
-        >
-          ${this._renderSelectItem('off', t('editor.enhance_contrast_off', lang))}
-          ${this._renderSelectItem('subtle', t('editor.enhance_contrast_subtle', lang))}
-          ${this._renderSelectItem('strict', t('editor.enhance_contrast_strict', lang))}
-        </ha-select>
-
-        <ha-select
-          .label=${t('editor.font_size', lang)}
-          .value=${this._config.fontSize || 'default'}
-          @selected=${this._fontSizeChanged}
-          ?fixedMenuPosition=${legacyMenu}
-          ?naturalMenuWidth=${legacyMenu}
-        >
-          ${this._renderSelectItem('small', t('editor.font_size_small', lang))}
-          ${this._renderSelectItem('default', t('editor.font_size_default', lang))}
-          ${this._renderSelectItem('large', t('editor.font_size_large', lang))}
-          ${this._renderSelectItem('x-large', t('editor.font_size_x_large', lang))}
-        </ha-select>
-
-        <ha-formfield .label=${t('editor.animations', lang)}>
-          <ha-switch
-            .checked=${this._config.animations !== false}
-            @change=${this._animationsChanged}
-          ></ha-switch>
-        </ha-formfield>
-
-        <!-- Per-phase progress/icon styling: power-user knobs with good
-             defaults, collapsed by default so they cost one row until opened.
-             Open state is local UI (not stored in config). -->
-        <div
-          class="section-label section-toggle ${this._config.progressFill || this._config.progressStyle || this._config.iconBorderStyle ? 'section-toggle-set' : ''}"
-          @click=${() => { this._showStyling = !this._showStyling; }}
-        >
-          <span>${t('editor.styling_section', lang)}</span>
-          <ha-icon
-            icon="mdi:chevron-down"
-            class="section-chevron ${this._showStyling ? 'expanded' : ''}"
-          ></ha-icon>
-        </div>
-        ${this._showStyling ? html`
-          <ha-select
-            .label=${t('editor.progress_fill', lang)}
-            .value=${this._config.progressFill || 'track'}
-            @selected=${this._progressFillChanged}
-            ?fixedMenuPosition=${legacyMenu}
-            ?naturalMenuWidth=${legacyMenu}
-          >
-            ${this._renderSelectItem('track', t('editor.progress_fill_track', lang))}
-            ${this._renderSelectItem('background', t('editor.progress_fill_background', lang))}
-          </ha-select>
-
-          <div class="sub-label">${t('editor.progress_style', lang)}</div>
-          ${this._config.progressFill === 'background'
-        ? html`<div class="preview-hint">${t('editor.progress_style_wash_note', lang)}</div>`
+      ${feedOptions.length > 0
+        ? html`
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ select: { multiple: true, mode: 'list', options: feedOptions } }}
+              .value=${this._config.sources || []}
+              .label=${t('editor.feeds', lang)}
+              .helper=${t('editor.feeds_helper', lang)}
+              .helperPersistent=${true}
+              @value-changed=${this._feedsChanged}
+            ></ha-selector>
+            ${this._renderSourceHint(lang)}
+          `
         : nothing}
-          <div class="phase-row">
-            ${(['preparation', 'active', 'ongoing'] as DecoPhase[]).map(phase => html`
-              <ha-select
-                .label=${t('editor.progress_style_' + phase, lang)}
-                .value=${this._config.progressStyle?.[phase] || PROGRESS_DECO_DEFAULTS[phase]}
-                @selected=${(ev: CustomEvent) => this._progressStyleChanged(phase, ev)}
-                ?fixedMenuPosition=${legacyMenu}
-                ?naturalMenuWidth=${legacyMenu}
-              >
-                ${this._renderSelectItem('solid', t('editor.deco_solid', lang))}
-                ${this._renderSelectItem('striped', t('editor.deco_striped', lang))}
-                ${this._renderSelectItem('shimmer', t('editor.deco_shimmer', lang))}
-                ${this._renderSelectItem('pulse', t('editor.deco_pulse', lang))}
-              </ha-select>
-            `)}
-          </div>
 
-          <div class="sub-label">${t('editor.icon_border_style', lang)}</div>
-          <div class="phase-row">
-            ${(['preparation', 'active', 'ongoing'] as DecoPhase[]).map(phase => html`
-              <ha-select
-                .label=${t('editor.progress_style_' + phase, lang)}
-                .value=${this._config.iconBorderStyle?.[phase] || ICON_BORDER_DEFAULTS[phase]}
-                @selected=${(ev: CustomEvent) => this._iconBorderStyleChanged(phase, ev)}
-                ?fixedMenuPosition=${legacyMenu}
-                ?naturalMenuWidth=${legacyMenu}
-              >
-                ${this._renderSelectItem('dashed', t('editor.icon_border_dashed', lang))}
-                ${this._renderSelectItem('solid', t('editor.icon_border_solid', lang))}
-              </ha-select>
-            `)}
-          </div>
-        ` : nothing}
+      ${this._renderPreviewTools(lang)}
 
-        <ha-formfield .label=${t('editor.reformat_text', lang)}>
+      ${this._renderToggle('showProvider')}
+
+      <ha-textfield
+        .label=${t('editor.title', lang)}
+        .value=${this._config.title || ''}
+        @change=${this._titleChanged}
+      ></ha-textfield>
+
+      ${this._renderSelect('provider')}
+    `;
+  }
+
+  private _renderPreviewTools(lang: string): TemplateResult {
+    return html`
+      <div class="preview-tools">
+        <ha-formfield .label=${t('editor.show_preview', lang)}>
           <ha-switch
-            .checked=${this._config.reformatText !== false}
-            @change=${this._reformatTextChanged}
+            .checked=${this._showPreview}
+            @change=${this._previewChanged}
           ></ha-switch>
         </ha-formfield>
+        ${this._hasNoRealAlerts() && !this._showPreview
+          ? html`<div class="preview-nudge">${t('editor.preview_nudge', lang)}</div>`
+          : html`<div class="preview-hint">${t('editor.preview_hint', lang)}</div>`}
+      </div>
+    `;
+  }
 
-        <!-- Detail Panel -->
-        <div class="section-label">${t('editor.section_detail_panel', lang)}</div>
+  private _renderFilteringSection(lang: string): TemplateResult {
+    const unit = this._lengthUnit();
+    const zonesStr = this._config.zones ? this._config.zones.join(', ') : '';
+    const eventCodesStr = this._config.eventCodes ? this._config.eventCodes.join(', ') : '';
+    const excludeEventCodesStr = this._config.excludeEventCodes ? this._config.excludeEventCodes.join(', ') : '';
 
-        <ha-formfield .label=${t('editor.show_details', lang)}>
-          <ha-switch
-            .checked=${this._config.showDetails !== false}
-            @change=${this._showDetailsChanged}
-          ></ha-switch>
-        </ha-formfield>
+    return html`
+      <div class="section-label">${t('editor.section_filtering', lang)}</div>
 
-        <ha-formfield .label=${t('editor.expand_details', lang)}>
-          <ha-switch
-            .checked=${this._config.expandDetails === true}
-            .disabled=${this._config.showDetails === false}
-            @change=${this._expandDetailsChanged}
-          ></ha-switch>
-        </ha-formfield>
+      <ha-textfield
+        .label=${t('editor.zones', lang)}
+        .value=${zonesStr}
+        .helper=${t('editor.zones_helper', lang)}
+        .helperPersistent=${true}
+        @change=${this._zonesChanged}
+      ></ha-textfield>
 
-        <ha-formfield .label=${t('editor.show_metadata', lang)}>
-          <ha-switch
-            .checked=${this._config.showMetadata !== false}
-            .disabled=${this._config.showDetails === false}
-            @change=${this._showMetadataChanged}
-          ></ha-switch>
-        </ha-formfield>
+      <ha-textfield
+        .label=${t('editor.event_codes', lang)}
+        .value=${eventCodesStr}
+        .helper=${t('editor.event_codes_helper', lang)}
+        .helperPersistent=${true}
+        @change=${this._eventCodesChanged}
+      ></ha-textfield>
 
-        <ha-formfield .label=${t('editor.show_description', lang)}>
-          <ha-switch
-            .checked=${this._config.showDescription !== false}
-            .disabled=${this._config.showDetails === false}
-            @change=${this._showDescriptionChanged}
-          ></ha-switch>
-        </ha-formfield>
+      <ha-textfield
+        .label=${t('editor.exclude_event_codes', lang)}
+        .value=${excludeEventCodesStr}
+        .helper=${t('editor.exclude_event_codes_helper', lang)}
+        .helperPersistent=${true}
+        @change=${this._excludeEventCodesChanged}
+      ></ha-textfield>
 
-        <ha-formfield .label=${t('editor.show_instructions', lang)}>
-          <ha-switch
-            .checked=${this._config.showInstructions !== false}
-            .disabled=${this._config.showDetails === false}
-            @change=${this._showInstructionsChanged}
-          ></ha-switch>
-        </ha-formfield>
+      ${this._renderSelect('minSeverity')}
 
-        <ha-formfield .label=${t('editor.show_geometry', lang)}>
-          <ha-switch
-            .checked=${this._config.showGeometry === true}
-            .disabled=${this._config.showDetails === false}
-            @change=${this._showGeometryChanged}
-          ></ha-switch>
-        </ha-formfield>
+      ${this._showsRadiusControl() ? html`
+        <ha-textfield
+          type="number"
+          min="1"
+          step="1"
+          .label=${t('editor.max_distance', lang, { unit })}
+          .value=${this._config.maxDistanceKm !== undefined ? String(kmToDisplay(this._config.maxDistanceKm, unit)) : ''}
+          .helper=${t('editor.max_distance_helper', lang)}
+          .helperPersistent=${true}
+          @change=${this._maxDistanceChanged}
+        ></ha-textfield>
+      ` : nothing}
 
-        ${this._config.showGeometry === true ? html`
-          <ha-select
-            .label=${t('editor.geometry_style', lang)}
-            .value=${this._config.geometryStyle || 'shape'}
-            .disabled=${this._config.showDetails === false}
-            @selected=${this._geometryStyleChanged}
-            ?fixedMenuPosition=${legacyMenu}
-            ?naturalMenuWidth=${legacyMenu}
-          >
-            ${this._renderSelectItem('shape', t('editor.geometry_style_shape', lang))}
-            ${this._renderSelectItem('map', t('editor.geometry_style_map', lang))}
-          </ha-select>
+      ${this._showsMyLocationEntityControl() ? html`
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ entity: { domain: ['device_tracker', 'person', 'zone'] } }}
+          .value=${this._config.myLocationEntity || ''}
+          .label=${t('editor.my_location_entity', lang)}
+          .helper=${t('editor.my_location_entity_helper', lang)}
+          .helperPersistent=${true}
+          @value-changed=${this._myLocationEntityChanged}
+        ></ha-selector>
+      ` : nothing}
+    `;
+  }
 
-          <ha-formfield .label=${t('editor.show_my_location', lang)}>
-            <ha-switch
-              .checked=${this._config.showMyLocation === true}
-              .disabled=${this._config.showDetails === false}
-              @change=${this._showMyLocationChanged}
-            ></ha-switch>
-          </ha-formfield>
-        ` : nothing}
+  private _renderAppearanceSection(lang: string): TemplateResult {
+    return html`
+      <div class="section-label">${t('editor.section_appearance', lang)}</div>
 
-        <ha-formfield .label=${t('editor.show_source_link', lang)}>
-          <ha-switch
-            .checked=${this._config.showSourceLink !== false}
-            .disabled=${this._config.showDetails === false}
-            @change=${this._showSourceLinkChanged}
-          ></ha-switch>
-        </ha-formfield>
+      ${this._renderToggle('layout')}
+      ${this._renderSelect('colorTheme')}
+      ${this._renderSelect('enhanceContrast')}
+      ${this._renderSelect('fontSize')}
+      ${this._renderToggle('animations')}
 
-        <!-- Behavior -->
-        <div class="section-label">${t('editor.section_behavior', lang)}</div>
+      ${this._renderStylingGroup(lang)}
 
-        <ha-select
-          .label=${t('editor.tap_action', lang)}
-          .value=${this._config.tap_action?.action ?? 'default'}
-          @selected=${this._tapActionChanged}
-          ?fixedMenuPosition=${legacyMenu}
-          ?naturalMenuWidth=${legacyMenu}
-        >
-          ${this._renderSelectItem('default', t('editor.tap_default', lang))}
-          ${this._renderSelectItem('details', t('editor.tap_details', lang))}
-          ${this._renderSelectItem('more-info', t('editor.tap_more_info', lang))}
-          ${this._renderSelectItem('navigate', t('editor.tap_navigate', lang))}
-          ${this._renderSelectItem('url', t('editor.tap_url', lang))}
-          ${this._renderSelectItem('toggle', t('editor.tap_toggle', lang))}
-          ${this._renderSelectItem('perform-action', t('editor.tap_perform_action', lang))}
-          ${this._renderSelectItem('fire-dom-event', t('editor.tap_fire_dom_event', lang))}
-          ${this._config.tap_action?.action === 'call-service'
-        ? this._renderSelectItem('call-service', t('editor.tap_call_service', lang))
-        : ''}
-          ${this._renderSelectItem('none', t('editor.tap_none', lang))}
-        </ha-select>
-        <div class="helper-text">${t('editor.tap_action_helper', lang)}</div>
-        ${this._config.tap_action?.action === 'navigate'
-        ? html`<ha-textfield
-            .label=${t('editor.tap_navigation_path', lang)}
-            .value=${this._config.tap_action.navigation_path || ''}
-            @change=${this._tapNavigationPathChanged}
-          ></ha-textfield>`
-        : ''}
-        ${this._config.tap_action?.action === 'url'
-        ? html`<ha-textfield
-            .label=${t('editor.tap_url_path', lang)}
-            .value=${this._config.tap_action.url_path || ''}
-            @change=${this._tapUrlPathChanged}
-          ></ha-textfield>`
-        : ''}
-        ${this._config.tap_action?.action === 'perform-action'
-        || this._config.tap_action?.action === 'call-service'
-        || this._config.tap_action?.action === 'fire-dom-event'
-        ? html`<ha-alert alert-type="info">${t('editor.tap_yaml_managed', lang)}</ha-alert>`
-        : ''}
-        ${this._config.tap_action?.action === 'details' && this._config.expandDetails !== true
-        ? html`<ha-alert alert-type="info">${t('editor.tap_details_expand_hint', lang)}</ha-alert>`
-        : ''}
+      ${this._renderToggle('reformatText')}
+    `;
+  }
 
-        <ha-select
-          .label=${t('editor.sort_order', lang)}
-          .value=${this._config.sortOrder || 'default'}
-          @selected=${this._sortOrderChanged}
-          ?fixedMenuPosition=${legacyMenu}
-          ?naturalMenuWidth=${legacyMenu}
-        >
-          ${this._renderSelectItem('default', t('editor.sort_default', lang))}
-          ${this._renderSelectItem('onset', t('editor.sort_onset', lang))}
-          ${this._renderSelectItem('severity', t('editor.sort_severity', lang))}
-        </ha-select>
+  // Per-phase progress/icon styling: power-user knobs with good defaults,
+  // collapsed by default so they cost one row until opened. Open state is
+  // local UI (not stored in config).
+  private _renderStylingGroup(lang: string): TemplateResult {
+    const legacyMenu = this._legacyMenu;
+    return html`
+      <div
+        class="section-label section-toggle ${this._config.progressFill || this._config.progressStyle || this._config.iconBorderStyle ? 'section-toggle-set' : ''}"
+        @click=${() => { this._showStyling = !this._showStyling; }}
+      >
+        <span>${t('editor.styling_section', lang)}</span>
+        <ha-icon
+          icon="mdi:chevron-down"
+          class="section-chevron ${this._showStyling ? 'expanded' : ''}"
+        ></ha-icon>
+      </div>
+      ${this._showStyling ? html`
+        ${this._renderSelect('progressFill')}
 
-        <ha-select
-          .label=${t('editor.timezone', lang)}
-          .value=${this._config.timezone || 'server'}
-          @selected=${this._timezoneChanged}
-          ?fixedMenuPosition=${legacyMenu}
-          ?naturalMenuWidth=${legacyMenu}
-        >
-          ${this._renderSelectItem('server', t('editor.tz_server', lang))}
-          ${this._renderSelectItem('browser', t('editor.tz_browser', lang))}
-        </ha-select>
-
-        <ha-formfield .label=${t('editor.deduplicate', lang)}>
-          <ha-switch
-            .checked=${this._config.deduplicate !== false}
-            @change=${this._deduplicateChanged}
-          ></ha-switch>
-        </ha-formfield>
-
-        <ha-formfield .label=${t('editor.deduplicate_headlines', lang)}>
-          <ha-switch
-            .checked=${this._config.deduplicateHeadlines !== false}
-            @change=${this._deduplicateHeadlinesChanged}
-          ></ha-switch>
-        </ha-formfield>
-
-        <ha-formfield .label=${t('editor.hide_expired', lang)}>
-          <ha-switch
-            .checked=${this._config.hideExpired !== false}
-            @change=${this._hideExpiredChanged}
-          ></ha-switch>
-        </ha-formfield>
-
-        <ha-formfield .label=${t('editor.hide_no_alerts', lang)}>
-          <ha-switch
-            .checked=${this._config.hideNoAlerts === true}
-            @change=${this._hideNoAlertsChanged}
-          ></ha-switch>
-        </ha-formfield>
-
-        <ha-select
-          .label=${t('editor.unavailable_behavior', lang)}
-          .value=${this._config.unavailableBehavior || 'message'}
-          @selected=${this._unavailableBehaviorChanged}
-          ?fixedMenuPosition=${legacyMenu}
-          ?naturalMenuWidth=${legacyMenu}
-        >
-          ${this._renderSelectItem('message', t('editor.unavailable_message', lang))}
-          ${this._renderSelectItem('compact', t('editor.unavailable_compact', lang))}
-          ${this._renderSelectItem('hide', t('editor.unavailable_hide', lang))}
-        </ha-select>
-        ${this._config.unavailableBehavior === 'hide'
-        ? html`<ha-alert alert-type="warning">${t('editor.unavailable_hide_warning', lang)}</ha-alert>`
-        : ''}
-
-        <!-- Dismissal -->
-        <div class="section-label">${t('editor.section_dismissal', lang)}</div>
-
-        <ha-formfield .label=${t('editor.allow_dismiss', lang)}>
-          <ha-switch
-            .checked=${this._config.allowDismiss === true}
-            @change=${this._allowDismissChanged}
-          ></ha-switch>
-        </ha-formfield>
-
-        ${this._config.allowDismiss === true ? html`
-          <ha-select
-            .label=${t('editor.dismiss_trigger', lang)}
-            .value=${this._config.dismissTrigger || 'button'}
-            @selected=${this._dismissTriggerChanged}
-            ?fixedMenuPosition=${legacyMenu}
-            ?naturalMenuWidth=${legacyMenu}
-          >
-            ${this._renderSelectItem('button', t('editor.dismiss_trigger_button', lang))}
-            ${this._renderSelectItem('swipe', t('editor.dismiss_trigger_swipe', lang))}
-            ${this._renderSelectItem('both', t('editor.dismiss_trigger_both', lang))}
-          </ha-select>
-
-          ${this._config.dismissTrigger !== 'swipe' ? html`
+        <div class="sub-label">${t('editor.progress_style', lang)}</div>
+        ${this._config.progressFill === 'background'
+          ? html`<div class="preview-hint">${t('editor.progress_style_wash_note', lang)}</div>`
+          : nothing}
+        <div class="phase-row">
+          ${(['preparation', 'active', 'ongoing'] as DecoPhase[]).map(phase => html`
             <ha-select
-              .label=${t('editor.dismiss_button_style', lang)}
-              .value=${this._config.dismissButtonStyle || 'icon'}
-              @selected=${this._dismissButtonStyleChanged}
+              .label=${t('editor.progress_style_' + phase, lang)}
+              .value=${this._config.progressStyle?.[phase] || PROGRESS_DECO_DEFAULTS[phase]}
+              @selected=${(ev: CustomEvent) => this._progressStyleChanged(phase, ev)}
               ?fixedMenuPosition=${legacyMenu}
               ?naturalMenuWidth=${legacyMenu}
             >
-              ${this._renderSelectItem('icon', t('editor.dismiss_button_style_icon', lang))}
-              ${this._renderSelectItem('labeled', t('editor.dismiss_button_style_labeled', lang))}
+              ${this._renderSelectItem('solid', t('editor.deco_solid', lang))}
+              ${this._renderSelectItem('striped', t('editor.deco_striped', lang))}
+              ${this._renderSelectItem('shimmer', t('editor.deco_shimmer', lang))}
+              ${this._renderSelectItem('pulse', t('editor.deco_pulse', lang))}
             </ha-select>
-          ` : nothing}
-        ` : nothing}
+          `)}
+        </div>
 
-        <ha-formfield .label=${t('editor.show_dismiss_undo', lang)}>
-          <ha-switch
-            .checked=${this._config.showDismissUndo !== false}
-            .disabled=${this._config.allowDismiss !== true}
-            @change=${this._showDismissUndoChanged}
-          ></ha-switch>
-        </ha-formfield>
+        <div class="sub-label">${t('editor.icon_border_style', lang)}</div>
+        <div class="phase-row">
+          ${(['preparation', 'active', 'ongoing'] as DecoPhase[]).map(phase => html`
+            <ha-select
+              .label=${t('editor.progress_style_' + phase, lang)}
+              .value=${this._config.iconBorderStyle?.[phase] || ICON_BORDER_DEFAULTS[phase]}
+              @selected=${(ev: CustomEvent) => this._iconBorderStyleChanged(phase, ev)}
+              ?fixedMenuPosition=${legacyMenu}
+              ?naturalMenuWidth=${legacyMenu}
+            >
+              ${this._renderSelectItem('dashed', t('editor.icon_border_dashed', lang))}
+              ${this._renderSelectItem('solid', t('editor.icon_border_solid', lang))}
+            </ha-select>
+          `)}
+        </div>
+      ` : nothing}
+    `;
+  }
 
-        ${this._renderDismissedStatus(lang)}
+  private _renderDetailsSection(lang: string): TemplateResult {
+    const off = this._config.showDetails === false;
+    return html`
+      <div class="section-label">${t('editor.section_detail_panel', lang)}</div>
 
-      </div>
+      ${this._renderToggle('showDetails')}
+      ${this._renderToggle('expandDetails', off)}
+      ${this._renderToggle('showMetadata', off)}
+      ${this._renderToggle('showDescription', off)}
+      ${this._renderToggle('showInstructions', off)}
+      ${this._renderToggle('showGeometry', off)}
+
+      ${this._config.showGeometry === true ? html`
+        ${this._renderSelect('geometryStyle', off)}
+        ${this._renderToggle('showMyLocation', off)}
+      ` : nothing}
+
+      ${this._renderToggle('showSourceLink', off)}
+    `;
+  }
+
+  private _renderBehaviorSection(lang: string): TemplateResult {
+    return html`
+      <div class="section-label">${t('editor.section_behavior', lang)}</div>
+
+      ${this._renderTapAction(lang)}
+
+      ${this._renderSelect('sortOrder')}
+      ${this._renderSelect('timezone')}
+      ${this._renderToggle('deduplicate')}
+      ${this._renderToggle('deduplicateHeadlines')}
+      ${this._renderToggle('hideExpired')}
+
+      <ha-formfield .label=${t('editor.hide_no_alerts', lang)}>
+        <ha-switch
+          .checked=${this._config.hideNoAlerts === true}
+          @change=${this._hideNoAlertsChanged}
+        ></ha-switch>
+      </ha-formfield>
+
+      ${this._renderSelect('unavailableBehavior')}
+      ${this._config.unavailableBehavior === 'hide'
+        ? html`<ha-alert alert-type="warning">${t('editor.unavailable_hide_warning', lang)}</ha-alert>`
+        : ''}
+    `;
+  }
+
+  private _renderTapAction(lang: string): TemplateResult {
+    const legacyMenu = this._legacyMenu;
+    const action = this._config.tap_action?.action;
+    return html`
+      <ha-select
+        .label=${t('editor.tap_action', lang)}
+        .value=${action ?? 'default'}
+        @selected=${this._tapActionChanged}
+        ?fixedMenuPosition=${legacyMenu}
+        ?naturalMenuWidth=${legacyMenu}
+      >
+        ${this._renderSelectItem('default', t('editor.tap_default', lang))}
+        ${this._renderSelectItem('details', t('editor.tap_details', lang))}
+        ${this._renderSelectItem('more-info', t('editor.tap_more_info', lang))}
+        ${this._renderSelectItem('navigate', t('editor.tap_navigate', lang))}
+        ${this._renderSelectItem('url', t('editor.tap_url', lang))}
+        ${this._renderSelectItem('toggle', t('editor.tap_toggle', lang))}
+        ${this._renderSelectItem('perform-action', t('editor.tap_perform_action', lang))}
+        ${this._renderSelectItem('fire-dom-event', t('editor.tap_fire_dom_event', lang))}
+        ${action === 'call-service'
+          ? this._renderSelectItem('call-service', t('editor.tap_call_service', lang))
+          : ''}
+        ${this._renderSelectItem('none', t('editor.tap_none', lang))}
+      </ha-select>
+      <div class="helper-text">${t('editor.tap_action_helper', lang)}</div>
+      ${action === 'navigate'
+        ? html`<ha-textfield
+            .label=${t('editor.tap_navigation_path', lang)}
+            .value=${this._config.tap_action?.navigation_path || ''}
+            @change=${this._tapNavigationPathChanged}
+          ></ha-textfield>`
+        : ''}
+      ${action === 'url'
+        ? html`<ha-textfield
+            .label=${t('editor.tap_url_path', lang)}
+            .value=${this._config.tap_action?.url_path || ''}
+            @change=${this._tapUrlPathChanged}
+          ></ha-textfield>`
+        : ''}
+      ${action === 'perform-action' || action === 'call-service' || action === 'fire-dom-event'
+        ? html`<ha-alert alert-type="info">${t('editor.tap_yaml_managed', lang)}</ha-alert>`
+        : ''}
+      ${action === 'details' && this._config.expandDetails !== true
+        ? html`<ha-alert alert-type="info">${t('editor.tap_details_expand_hint', lang)}</ha-alert>`
+        : ''}
+    `;
+  }
+
+  private _renderDismissalSection(lang: string): TemplateResult {
+    return html`
+      <div class="section-label">${t('editor.section_dismissal', lang)}</div>
+
+      ${this._renderToggle('allowDismiss')}
+
+      ${this._config.allowDismiss === true ? html`
+        ${this._renderSelect('dismissTrigger')}
+        ${this._config.dismissTrigger !== 'swipe' ? this._renderSelect('dismissButtonStyle') : nothing}
+      ` : nothing}
+
+      ${this._renderToggle('showDismissUndo', this._config.allowDismiss !== true)}
+
+      ${this._renderDismissedStatus(lang)}
     `;
   }
 
