@@ -129,7 +129,7 @@ The card needs the `sensor.nws_alerts_alerts` entity which comes from the [NWS A
 
 1. **Install HACS** (one-time):
    ```bash
-   docker exec -it nws-alerts-card-ha bash
+   docker exec -it weather-alerts-card-ha bash
    wget -O - https://get.hacs.xyz | bash -
    ```
    Restart HA (Settings → System → Restart), then add HACS as an integration: Settings → Devices & Services → Add Integration → search "HACS" → follow the GitHub device code authorization flow. The HACS sidebar entry appears after this step.
