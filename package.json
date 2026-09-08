@@ -13,6 +13,7 @@
     "screenshot": "node scripts/screenshot.js",
     "screenshot:update": "npm run build && npm run screenshot",
     "screenshot:hero": "npm run build && npm run screenshot && bash scripts/encode-adaptive-svgs.sh",
+    "screenshot:editor": "node scripts/capture-editor.js",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",

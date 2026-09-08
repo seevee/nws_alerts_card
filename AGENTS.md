@@ -172,7 +172,10 @@ Conventions that are load-bearing:
   prepends the base itself, so writing the base explicitly doubles it.
 - **Docs figures are not committed.** They are regenerated on every Pages build, and
   `docs/public/img/` plus `docs/.vitepress/{dist,cache}/` are gitignored. The only
-  tracked figures are the six the README embeds.
+  tracked figures are the six the README embeds, plus the editor figure
+  (`img/editor-adaptive.svg` + `img/editor-light.webp`), which
+  `scripts/capture-editor.js` photographs from a live HA (`npm run screenshot:editor`)
+  and so cannot be rebuilt in CI: refresh it by hand when the editor layout changes.
 - **`docs:media` must run before `docs:build`** on a fresh clone — VitePress hard-fails on
   an unresolvable image rather than warning.
 - **`docs:media` dirties the six tracked figures.** Scene content is deterministic (frozen

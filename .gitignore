@@ -22,6 +22,10 @@ img/*
 !img/themes-light.webp
 !img/surface-theming-adaptive.svg
 !img/surface-theming-light.webp
+# The editor figure is photographed from a live HA (scripts/capture-editor.js),
+# which the Pages workflow cannot do, so it is tracked and refreshed by hand.
+!img/editor-adaptive.svg
+!img/editor-light.webp
 
 # Docs site build output. Docs figures are regenerated from the harnesses on
 # every Pages build (scripts/build-docs-media.sh), so docs/public/img/ is a

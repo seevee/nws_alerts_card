@@ -32,6 +32,9 @@ PAIRS=(
   "unavailable-light.png unavailable-dark.png unavailable-adaptive.svg lossless"
   "surface-theming-light.png surface-theming-dark.png surface-theming-adaptive.svg lossy"
   "tap-action-light.png tap-action-dark.png tap-action-adaptive.svg lossless"
+  # Captured from a live HA by capture-editor.js, not by screenshot.js, so the
+  # PNGs are absent on CI and the pair is skipped there; its SVG is tracked.
+  "editor-light.png editor-dark.png editor-adaptive.svg lossless"
 )
 
 # ImageMagick is optional. Without it every figure falls back to an embedded

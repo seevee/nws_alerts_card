@@ -92,6 +92,14 @@ is a release-time job.
 The motion capture (`scripts/capture-tap-action.js`) is gated behind `DOCS_MOTION=1` and
 off by default. It needs both `ffmpeg` and `ffprobe`.
 
+The editor figure (`img/editor-adaptive.svg`) is the one exception to "not committed".
+The editor is nine HA widgets deep, so a stub harness would be a fake; instead
+`scripts/capture-editor.js` photographs the real editor in a running Home Assistant
+(`HA_TOKEN=<long-lived token> npm run screenshot:editor`, then
+`bash scripts/encode-adaptive-svgs.sh`). The Pages workflow has no HA, so the SVG and its
+light WebP are tracked and refreshed by hand whenever the editor layout changes. It is not
+part of `docs:media`.
+
 Deployment is `.github/workflows/docs.yml`, which builds and publishes to GitHub Pages on
 every push to `main`.
 
