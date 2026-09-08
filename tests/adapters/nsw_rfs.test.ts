@@ -109,7 +109,7 @@ describe('NswRfsAdapter', () => {
       expect(adapter.parseAlerts({})).toEqual([]);
     });
 
-    it('has no bbox and no geometryRef (silent-degrade contract for showGeometry)', () => {
+    it('has no bbox and no geometryRef — the mini-map marker is driven by `point`, not a faked bbox', () => {
       const [alert] = adapter.parseAlerts(makeIncident());
       expect(alert.bbox).toBeUndefined();
       expect(alert.geometryRef).toBeUndefined();
@@ -180,7 +180,7 @@ describe('NswRfsAdapter', () => {
       });
     }
 
-    it('still emits no bbox — a point must not synthesize a geometry frame', () => {
+    it('still emits no bbox — the render path frames a `point` itself, so the adapter never fakes one', () => {
       const [alert] = adapter.parseAlerts(makeIncident());
       expect(alert.bbox).toBeUndefined();
     });

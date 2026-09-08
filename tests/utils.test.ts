@@ -17,12 +17,13 @@ import {
   reflowAlertText,
   haversineKm,
   extractPoint,
+  resolveReferencePoint,
   kmToDisplay,
   displayToKm,
   toLengthUnit,
   formatDistance,
 } from '../src/utils';
-import type { WeatherAlert, AlertProvider } from '../src/types';
+import type { WeatherAlert, AlertProvider, HomeAssistant } from '../src/types';
 
 function makeAlert(overrides: Partial<WeatherAlert> = {}): WeatherAlert {
   return {
@@ -1161,5 +1162,61 @@ describe('deduplicateAlerts same-id (phase 0, #256)', () => {
     const result = deduplicateAlerts([capA, capB, pw], ['cap', 'pirateweather'], stable);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('urn:1');
+  });
+});
+
+describe('resolveReferencePoint', () => {
+  const HOME = { latitude: -33.8688, longitude: 151.2093 };
+  const hassWith = (
+    states: Record<string, { state: string; attributes: Record<string, unknown> }>,
+    config: Record<string, unknown> | null = HOME,
+  ): HomeAssistant => {
+    const hass: Record<string, unknown> = { states, locale: { language: 'en' } };
+    if (config !== null) hass.config = config;
+    return hass as unknown as HomeAssistant;
+  };
+  const tracker = (attributes: Record<string, unknown>) => ({
+    'device_tracker.phone': { state: 'not_home', attributes },
+  });
+
+  it('returns hass.config home, lon-first, when no entity is named', () => {
+    expect(resolveReferencePoint(hassWith({}))).toEqual([151.2093, -33.8688]);
+    expect(resolveReferencePoint(hassWith({}), undefined)).toEqual([151.2093, -33.8688]);
+  });
+
+  it('prefers the entity coordinates when they resolve', () => {
+    const hass = hassWith(tracker({ latitude: -37.8136, longitude: 144.9631 }));
+    expect(resolveReferencePoint(hass, 'device_tracker.phone')).toEqual([144.9631, -37.8136]);
+  });
+
+  it('falls back to home when the entity is missing', () => {
+    expect(resolveReferencePoint(hassWith({}), 'device_tracker.phone')).toEqual([151.2093, -33.8688]);
+  });
+
+  it('falls back to home when the entity has no coordinates (router-based tracker)', () => {
+    const hass = hassWith(tracker({ source_type: 'router' }));
+    expect(resolveReferencePoint(hass, 'device_tracker.phone')).toEqual([151.2093, -33.8688]);
+  });
+
+  it('falls back to home when the entity coordinates are malformed or out of range', () => {
+    for (const attrs of [
+      { latitude: '-37.8', longitude: '144.9' },
+      { latitude: NaN, longitude: 144.9 },
+      { latitude: 91, longitude: 144.9 },
+      { latitude: -37.8, longitude: 181 },
+    ]) {
+      expect(resolveReferencePoint(hassWith(tracker(attrs)), 'device_tracker.phone')).toEqual([151.2093, -33.8688]);
+    }
+  });
+
+  it('returns undefined when neither the entity nor home resolves', () => {
+    expect(resolveReferencePoint(hassWith({}, {}), 'device_tracker.phone')).toBeUndefined();
+    expect(resolveReferencePoint(hassWith({}, null))).toBeUndefined();
+    expect(resolveReferencePoint(hassWith(tracker({ latitude: 'x' }), null), 'device_tracker.phone')).toBeUndefined();
+  });
+
+  it('returns undefined without a hass object', () => {
+    expect(resolveReferencePoint(undefined)).toBeUndefined();
+    expect(resolveReferencePoint(undefined, 'zone.work')).toBeUndefined();
   });
 });

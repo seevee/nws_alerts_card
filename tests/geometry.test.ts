@@ -2,11 +2,15 @@ import { describe, it, expect } from 'vitest';
 import {
   buildGeometrySvg,
   buildGeometryMap,
+  framePointsBbox,
+  markerPath,
   mapTilesUrl,
   fetchMapTilesToken,
   DEFAULT_TILE_URL,
   DEFAULT_TILE_ATTRIBUTION,
+  POINT_FRAME_RADIUS_KM,
   type Bbox,
+  type LonLat,
   type GeoJsonPolygon,
   type GeoJsonMultiPolygon,
   type GeoJsonGeometry,
@@ -97,6 +101,107 @@ describe('buildGeometrySvg', () => {
   it('tolerates a Polygon with empty coordinates', () => {
     const empty = { type: 'Polygon', coordinates: [] } as GeoJsonPolygon;
     expect(buildGeometrySvg(BBOX, empty).polygonPaths).toEqual([]);
+  });
+
+  describe('markers', () => {
+    const CENTRE: LonLat = [-105.2, 40.0];
+
+    it('leaves both marker fields undefined when no points are supplied', () => {
+      const out = buildGeometrySvg(BBOX);
+      expect(out.marker).toBeUndefined();
+      expect(out.referenceMarker).toBeUndefined();
+      expect('marker' in out).toBe(false);
+    });
+
+    it('projects the incident point into the viewBox — the bbox centre lands mid-frame', () => {
+      const { viewBox, marker } = buildGeometrySvg(BBOX, undefined, CENTRE);
+      const { w, h } = viewBoxDims(viewBox);
+      expect(marker?.x).toBeCloseTo(w / 2, 4);
+      expect(marker?.y).toBeCloseTo(h / 2, 4);
+    });
+
+    it('projects the reference point independently of the incident point', () => {
+      const nw: LonLat = [-105.3, 40.1];
+      const { marker, referenceMarker } = buildGeometrySvg(BBOX, undefined, CENTRE, nw);
+      expect(referenceMarker).toEqual({ x: 0, y: 0 });
+      expect(marker).not.toEqual(referenceMarker);
+    });
+
+    it('accepts a reference point alone', () => {
+      const out = buildGeometrySvg(BBOX, undefined, undefined, CENTRE);
+      expect(out.marker).toBeUndefined();
+      expect(out.referenceMarker).toBeDefined();
+    });
+
+    it('does not clamp a point outside the bbox — it projects past the frame and clips', () => {
+      const { viewBox, referenceMarker } = buildGeometrySvg(BBOX, undefined, undefined, [-106, 40.0]);
+      expect(referenceMarker!.x).toBeLessThan(0);
+      expect(viewBoxDims(viewBox).w).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe('framePointsBbox', () => {
+  // Sydney-ish: mid-latitude, so the cos-lat widening is measurable.
+  const P: LonLat = [151.2093, -33.8688];
+
+  it('frames a single point in a box whose half-span is the minimum radius', () => {
+    const [minlon, minlat, maxlon, maxlat] = framePointsBbox([P]);
+    expect((minlon + maxlon) / 2).toBeCloseTo(P[0], 9);
+    expect((minlat + maxlat) / 2).toBeCloseTo(P[1], 9);
+    // ~20 km tall: 2 × 10 km / 111.32 km per degree.
+    expect((maxlat - minlat) * 111.32).toBeCloseTo(2 * POINT_FRAME_RADIUS_KM, 3);
+    // Wider in degrees on the lon axis (cos-lat), but the same on the ground.
+    expect(maxlon - minlon).toBeGreaterThan(maxlat - minlat);
+    const cos = Math.cos((P[1] * Math.PI) / 180);
+    expect((maxlon - minlon) * 111.32 * cos).toBeCloseTo(2 * POINT_FRAME_RADIUS_KM, 3);
+  });
+
+  it('honours a custom minimum radius', () => {
+    const [, minlat, , maxlat] = framePointsBbox([P], 25);
+    expect((maxlat - minlat) * 111.32).toBeCloseTo(50, 3);
+  });
+
+  it('covers two points ~40 km apart and keeps the minimum half-span on the other axis', () => {
+    const west: LonLat = [150.7776, -33.8688]; // ~40 km west of P
+    const [minlon, minlat, maxlon, maxlat] = framePointsBbox([P, west]);
+    expect(minlon).toBeLessThanOrEqual(west[0]);
+    expect(maxlon).toBeGreaterThanOrEqual(P[0]);
+    expect(minlat).toBeLessThanOrEqual(P[1]);
+    expect(maxlat).toBeGreaterThanOrEqual(P[1]);
+    // The lon axis is driven by the spread (≈40 km), not the 10 km floor.
+    expect(maxlon - minlon).toBeCloseTo(P[0] - west[0], 9);
+    // The lat axis has no spread, so it falls back to the floor.
+    expect((maxlat - minlat) * 111.32).toBeCloseTo(2 * POINT_FRAME_RADIUS_KM, 3);
+  });
+
+  it('yields a clamped, finite, non-degenerate box near the pole', () => {
+    const box = framePointsBbox([[10, 89.9]]);
+    for (const n of box) expect(Number.isFinite(n)).toBe(true);
+    expect(box[3]).toBeLessThanOrEqual(85.05112878);
+    expect(box[3] - box[1]).toBeGreaterThan(0.1);
+    expect(box[2] - box[0]).toBeGreaterThan(0);
+  });
+
+  it('is a usable frame for both builders (tiles at a town-scale zoom)', () => {
+    const box = framePointsBbox([P]);
+    const svgOut = buildGeometrySvg(box, undefined, P);
+    expect(viewBoxDims(svgOut.viewBox).w).toBeGreaterThan(0);
+    expect(svgOut.marker).toBeDefined();
+    const mapOut = buildGeometryMap(box, undefined, { point: P });
+    expect(mapOut.tiles.length).toBeGreaterThan(0);
+    expect(mapOut.tiles.length).toBeLessThanOrEqual(16);
+    expect(tileZoom(mapOut.tiles[0].href)).toBe(11);
+  });
+});
+
+describe('markerPath', () => {
+  it('emits a sub-pixel segment (not a zero-length subpath) at the marker', () => {
+    expect(markerPath({ x: 1.5, y: 2 })).toBe('M1.5,2l0.0001,0');
+  });
+
+  it('is deterministic and rounds to 5 decimals', () => {
+    expect(markerPath({ x: 1 / 3, y: 0 })).toBe('M0.33333,0l0.0001,0');
   });
 });
 
@@ -203,6 +308,28 @@ describe('buildGeometryMap', () => {
     const { w, h } = viewBoxDims(buildGeometryMap(degenerate).viewBox);
     expect(w).toBeGreaterThan(0);
     expect(h).toBeGreaterThan(0);
+  });
+
+  it('projects incident + reference points into tile space, inside the viewBox', () => {
+    const point: LonLat = [-105.2, 40.0];
+    const ref: LonLat = [-105.25, 40.05];
+    const { viewBox, marker, referenceMarker } = buildGeometryMap(BBOX, undefined, { point, referencePoint: ref });
+    const { w, h } = viewBoxDims(viewBox);
+    for (const m of [marker!, referenceMarker!]) {
+      expect(m.x).toBeGreaterThan(0);
+      expect(m.x).toBeLessThan(w);
+      expect(m.y).toBeGreaterThan(0);
+      expect(m.y).toBeLessThan(h);
+    }
+    // North-west of the incident ⇒ smaller x and smaller y (y grows south).
+    expect(referenceMarker!.x).toBeLessThan(marker!.x);
+    expect(referenceMarker!.y).toBeLessThan(marker!.y);
+  });
+
+  it('omits marker fields when no points are supplied', () => {
+    const out = buildGeometryMap(BBOX);
+    expect('marker' in out).toBe(false);
+    expect('referenceMarker' in out).toBe(false);
   });
 
   it('defaults to the HA map_tiles proxy and credits OSM contributors', () => {

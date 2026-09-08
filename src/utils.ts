@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify';
-import { WeatherAlert, AlertProgress, AlertProvider, ContrastMode } from './types';
+import { WeatherAlert, AlertProgress, AlertProvider, ContrastMode, HomeAssistant } from './types';
 import { t } from './localize';
 import { NWS_EVENT_COLORS } from './nws-colors';
 
@@ -324,6 +324,27 @@ export function extractPoint(lat: unknown, lon: unknown): [number, number] | und
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return undefined;
   if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return undefined;
   return [lon, lat];
+}
+
+// The card's reference point — the origin the maxDistanceKm filter measures
+// from, the detail panel's distance row, and (opt-in) the my-location marker on
+// the geometry mini-map. `entityId` names a device_tracker / person / zone whose
+// `latitude`/`longitude` attributes override HA's configured home. An entity
+// that is missing, or momentarily without coordinates (a router-based tracker,
+// a phone with GPS off), FALLS BACK to hass.config rather than resolving to
+// nothing: a safety filter must not silently switch itself off because a
+// tracker blinked. Lon-first, matching `point` / `bbox`. Pure.
+export function resolveReferencePoint(
+  hass: HomeAssistant | undefined,
+  entityId?: string,
+): [number, number] | undefined {
+  if (!hass) return undefined;
+  if (entityId) {
+    const attrs = hass.states?.[entityId]?.attributes;
+    const fromEntity = extractPoint(attrs?.['latitude'], attrs?.['longitude']);
+    if (fromEntity) return fromEntity;
+  }
+  return extractPoint(hass.config?.latitude, hass.config?.longitude);
 }
 
 export type LengthUnit = 'km' | 'mi';

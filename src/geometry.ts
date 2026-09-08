@@ -38,10 +38,21 @@ export interface GeoJsonFeatureCollection {
 }
 
 export type Bbox = [number, number, number, number];
+// [lon, lat] — the `WeatherAlert.point` / reference-point convention.
+export type LonLat = [number, number];
+
+// A projected marker position in the builder's own coordinate space (viewBox
+// units). Sizing is CSS's job (non-scaling stroke), so this is just a point.
+export interface GeometryMarker {
+  x: number;
+  y: number;
+}
 
 export interface GeometrySvg {
   viewBox: string;
   polygonPaths: string[];
+  marker?: GeometryMarker;          // the incident (`point`), when supplied
+  referenceMarker?: GeometryMarker; // the user's reference point, when supplied
 }
 
 /**
@@ -71,6 +82,74 @@ export async function fetchGeometry(
 // viewBox (single-point bbox or a numerically collapsed axis).
 const MIN_SPAN = 1e-4;
 
+const KM_PER_DEG_LAT = 111.32; // mean; lon shrinks by cos(lat)
+const MERCATOR_LAT = 85.05112878; // Web-Mercator latitude limit
+
+function clampLat(lat: number): number {
+  return Math.max(-MERCATOR_LAT, Math.min(MERCATOR_LAT, lat));
+}
+
+// --- Point framing ----------------------------------------------------------
+// A point-incident alert (NSW RFS; a cap_alerts point feed later) carries a
+// `point` but no `bbox`, so the card has to invent a viewport around it. The
+// half-span floor is 10 km: `chooseZoom` then lands on z≈11 (~64 m/px, a ~32 km
+// frame at NSW latitudes) — the fire in its town/valley context. Letting the
+// frame collapse to the point itself would drive the zoom to z16 (~2 m/px), a
+// rooftop with no context. Source-agnostic: nothing here knows the provider.
+export const POINT_FRAME_RADIUS_KM = 10;
+// Beyond this, widening the synthesized frame to include the user's reference
+// point would zoom the incident marker out of all local context, so the
+// reference point is dropped from framing (and not drawn) instead.
+export const REFERENCE_FRAME_MAX_KM = 150;
+
+/**
+ * Synthesizes a framing bbox that covers every supplied point, then widens
+ * each axis so the half-span is at least `minRadiusKm` (lon scaled by
+ * cos(lat) at the frame centre, pole-guarded). Latitude is clamped to the
+ * Mercator limit, keeping the box non-degenerate rather than pinning both
+ * edges to the pole. Longitude is deliberately NOT wrapped: `buildGeometrySvg`
+ * projects relative offsets, and the tile builder already wraps x mod n.
+ * Pure. Never called with an empty list by the card; guarded anyway.
+ */
+export function framePointsBbox(points: LonLat[], minRadiusKm = POINT_FRAME_RADIUS_KM): Bbox {
+  let minlon = Infinity, minlat = Infinity, maxlon = -Infinity, maxlat = -Infinity;
+  for (const [lon, lat] of points) {
+    if (lon < minlon) minlon = lon;
+    if (lon > maxlon) maxlon = lon;
+    if (lat < minlat) minlat = lat;
+    if (lat > maxlat) maxlat = lat;
+  }
+  if (!Number.isFinite(minlon)) { minlon = maxlon = 0; minlat = maxlat = 0; }
+
+  const cLon = (minlon + maxlon) / 2;
+  const cLat = (minlat + maxlat) / 2;
+  const cosLat = Math.max(Math.cos((cLat * Math.PI) / 180), 0.01);
+  const latFloor = minRadiusKm / KM_PER_DEG_LAT;
+  const lonFloor = minRadiusKm / (KM_PER_DEG_LAT * cosLat);
+
+  // An axis whose spread already meets the floor keeps its exact extents (no
+  // centre±half round trip that could shave a point off the edge); a narrower
+  // one is re-centred and widened to the floor.
+  if (maxlon - minlon < 2 * lonFloor) { minlon = cLon - lonFloor; maxlon = cLon + lonFloor; }
+  const latHalf = Math.max((maxlat - minlat) / 2, latFloor);
+  if (maxlat - minlat < 2 * latFloor) { minlat = cLat - latFloor; maxlat = cLat + latFloor; }
+
+  // Clamp the top edge first, then hang the bottom edge off it so a frame near
+  // the pole keeps its full height instead of collapsing to a line.
+  const top = clampLat(maxlat);
+  const bottom = Math.max(Math.min(minlat, top - 2 * latHalf), -MERCATOR_LAT);
+  return [minlon, bottom, maxlon, top];
+}
+
+/**
+ * Path `d` for a marker: a sub-pixel segment rather than a zero-length
+ * subpath, which round-capped strokes historically fail to paint in some
+ * engines. The dot's size comes entirely from the CSS stroke width.
+ */
+export function markerPath(m: GeometryMarker): string {
+  return `M${fmt(m.x)},${fmt(m.y)}l0.0001,0`;
+}
+
 /**
  * Projects a bbox (+ optional polygon geometry) into a compact SVG coordinate
  * space and returns the viewBox plus one path `d` per outer ring.
@@ -80,7 +159,12 @@ const MIN_SPAN = 1e-4;
  *   (lon, lat) → ( (lon - minlon)·kx , maxlat - lat )
  * Pure: no DOM, no Lit, no network. Unknown/absent geometry → empty paths.
  */
-export function buildGeometrySvg(bbox: Bbox, geometry?: GeoJsonGeometry | null): GeometrySvg {
+export function buildGeometrySvg(
+  bbox: Bbox,
+  geometry?: GeoJsonGeometry | null,
+  point?: LonLat,
+  referencePoint?: LonLat,
+): GeometrySvg {
   const [minlon, minlat, maxlon, maxlat] = bbox;
   const centroidLat = (minlat + maxlat) / 2;
   const kx = Math.cos((centroidLat * Math.PI) / 180) || MIN_SPAN;
@@ -98,7 +182,20 @@ export function buildGeometrySvg(bbox: Bbox, geometry?: GeoJsonGeometry | null):
     .map(ring => ringToPath(ring, project))
     .filter((d): d is string => d !== null);
 
-  return { viewBox, polygonPaths };
+  return {
+    viewBox,
+    polygonPaths,
+    ...(point && { marker: projectMarker(point, project) }),
+    ...(referencePoint && { referenceMarker: projectMarker(referencePoint, project) }),
+  };
+}
+
+function projectMarker(
+  [lon, lat]: LonLat,
+  project: (lon: number, lat: number) => [number, number],
+): GeometryMarker {
+  const [x, y] = project(lon, lat);
+  return { x: Number(fmt(x)), y: Number(fmt(y)) };
 }
 
 // Extracts the exterior ring of each polygon. Polygon → its one outer ring;
@@ -195,7 +292,6 @@ const TARGET_PX = 512;        // fit padded bbox within ~this many px → ≤ ~9
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 16;
 const MAX_TILES = 16;         // hard safety cap; over → no tiles (frame fallback)
-const MERCATOR_LAT = 85.05112878; // Web-Mercator latitude limit
 const BBOX_PAD = 0.15;        // fractional bbox padding so the shape isn't flush
 
 export interface MercatorTile {
@@ -211,15 +307,15 @@ export interface GeometryMap {
   tiles: MercatorTile[];
   polygonPaths: string[];
   attribution: string;
+  marker?: GeometryMarker;          // the incident (`point`), in tile space
+  referenceMarker?: GeometryMarker; // the user's reference point, in tile space
 }
 
 export interface BuildGeometryMapOptions {
   tileUrl?: string;
   attribution?: string;
-}
-
-function clampLat(lat: number): number {
-  return Math.max(-MERCATOR_LAT, Math.min(MERCATOR_LAT, lat));
+  point?: LonLat;
+  referencePoint?: LonLat;
 }
 
 // (lon, lat) → world-pixel coords at zoom z (origin top-left, y increases south).
@@ -313,5 +409,13 @@ export function buildGeometryMap(
     .map(ring => ringToPath(ring, project))
     .filter((d): d is string => d !== null);
 
-  return { viewBox, aspect, tiles, polygonPaths, attribution };
+  return {
+    viewBox,
+    aspect,
+    tiles,
+    polygonPaths,
+    attribution,
+    ...(opts?.point && { marker: projectMarker(opts.point, project) }),
+    ...(opts?.referencePoint && { referenceMarker: projectMarker(opts.referencePoint, project) }),
+  };
 }

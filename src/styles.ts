@@ -566,7 +566,8 @@ export const cardStyles = css`
     font-style: italic;
   }
 
-  /* --- GEOMETRY MINI-MAP (cap_alerts, opt-in) --- */
+  /* --- GEOMETRY MINI-MAP (opt-in): cap_alerts polygon/bbox, or a marker at a
+     point-incident's location (NSW RFS and any point-carrying source) --- */
   .alert-geometry {
     display: block;
     width: 100%;
@@ -586,6 +587,45 @@ export const cardStyles = css`
     stroke: var(--wac-fg, var(--color));
     stroke-width: 1.5px;
     stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+  /* A synthesized point frame is an invented viewport, not an affected area —
+     the tint would claim otherwise, so it goes untinted. */
+  .alert-geometry.point .geometry-frame {
+    fill: none;
+  }
+  /* Markers are sub-pixel paths sized entirely by a round-capped, non-scaling
+     stroke, so they stay the same on-screen size whatever the viewBox scale.
+     The incident is the subject: a filled, severity-colored dot. The user's
+     own location is reference chrome: a smaller neutral ring, built from a
+     neutral outer dot with a background-colored core stacked on top — shape
+     and weight carry the hierarchy, not a new hue. */
+  .alert-geometry .geometry-marker {
+    fill: none;
+    stroke: var(--wac-fg, var(--color));
+    stroke-width: 10px;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+  .alert-geometry .geometry-marker-casing {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.85);
+    stroke-width: 14px;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+  .alert-geometry .geometry-reference-ring {
+    fill: none;
+    stroke: var(--secondary-text-color);
+    stroke-width: 8px;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+  .alert-geometry .geometry-reference-core {
+    fill: none;
+    stroke: var(--wac-surface, var(--card-background-color, #fff));
+    stroke-width: 4px;
+    stroke-linecap: round;
     vector-effect: non-scaling-stroke;
   }
 
@@ -638,6 +678,15 @@ export const cardStyles = css`
     stroke-width: 4px;
     stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
+  }
+  /* Over tiles the dot reads slightly smaller under its white casing, and the
+     ring's core is white like the casing (tiles are light, or inverted from
+     light) rather than the card surface. */
+  .alert-geometry.map .geometry-marker {
+    stroke-width: 9px;
+  }
+  .alert-geometry.map .geometry-reference-core {
+    stroke: rgba(255, 255, 255, 0.95);
   }
   .geometry-attrib {
     position: absolute;

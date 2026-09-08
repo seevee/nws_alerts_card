@@ -46,7 +46,8 @@ checkbox, which appears only when a matching integration is installed.
 | `zones` | — | Restrict to specific zone codes, matched against each alert's zone list |
 | `sortOrder` | `'default'` | `'default'`, `'onset'`, `'severity'` |
 | `minSeverity` | `'all'` | `'all'`, `'minor'`, `'moderate'`, `'severe'`, `'extreme'` |
-| `maxDistanceKm` | — | Hide point incidents further than this many kilometres from the HA home location. Point-incident providers only (NSW RFS) |
+| `maxDistanceKm` | — | Hide point incidents further than this many kilometres from the reference point (HA home, or `myLocationEntity`). Point-incident providers only (NSW RFS) |
+| `myLocationEntity` | — | `device_tracker` / `person` / `zone` whose coordinates replace HA home as the reference point, for `maxDistanceKm`, the distance row and `showMyLocation` |
 | `eventCodes` | — | Event codes to include, e.g. `['SVR', 'TOR']` (NWS) or `['31', '95']` (DWD) |
 | `excludeEventCodes` | — | Event codes to exclude, e.g. `['SCY']` (NWS) or `['22']` (DWD) |
 | `hideExpired` | `true` | Hide expired alerts (set `false` to show them dimmed) |
@@ -65,12 +66,15 @@ emit zone codes.
 `minSeverity` never hides an alert whose severity is unknown or unclassified — those are
 always shown, on the principle that an unrankable alert must not be silently dropped.
 
-`maxDistanceKm` measures from your Home Assistant home location (Settings → System →
-General) and applies **only to providers that publish a per-incident point** — currently
-NSW RFS. Area warnings (NWS, CAP Alerts, BoM, DWD, MeteoAlarm, MeteoSwiss, ECCC,
+`maxDistanceKm` measures from the card's **reference point** — your Home Assistant home
+location (Settings → System → General) unless `myLocationEntity` names a `device_tracker`,
+`person` or `zone` entity, whose `latitude`/`longitude` then take over. It applies **only to
+providers that publish a per-incident point** — currently NSW RFS. Area warnings (NWS, CAP Alerts, BoM, DWD, MeteoAlarm, MeteoSwiss, ECCC,
 PirateWeather) either cover your home point or they don't, so a radius has no meaning for
-them and they are never filtered, even on a mixed card. If the home location is unset, the
-filter is skipped rather than hiding everything. The YAML value is always kilometres,
+them and they are never filtered, even on a mixed card. If no reference point resolves, the
+filter is skipped rather than hiding everything; an entity that is missing or momentarily
+has no coordinates (a router-based tracker, a phone with GPS off) falls back to HA home
+rather than switching the filter off. The YAML value is always kilometres,
 whatever your unit system; on a US-customary install the visual editor labels the field in
 miles and converts to km when saving, so the stored config means the same distance on every
 install and flipping HA's unit system never changes what the card hides.
@@ -79,6 +83,10 @@ It also only ever **narrows**. The `geo_location` integrations that feed it appl
 `radius` first (`nsw_rural_fire_service_feed` and `qld_bushfire` both default to 20 km from the
 same home location), so incidents beyond that never reach the card. Setting `maxDistanceKm`
 wider than the integration's radius does nothing — raise the integration's `radius` instead.
+The integration's own origin can also differ from the card's: its `latitude`/`longitude`
+options live in its config, which the card cannot see. If you configured the feed somewhere
+other than HA home, point `myLocationEntity` at a zone with the same coordinates so the
+card's distances and radius agree with the integration's.
 
 ## Presentation
 
@@ -164,8 +172,9 @@ legibility-safe opacity. The wash is always solid.
 | `showInstructions` | `true` | Show instructions text |
 | `showSourceLink` | `true` | Show the "Open Source" link (`false` for kiosk mode) |
 | `reformatText` | `true` | Strip hard line wraps from alert text (NWS 69-char teletype breaks) while preserving paragraph breaks |
-| `showGeometry` | `false` | Show an inline mini-map of the affected-area outline |
-| `geometryStyle` | `'shape'` | `'shape'` (bare outline) or `'map'` (raster-tile basemap) |
+| `showGeometry` | `false` | Show an inline mini-map: the affected-area outline, or a marker at a point incident |
+| `geometryStyle` | `'shape'` | `'shape'` (bare outline / marker) or `'map'` (raster-tile basemap) |
+| `showMyLocation` | `false` | Add a you-are-here ring at the reference point to the mini-map |
 | `geometryTileUrl` | HA `map_tiles` proxy | Slippy-map tile template (`{z}/{x}/{y}`, optional `{s}`) used when `geometryStyle: 'map'` |
 | `geometryTileAttribution` | `© OpenStreetMap contributors` | Attribution label shown over the map |
 
@@ -173,16 +182,36 @@ legibility-safe opacity. The wash is always solid.
 
 ![The affected-area mini-map, as a bare outline and over a raster basemap](/img/geometry-adaptive.svg)
 
-`showGeometry` is **CAP Alerts (`cap_alerts`) only** — no other provider carries
-geometry. The card draws the bounding-box frame immediately and overlays the polygon
-once it has been fetched out of band, falling back to the frame alone on a cache miss.
+`showGeometry` draws whatever geometry the alert carries, best first:
+
+| Alert carries | Providers | Mini-map shows |
+|---|---|---|
+| polygon (+ bbox) | CAP Alerts | bounding-box frame immediately, polygon outline once fetched out of band (frame alone on a cache miss) |
+| bbox only | CAP Alerts, polygon unavailable | the bounding-box frame |
+| point only | NSW RFS (any point-incident feed) | a severity-colored marker at the incident inside a ~20 km frame — town scale on the `map` style |
+| nothing | NWS, BoM, DWD, MeteoAlarm, MeteoSwiss, ECCC, NINA, PirateWeather | no mini-map |
+
+For a point incident the frame is invented by the card, not published by the feed, so it
+carries no tint: it's a viewport, not an affected area. A lone dot in an empty frame says
+little on the `'shape'` style; `'map'` gives it terrain, and `showMyLocation` gives it you.
+
+`showMyLocation: true` adds a small neutral ring at the card's reference point — HA home,
+or the `myLocationEntity` entity — under the incident marker. On a point map the frame
+widens to hold both, up to ~150 km apart (beyond that the ring is dropped rather than
+zooming the incident out of all context). On a polygon map the frame is the alert's own
+extent and is **never** widened: a reference point outside it simply clips. It's opt-in
+because it draws your location, live when a tracker is set, onto a card that may sit on a
+shared wall display.
 
 ::: warning `geometryStyle: 'map'` goes online
 The default `'shape'` is fully offline. `'map'` fetches map tiles, and is opt-in for that
 reason. The default source is Home Assistant's own `map_tiles` proxy (core 2026.9 and
 later), the same OpenStreetMap tiles HA's map draws: the requests go to your instance,
-which fetches them upstream, so no third party sees the alert's bounding box. Dark themes
-invert the tiles the way HA's map does. On an older core the proxy doesn't exist and the
+which fetches them upstream, so no third party sees the alert's bounding box. For a point
+incident the tile requests reveal the incident's surroundings rather than an area, and
+with `showMyLocation` the frame is centred on *your* surroundings too — still only ever
+to your own instance on the default source. Dark themes invert the tiles the way HA's map
+does. On an older core the proxy doesn't exist and the
 card draws the plain outline instead, as it does whenever tiles fail.
 :::
 
@@ -354,7 +383,8 @@ interface WeatherAlertsCardConfig {
   eventCodes?: string[];       // event codes to include — empty/omitted = all
   excludeEventCodes?: string[]; // event codes to exclude — empty/omitted = none
   minSeverity?: AlertSeverity; // 'all' | 'minor' | 'moderate' | 'severe' | 'extreme'
-  maxDistanceKm?: number;      // km from the HA home location; point-incident providers only
+  maxDistanceKm?: number;      // km from the reference point (HA home, or myLocationEntity); point-incident providers only
+  myLocationEntity?: string;   // device_tracker / person / zone that replaces HA home as the reference point
   sortOrder?: 'default' | 'onset' | 'severity';
   animations?: boolean;        // undefined: respect prefers-reduced-motion; true/false: force
   layout?: 'default' | 'compact';

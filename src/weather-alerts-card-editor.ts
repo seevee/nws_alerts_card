@@ -529,6 +529,38 @@ export class WeatherAlertsCardEditor extends LitElement {
     this._fireConfigChanged(newConfig);
   }
 
+  private _showMyLocationChanged(ev: Event): void {
+    const target = ev.target as HTMLInputElement;
+    const show = target.checked;
+    if (show === (this._config.showMyLocation === true)) return;
+    const newConfig = { ...this._config };
+    if (show) {
+      newConfig.showMyLocation = true;
+    } else {
+      delete newConfig.showMyLocation;
+    }
+    this._fireConfigChanged(newConfig);
+  }
+
+  private _myLocationEntityChanged(ev: CustomEvent): void {
+    const raw = ev.detail?.value;
+    const value = typeof raw === 'string' ? raw.trim() : '';
+    if (value === (this._config.myLocationEntity ?? '')) return;
+    const newConfig = { ...this._config };
+    if (value) {
+      newConfig.myLocationEntity = value;
+    } else {
+      delete newConfig.myLocationEntity;
+    }
+    this._fireConfigChanged(newConfig);
+  }
+
+  /** The reference-point picker matters wherever a reference point is used:
+   *  the radius filter measures from it, and the mini-map can mark it. */
+  private _showsMyLocationEntityControl(): boolean {
+    return this._showsRadiusControl() || this._config?.showGeometry === true;
+  }
+
   private _geometryStyleChanged(ev: CustomEvent): void {
     const value = this._selectValue(ev) as 'shape' | 'map';
     if (value === (this._config.geometryStyle || 'shape')) return;
@@ -1218,6 +1250,18 @@ export class WeatherAlertsCardEditor extends LitElement {
           ></ha-textfield>
         ` : nothing}
 
+        ${this._showsMyLocationEntityControl() ? html`
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ entity: { domain: ['device_tracker', 'person', 'zone'] } }}
+            .value=${this._config.myLocationEntity || ''}
+            .label=${t('editor.my_location_entity', lang)}
+            .helper=${t('editor.my_location_entity_helper', lang)}
+            .helperPersistent=${true}
+            @value-changed=${this._myLocationEntityChanged}
+          ></ha-selector>
+        ` : nothing}
+
         <!-- Appearance -->
         <div class="section-label">${t('editor.section_appearance', lang)}</div>
 
@@ -1405,6 +1449,14 @@ export class WeatherAlertsCardEditor extends LitElement {
             ${this._renderSelectItem('shape', t('editor.geometry_style_shape', lang))}
             ${this._renderSelectItem('map', t('editor.geometry_style_map', lang))}
           </ha-select>
+
+          <ha-formfield .label=${t('editor.show_my_location', lang)}>
+            <ha-switch
+              .checked=${this._config.showMyLocation === true}
+              .disabled=${this._config.showDetails === false}
+              @change=${this._showMyLocationChanged}
+            ></ha-switch>
+          </ha-formfield>
         ` : nothing}
 
         <ha-formfield .label=${t('editor.show_source_link', lang)}>

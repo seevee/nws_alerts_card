@@ -10,8 +10,8 @@ export interface HomeAssistant {
   };
   config?: {
     time_zone?: string;  // IANA tz name, e.g. "America/Denver"
-    latitude?: number;   // HA home-zone coordinates — the origin the maxDistanceKm
-    longitude?: number;  // filter measures point-incident alerts against.
+    latitude?: number;   // HA home-zone coordinates — the card's default reference point (the maxDistanceKm
+    longitude?: number;  // origin, the distance row, the my-location marker); myLocationEntity overrides it, falling back here.
     unit_system?: { length?: string };  // 'km' | 'mi' on a real core; drives the editor's display unit only (config is always km)
   };
   themes?: {
@@ -146,7 +146,7 @@ export interface WeatherAlertsCardConfig {
   eventCodes?: string[];       // NWS event codes to include, e.g. ["SVR","TOR"] — empty/omitted = all
   excludeEventCodes?: string[]; // NWS event codes to exclude, e.g. ["SCY"] — empty/omitted = none excluded
   minSeverity?: AlertSeverity;
-  maxDistanceKm?: number;      // kilometres from the HA home location (hass.config.latitude/longitude), whatever the install's unit system. Only excludes alerts carrying a `point` (point-incident providers like NSW RFS); area warnings have no distance and are never filtered. Omitted/non-positive/non-numeric = no filtering.
+  maxDistanceKm?: number;      // kilometres from the card's reference point — the HA home location (hass.config.latitude/longitude) unless myLocationEntity resolves — whatever the install's unit system. Only excludes alerts carrying a `point` (point-incident providers like NSW RFS); area warnings have no distance and are never filtered. Omitted/non-positive/non-numeric = no filtering.
   sortOrder?: 'default' | 'onset' | 'severity';
   animations?: boolean;  // undefined: respects prefers-reduced-motion; true: always animate; false: never animate
   progressStyle?: ProgressStyleConfig; // per-phase progress-bar decoration; omit for defaults (prep striped, active shimmer, ongoing pulse)
@@ -168,7 +168,9 @@ export interface WeatherAlertsCardConfig {
   showMetadata?: boolean;    // undefined/true: show metadata grid in details; false: hide
   showDescription?: boolean; // undefined/true: show description block in details; false: hide
   showInstructions?: boolean; // undefined/true: show instructions block in details; false: hide
-  showGeometry?: boolean;    // undefined/false: no geometry mini-map; true: show affected-area SVG in details (cap_alerts only)
+  showGeometry?: boolean;    // undefined/false: no geometry mini-map; true: show a mini-map in details — the polygon outline where one exists (cap_alerts), else the bbox frame, else a marker at the incident `point` (NSW RFS and any point-carrying source), else nothing
+  showMyLocation?: boolean;  // undefined/false: the mini-map never shows where YOU are; true: a small neutral ring at the reference point (HA home, or myLocationEntity) on both the point and polygon mini-maps. Opt-in because it draws the user's location — live, when a tracker is set — onto a possibly shared display. Needs showGeometry; never widens a real bbox (a reference point outside the alert's own extent simply clips), and is dropped from a synthesized point frame beyond ~150 km
+  myLocationEntity?: string; // undefined: the reference point is HA's home location; set to a device_tracker / person / zone entity whose latitude/longitude attributes become the reference point instead — for BOTH the my-location marker and the maxDistanceKm origin. Unresolvable (missing entity, no coords) falls back to HA home, never to "no filtering". A zone is the way to express fixed coordinates
   geometryStyle?: 'shape' | 'map'; // undefined/'shape': bare polygon outline (offline); 'map': OSM raster-tile basemap behind the polygon (opt-in, fetches tiles, online). Only applies when showGeometry is on.
   geometryTileUrl?: string;  // undefined: Home Assistant's own map_tiles proxy (OSM, core 2026.9+; dark themes invert the tiles like HA's map); override slippy-map template ({z}/{x}/{y}[/{s}]) for self-hosted/keyed/privacy sources — rendered as-is, no inversion. Only applies when geometryStyle: 'map'.
   geometryTileAttribution?: string; // undefined: '© OpenStreetMap contributors' for the default, '© OpenStreetMap' for an override; set to credit a custom geometryTileUrl provider. Only applies when geometryStyle: 'map'.
@@ -225,7 +227,7 @@ export interface WeatherAlert {
   severityBadgeLabel?: string; // Optional override for the severity badge text (rendered raw, e.g. ECCC's `impact` field "High"/"Élevée"). Falls back to localized tier when absent.
   bbox?: [number, number, number, number]; // [minlon, minlat, maxlon, maxlat] (lon-first); synchronous from cap_alerts attributes. Drives the geometry mini-map frame.
   geometryRef?: string;    // Opaque handle for the out-of-band cap_alerts geometry fetch (full polygon). Empty/absent when unavailable.
-  point?: [number, number]; // [lon, lat] (lon-first, same convention as bbox) — where the incident IS, for point-incident providers; absent for area warnings. Never the centre of an affected area. Consumed by the maxDistanceKm filter and the detail panel's distance-from-home row.
+  point?: [number, number]; // [lon, lat] (lon-first, same convention as bbox) — where the incident IS, for point-incident providers; absent for area warnings. Never the centre of an affected area. Consumed by the maxDistanceKm filter, the detail panel's distance row, and the geometry mini-map's incident marker (which synthesizes its own framing box when `bbox` is absent — an adapter must NOT fake a bbox from a point).
 }
 
 // Adapter contract: converts raw entity attributes → WeatherAlert[]

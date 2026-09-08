@@ -88,9 +88,11 @@ export class NswRfsAdapter implements AlertAdapter {
     const location = str(inc.location);
     const type = str(inc.type);
     const event = type ? titleCase(type) : (location || 'Fire Incident');
-    // The incident location, for the maxDistanceKm filter. Deliberately not
-    // mirrored into `bbox` — a degenerate point frame would regress
-    // showGeometry from rendering nothing to rendering an empty box (#206).
+    // The incident location, for the maxDistanceKm filter, the distance row
+    // and the mini-map's incident marker. Deliberately not mirrored into
+    // `bbox`: that field means "the alert's own affected extent", and the
+    // render path synthesizes its own framing box around a `point` (#206) —
+    // identically for any point-carrying source, not just this one.
     const point = extractPoint(inc.latitude, inc.longitude);
 
     return {

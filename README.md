@@ -20,7 +20,7 @@ is the same material with more room to breathe, plus per-provider setup detail.
 - **Time progress bars** — elapsed/remaining time with relative and absolute timestamps
 - **Alert headlines** — contextual subtitle from provider data, with optional redundancy filtering
 - **Expandable details** — sanitized description, instructions, and source link
-- **Affected-area mini-map (CAP)** — optional inline outline of the alert's polygon, with an opt-in raster-tile basemap for geographic context (`showGeometry`)
+- **Affected-area mini-map** — optional inline outline of a CAP alert's polygon, or a marker at a point incident's location (NSW RFS), with an opt-in raster-tile basemap and an opt-in you-are-here dot (`showGeometry`, `showMyLocation`)
 - **BoM phase badges** — New, Updated, Renewed lifecycle indicators
 - **Compact layout** — collapsed single-row alerts with progress bars that expand on tap
 - **Zone filtering** — show only alerts for specific zone codes (CAP Alerts geocodes, BoM `area_id`); see the `zones` note for provider support
@@ -222,7 +222,8 @@ Then click the Download button, and click Reload when prompted.
 | `zones` | — | Restrict to specific zone codes, matched against each alert's zone list. Populated by CAP Alerts (UGC/SAME/EMMA_ID/NUTS and any other geocode scheme) and BoM (`area_id`, e.g. `NSW_FL049`; fork-dependent — the `safepay/ha_bom_australia` fork emits it). The recommended NWS integration doesn't emit zone codes, so this doesn't apply to it. **Alerts with no matching zone are hidden**, so setting `zones` on a provider that carries none hides everything |
 | `sortOrder` | `'default'` | `'default'`, `'onset'`, `'severity'` |
 | `minSeverity` | `'all'` | `'all'`, `'minor'`, `'moderate'`, `'severe'`, `'extreme'`. Alerts whose severity is unknown/unclassified are always shown, regardless of this threshold |
-| `maxDistanceKm` | — | Hide incidents further than this many **kilometres** from your Home Assistant home location (`latitude`/`longitude` under Settings → System → General). Opt-in; the YAML value is always km whatever your unit system, though the visual editor shows and accepts miles on a US-customary install. Only applies to point-incident providers that publish a real location (currently NSW RFS) — area warnings (NWS, CAP, BoM, DWD, MeteoAlarm, MeteoSwiss, ECCC, PirateWeather) have no distance and are never filtered. Ignored when the home location is unset. Only ever narrows — the `geo_location` integration applies its own `radius` (default 20 km) first, so a wider card value has no effect |
+| `maxDistanceKm` | — | Hide incidents further than this many **kilometres** from your reference point — the Home Assistant home location (`latitude`/`longitude` under Settings → System → General) unless `myLocationEntity` is set. Opt-in; the YAML value is always km whatever your unit system, though the visual editor shows and accepts miles on a US-customary install. Only applies to point-incident providers that publish a real location (currently NSW RFS) — area warnings (NWS, CAP, BoM, DWD, MeteoAlarm, MeteoSwiss, ECCC, PirateWeather) have no distance and are never filtered. Ignored when no reference point resolves. Only ever narrows — the `geo_location` integration applies its own `radius` (default 20 km) first, so a wider card value has no effect |
+| `myLocationEntity` | — | A `device_tracker`, `person`, or `zone` entity whose `latitude`/`longitude` replace the HA home location as the card's reference point — the origin of `maxDistanceKm`, the detail panel's distance row, and the `showMyLocation` marker. Falls back to HA home when the entity is missing or has no coordinates (a router-based tracker), never to "no filtering". Use a zone for a fixed location, e.g. to match a `geo_location` integration configured somewhere other than HA home |
 | `colorTheme` | `'severity'` | `'severity'`, `'nws'`, `'meteoalarm'`, `'eccc'` — `'eccc'` uses ECCC's published `red`/`orange`/`yellow`/`grey` palette (matches weather.gc.ca); falls back to the canonical severity tier for non-ECCC alerts displayed under this theme |
 | `enhanceContrast` | `'subtle'` | `'off'`, `'subtle'`, `'strict'` — boost foreground colors for NWS/MeteoAlarm events whose raw hex reads poorly against the active theme's card background, applied per event, per theme mode, and only in the direction where it fails. `'subtle'` (default) uses a text tier (~2:1 for icon/label) and a stricter progress tier (~1.3:1 for progress-bar fill, which catches near-invisible tints like yellow Tornado Watch). `'strict'` tightens both tiers (text ~3:1, progress ~2:1) toward WCAG AA-ish guarantees. `'off'` always renders raw theme hex values. Events that already read cleanly (e.g. Tornado Warning) render unchanged in all modes. |
 | `eventCodes` | — | Event codes to include, e.g. `['SVR', 'TOR']` (NWS) or `['31', '95']` (DWD) |
@@ -236,13 +237,14 @@ Then click the Download button, and click Reload when prompted.
 | `showDetails` | `true` | Show the expandable detail panel (hides entire "Read Details" section when `false`) |
 | `expandDetails` | `false` | Always show details inline without a toggle (ideal for wall-mounted displays) |
 | `showProvider` | `false` | Show provider label (e.g., NWS) above event title |
-| `showMetadata` | `true` | Show issued/onset/expires/area grid in detail panel. Point-incident alerts (currently NSW RFS) also get a distance-from-home row, in km or miles per your unit system |
+| `showMetadata` | `true` | Show issued/onset/expires/area grid in detail panel. Point-incident alerts (currently NSW RFS) also get a distance row (from HA home, or `myLocationEntity`), in km or miles per your unit system |
 | `showDescription` | `true` | Show description text in detail panel |
 | `showInstructions` | `true` | Show instructions text in detail panel |
-| `showGeometry` | `false` | Show an inline SVG mini-map of the affected-area outline in the detail panel. CAP Alerts (`cap_alerts`) only — other providers have no geometry. Draws the bbox frame immediately and overlays the polygon once fetched out-of-band (falls back to the frame on cache miss). |
-| `geometryStyle` | `'shape'` | Mini-map rendering when `showGeometry` is on. `'shape'`: bare polygon outline, fully offline. `'map'`: raster-tile basemap behind the polygon for geographic context — **opt-in and fetches map tiles (online)**. The default source is Home Assistant's own `map_tiles` proxy (core 2026.9+), so the tiles come from your instance and match HA's map; on an older core, or if tiles fail, the card falls back to the outline. |
+| `showGeometry` | `false` | Show an inline SVG mini-map in the detail panel. Draws whatever the alert carries, best first: the polygon outline (CAP Alerts, fetched out-of-band) → the bounding-box frame (CAP Alerts, immediate) → a marker at the incident's location inside a ~20 km frame (point-incident providers, currently NSW RFS) → nothing (area providers with no geometry: NWS, BoM, DWD, …). |
+| `geometryStyle` | `'shape'` | Mini-map rendering when `showGeometry` is on. `'shape'`: bare outline or marker, fully offline. `'map'`: raster-tile basemap behind the polygon or marker for geographic context — **opt-in and fetches map tiles (online)**. The default source is Home Assistant's own `map_tiles` proxy (core 2026.9+), so the tiles come from your instance and match HA's map; on an older core, or if tiles fail, the card falls back to the outline. |
 | `geometryTileUrl` | HA `map_tiles` proxy | Slippy-map tile template (`{z}/{x}/{y}`, optional `{s}`) used when `geometryStyle: 'map'`. Override to point at a self-hosted source, or at a keyed one such as CARTO with your own key (`https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=YOUR_KEY`). **An override reveals the alert's bounding box to that host** and is rendered as-is, without the dark-theme inversion the default gets. |
 | `geometryTileAttribution` | `© OpenStreetMap contributors` | Attribution label shown over the map. Set this to credit your provider when using a custom `geometryTileUrl` (e.g. `© OpenStreetMap, CARTO`). |
+| `showMyLocation` | `false` | Add a small neutral ring at your reference point (HA home, or `myLocationEntity`) to the mini-map — you and the incident in one frame on a point map, or where you sit relative to the affected area on a polygon map. Opt-in because it puts your location (live, when a tracker is set) on a possibly shared display. Never widens a real affected-area frame: a reference point outside it simply clips. On a point map the frame grows to include it up to ~150 km, beyond which it's dropped. Requires `showGeometry: true`. |
 | `showSourceLink` | `true` | Show "Open Source" link (`false` for kiosk mode) |
 | `hideExpired` | `true` | Hide expired alerts (set `false` to show them dimmed) |
 | `hideNoAlerts` | `false` | Hide the "No active alerts" banner when there are no alerts |
@@ -395,13 +397,15 @@ fixed subset instead.)
 
 Severity comes straight from the incident `category` (Emergency Warning / Watch
 and Act / Advice — the Australian Warning System ladder). Incidents have no real
-expiry, so the card shows an honest "ongoing" state with no progress bar, and the
-`showGeometry` mini-map is unavailable (the entity carries only a point, not the
-fire-ground polygon).
+expiry, so the card shows an honest "ongoing" state with no progress bar.
 
-Because each incident *does* carry a location, the detail panel shows its distance
-from your Home Assistant home location (km, or miles on a US-customary install),
-and you can trim a statewide feed down to your own surroundings with
+Each incident carries a location rather than a fire-ground polygon (the integration
+discards that), so with `showGeometry: true` the mini-map shows a marker at the
+incident inside a ~20 km frame — most useful with `geometryStyle: map`, which puts
+it on real terrain, and with `showMyLocation: true`, which adds a you-are-here ring
+so the frame reads as "the fire, and me". The detail panel also shows the incident's
+distance from your Home Assistant home location (km, or miles on a US-customary
+install), and you can trim a statewide feed down to your own surroundings with
 `maxDistanceKm` — kilometres from that same home point:
 
 ```yaml

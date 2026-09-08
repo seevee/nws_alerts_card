@@ -180,12 +180,14 @@ ladder (Emergency Warning / Watch and Act / Advice). Two consequences worth know
 
 - Incidents have **no real expiry**, so the card shows an honest "ongoing" state with no
   progress bar rather than inventing a countdown.
-- `showGeometry` is unavailable — the entity carries only a point, not the fire-ground
-  polygon.
+- `showGeometry` draws a **marker**, not an outline — the entity carries only a point, the
+  integration discards the fire-ground polygon. Pair it with `geometryStyle: map` for
+  terrain and `showMyLocation: true` for a you-are-here ring in the same frame.
 
 That point does drive one thing: `maxDistanceKm` trims a statewide feed to incidents
-within a given number of kilometres of your Home Assistant home location. It is opt-in,
-always expressed in km in YAML, and has no effect on area-warning providers.
+within a given number of kilometres of your Home Assistant home location (or of a
+`myLocationEntity`). It is opt-in, always expressed in km in YAML, and has no effect on
+area-warning providers.
 
 ```yaml
 type: custom:weather-alerts-card
@@ -200,6 +202,8 @@ the same Home Assistant home location. Incidents beyond it never reach the card 
 `maxDistanceKm` can only trim that set further, never widen it. On the default, a card set to
 `maxDistanceKm: 50` changes nothing — raise the integration's `radius` to see incidents
 further out. The card-side filter is for narrowing per card without touching the integration.
+If the platform's `latitude`/`longitude` differ from HA home, set `myLocationEntity` to a zone
+at the platform's coordinates so the card measures from the same origin.
 :::
 
 ### PirateWeather

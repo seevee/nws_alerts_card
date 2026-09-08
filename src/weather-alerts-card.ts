@@ -42,6 +42,7 @@ import {
   alertMatchesZones,
   deduplicateAlerts,
   haversineKm,
+  resolveReferencePoint,
   formatDistance,
   toLengthUnit,
   getNwsEventColor,
@@ -59,6 +60,11 @@ import {
   mapTilesUrl,
   buildGeometrySvg,
   buildGeometryMap,
+  framePointsBbox,
+  markerPath,
+  REFERENCE_FRAME_MAX_KM,
+  Bbox,
+  LonLat,
   DEFAULT_TILE_ATTRIBUTION,
   MAP_TILES_TOKEN_REFRESH_MS,
   GeoJsonGeometry,
@@ -916,18 +922,15 @@ export class WeatherAlertsCard extends LitElement {
     // property, and dedup's representative keeps only group[0]'s point, so a
     // merged group would otherwise be judged by one arbitrary member's
     // location. Alerts with no point always pass — an area warning either
-    // covers the home point or it doesn't, so a radius has no meaning for it
-    // (#105) and dropping one would be a safety regression. A missing/invalid
-    // radius or an unknown home location fails open (no filtering at all).
+    // covers the reference point or it doesn't, so a radius has no meaning for
+    // it (#105) and dropping one would be a safety regression. A missing/invalid
+    // radius or an unresolvable reference point fails open (no filtering at
+    // all). The origin is the same resolved reference point the my-location
+    // marker draws, so the card never filters from somewhere it isn't showing.
     const maxKm = this._config.maxDistanceKm;
-    const homeLat = this.hass?.config?.latitude;
-    const homeLon = this.hass?.config?.longitude;
-    if (
-      typeof maxKm === 'number' && Number.isFinite(maxKm) && maxKm > 0
-      && typeof homeLat === 'number' && Number.isFinite(homeLat)
-      && typeof homeLon === 'number' && Number.isFinite(homeLon)
-    ) {
-      result = result.filter(a => !a.point || haversineKm(a.point[0], a.point[1], homeLon, homeLat) <= maxKm);
+    const home = resolveReferencePoint(this.hass, this._config.myLocationEntity);
+    if (typeof maxKm === 'number' && Number.isFinite(maxKm) && maxKm > 0 && home) {
+      result = result.filter(a => !a.point || haversineKm(a.point[0], a.point[1], home[0], home[1]) <= maxKm);
     }
 
     if (this._config.deduplicate !== false) {
@@ -1722,19 +1725,18 @@ export class WeatherAlertsCard extends LitElement {
     `;
   }
 
-  // Distance from the HA home point to a point-incident alert, for the detail
-  // grid. Reads `WeatherAlert.point` only (no provider branch, #205), so any
-  // source that publishes a point gets the row. Area warnings have no point
-  // and get no row at all — never an "unknown" placeholder. Shown whether or
-  // not `maxDistanceKm` is configured; the same home-point resolution as the
-  // filter, so an unset home location means no row rather than a bad number.
+  // Distance from the card's reference point to a point-incident alert, for
+  // the detail grid. Reads `WeatherAlert.point` only (no provider branch,
+  // #205), so any source that publishes a point gets the row. Area warnings
+  // have no point and get no row at all — never an "unknown" placeholder.
+  // Shown whether or not `maxDistanceKm` is configured; the same reference
+  // resolution as the filter (HA home, or myLocationEntity), so an unset
+  // location means no row rather than a bad number.
   private _distanceFromHomeKm(alert: WeatherAlert): number | undefined {
     if (!alert.point) return undefined;
-    const homeLat = this.hass?.config?.latitude;
-    const homeLon = this.hass?.config?.longitude;
-    if (typeof homeLat !== 'number' || !Number.isFinite(homeLat)) return undefined;
-    if (typeof homeLon !== 'number' || !Number.isFinite(homeLon)) return undefined;
-    return haversineKm(alert.point[0], alert.point[1], homeLon, homeLat);
+    const home = resolveReferencePoint(this.hass, this._config?.myLocationEntity);
+    if (!home) return undefined;
+    return haversineKm(alert.point[0], alert.point[1], home[0], home[1]);
   }
 
   private _renderDetailsContent(alert: WeatherAlert, progress: AlertProgress): TemplateResult {
@@ -1803,12 +1805,41 @@ export class WeatherAlertsCard extends LitElement {
     `;
   }
 
-  // Inline SVG mini-map of the affected area (cap_alerts geometry). bbox draws
-  // an immediate frame with zero network; the polygon overlays once the
-  // out-of-band fetch lands. Reads cache only — purity preserved. The severity
-  // color flows in via the inherited --color custom property.
+  // Resolves the mini-map's inputs for one alert: the frame (`bbox`), the
+  // incident marker (`point`) and the opt-in my-location marker. Degrade order
+  // is layering, not either/or — polygon → bbox frame → point marker →
+  // nothing — so a future source publishing both an outline and a precise
+  // point gets both. A real bbox is the alert's own extent and is never
+  // widened to fit the reference point (it just clips); only a frame the card
+  // INVENTED around a point may grow, and only while the reference point is
+  // close enough (REFERENCE_FRAME_MAX_KM) to keep the incident in local
+  // context — past that it is dropped from framing and not drawn at all.
+  // Pure: reads config + hass only.
+  private _geometryPoints(alert: WeatherAlert): { bbox?: Bbox; point?: LonLat; referencePoint?: LonLat } {
+    const point = alert.point;
+    let referencePoint = this._config?.showMyLocation === true
+      ? resolveReferencePoint(this.hass, this._config?.myLocationEntity)
+      : undefined;
+    let bbox: Bbox | undefined = alert.bbox;
+    if (!bbox && point) {
+      const near = referencePoint
+        && haversineKm(point[0], point[1], referencePoint[0], referencePoint[1]) <= REFERENCE_FRAME_MAX_KM;
+      if (referencePoint && !near) referencePoint = undefined;
+      bbox = framePointsBbox(referencePoint ? [point, referencePoint] : [point]);
+    }
+    return { bbox, point, referencePoint };
+  }
+
+  // Inline SVG mini-map: the affected area (cap_alerts polygon over its bbox
+  // frame) or, for point-incident sources, a marker at the incident inside a
+  // synthesized frame. bbox draws an immediate frame with zero network; the
+  // polygon overlays once the out-of-band fetch lands. Reads cache only —
+  // purity preserved. The severity color flows in via the inherited --color
+  // custom property.
   private _renderGeometry(alert: WeatherAlert): TemplateResult | typeof nothing {
-    if (this._config?.showGeometry !== true || !alert.bbox) return nothing;
+    if (this._config?.showGeometry !== true) return nothing;
+    const { bbox, point, referencePoint } = this._geometryPoints(alert);
+    if (!bbox) return nothing;
     const geometry = alert.geometryRef ? this._geometryCache.get(alert.geometryRef) : undefined;
     if (this._config?.geometryStyle === 'map') {
       // Default basemap needs the proxy token. Until it arrives — or for good
@@ -1816,22 +1847,46 @@ export class WeatherAlertsCard extends LitElement {
       // a tokenless <image> would just 403 into a blank map frame.
       const override = this._config?.geometryTileUrl;
       if (override || this._mapTilesToken !== null) {
-        return this._renderGeometryMap(alert, geometry);
+        return this._renderGeometryMap(alert, bbox, geometry, point, referencePoint);
       }
     }
-    const { viewBox, polygonPaths } = buildGeometrySvg(alert.bbox, geometry);
+    const { viewBox, polygonPaths, marker, referenceMarker } = buildGeometrySvg(bbox, geometry, point, referencePoint);
     return html`
       <svg
-        class="alert-geometry"
+        class="alert-geometry${alert.bbox ? '' : ' point'}"
         viewBox=${viewBox}
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-label=${alert.areaDesc || t('detail.area', this._lang)}
+        aria-label=${this._geometryLabel(alert, referenceMarker !== undefined)}
       >
         <rect class="geometry-frame" x="0" y="0" width="100%" height="100%"></rect>
         ${polygonPaths.map(d => svg`<path class="geometry-shape" d=${d}></path>`)}
+        ${this._renderGeometryMarkers(marker, referenceMarker, false)}
       </svg>
     `;
+  }
+
+  // Reference marker under the incident marker: the incident is the subject.
+  // The my-location ring is two stacked round-cap dots — neutral outer,
+  // background-colored core — so it needs no radius math in the builder.
+  private _renderGeometryMarkers(
+    marker: { x: number; y: number } | undefined,
+    referenceMarker: { x: number; y: number } | undefined,
+    casing: boolean,
+  ): TemplateResult {
+    return html`
+      ${referenceMarker ? svg`
+        <path class="geometry-reference-ring" d=${markerPath(referenceMarker)}></path>
+        <path class="geometry-reference-core" d=${markerPath(referenceMarker)}></path>
+      ` : nothing}
+      ${marker && casing ? svg`<path class="geometry-marker-casing" d=${markerPath(marker)}></path>` : nothing}
+      ${marker ? svg`<path class="geometry-marker" d=${markerPath(marker)}></path>` : nothing}
+    `;
+  }
+
+  private _geometryLabel(alert: WeatherAlert, withLocation: boolean): string {
+    const area = alert.areaDesc || t('detail.area', this._lang);
+    return withLocation ? t('detail.geometry_with_location', this._lang, { area }) : area;
   }
 
   // 'map' style: OSM raster tiles (browser-loaded <image>) behind the polygon.
@@ -1842,7 +1897,10 @@ export class WeatherAlertsCard extends LitElement {
   // Caller guarantees either a user tile override or a live proxy token.
   private _renderGeometryMap(
     alert: WeatherAlert,
+    bbox: Bbox,
     geometry?: GeoJsonGeometry,
+    point?: LonLat,
+    referencePoint?: LonLat,
   ): TemplateResult {
     // Default basemap is HA's proxy, which serves one (light) raster; the
     // `dark` class inverts the tile layer in CSS like HA's map. A user override
@@ -1854,16 +1912,16 @@ export class WeatherAlertsCard extends LitElement {
     const attribution = this._config?.geometryTileAttribution
       ?? (override ? '© OpenStreetMap' : DEFAULT_TILE_ATTRIBUTION);
     const invert = !override && this._themeMode === 'dark';
-    const { viewBox, aspect, tiles, polygonPaths } = buildGeometryMap(
-      alert.bbox as [number, number, number, number],
+    const { viewBox, aspect, tiles, polygonPaths, marker, referenceMarker } = buildGeometryMap(
+      bbox,
       geometry,
-      { tileUrl, attribution },
+      { tileUrl, attribution, point, referencePoint },
     );
-    const label = alert.areaDesc || t('detail.area', this._lang);
+    const label = this._geometryLabel(alert, referenceMarker !== undefined);
     return html`
       <div class="alert-geometry-map" style="aspect-ratio: ${aspect};">
         <svg
-          class="alert-geometry map ${invert ? 'dark' : ''}"
+          class="alert-geometry map${alert.bbox ? '' : ' point'}${invert ? ' dark' : ''}"
           viewBox=${viewBox}
           preserveAspectRatio="xMidYMid meet"
           role="img"
@@ -1881,6 +1939,7 @@ export class WeatherAlertsCard extends LitElement {
           <rect class="geometry-frame" x="0" y="0" width="100%" height="100%"></rect>
           ${polygonPaths.map(d => svg`<path class="geometry-shape-casing" d=${d}></path>`)}
           ${polygonPaths.map(d => svg`<path class="geometry-shape" d=${d}></path>`)}
+          ${this._renderGeometryMarkers(marker, referenceMarker, true)}
         </svg>
         <span class="geometry-attrib">${attribution}</span>
       </div>
