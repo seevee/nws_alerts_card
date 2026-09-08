@@ -165,8 +165,8 @@ legibility-safe opacity. The wash is always solid.
 | `reformatText` | `true` | Strip hard line wraps from alert text (NWS 69-char teletype breaks) while preserving paragraph breaks |
 | `showGeometry` | `false` | Show an inline mini-map of the affected-area outline |
 | `geometryStyle` | `'shape'` | `'shape'` (bare outline) or `'map'` (raster-tile basemap) |
-| `geometryTileUrl` | CARTO | Slippy-map tile template (`{z}/{x}/{y}`, optional `{s}`) used when `geometryStyle: 'map'` |
-| `geometryTileAttribution` | `© OpenStreetMap, CARTO` | Attribution label shown over the map |
+| `geometryTileUrl` | HA `map_tiles` proxy | Slippy-map tile template (`{z}/{x}/{y}`, optional `{s}`) used when `geometryStyle: 'map'` |
+| `geometryTileAttribution` | `© OpenStreetMap contributors` | Attribution label shown over the map |
 
 ### Affected-area mini-map
 
@@ -177,12 +177,27 @@ geometry. The card draws the bounding-box frame immediately and overlays the pol
 once it has been fetched out of band, falling back to the frame alone on a cache miss.
 
 ::: warning `geometryStyle: 'map'` goes online
-The default `'shape'` is fully offline. `'map'` fetches map tiles, which **reveals the
-alert's bounding box to the tile host**. It is opt-in for that reason, and falls back to
-the plain outline if tiles fail. The default tile source is the theme-aware CARTO
-basemap Home Assistant's own map uses (`light_all` / `dark_all`, CORS-enabled); override
-`geometryTileUrl` to point at a self-hosted or proxied source, and set
-`geometryTileAttribution` to credit it.
+The default `'shape'` is fully offline. `'map'` fetches map tiles, and is opt-in for that
+reason. The default source is Home Assistant's own `map_tiles` proxy (core 2026.9 and
+later), the same OpenStreetMap tiles HA's map draws: the requests go to your instance,
+which fetches them upstream, so no third party sees the alert's bounding box. Dark themes
+invert the tiles the way HA's map does. On an older core the proxy doesn't exist and the
+card draws the plain outline instead, as it does whenever tiles fail.
+:::
+
+::: details Bringing your own tiles
+`geometryTileUrl` takes any slippy-map template and is rendered as-is, with no dark
+inversion. Point it at a self-hosted server, or at a keyed provider: CARTO's rasters need
+an API key since August 2026, so the old default now watermarks every tile. With your own
+key it still works, and `geometryTileAttribution` should credit it:
+
+```yaml
+geometryStyle: map
+geometryTileUrl: https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=YOUR_KEY
+geometryTileAttribution: © OpenStreetMap, CARTO
+```
+
+**An override reveals the alert's bounding box to that host.**
 :::
 
 ## Broken sources

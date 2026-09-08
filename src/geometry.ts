@@ -147,13 +147,49 @@ function fmt(n: number): string {
 // actual tile loading. Web Mercator (not the 'shape' cos-lat projection) so the
 // polygon aligns with the tiles.
 
-// Default basemap = CARTO (the same tiles Home Assistant's own map uses):
-// CORS-enabled (access-control-allow-origin:*) and embed-tolerant, unlike
-// tile.openstreetmap.org which 403s hotlinked tiles ("Referer required" per its
-// usage policy). Light/dark variants for theme matching.
-export const DEFAULT_TILE_URL = 'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
-export const DEFAULT_TILE_URL_DARK = 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
-export const DEFAULT_TILE_ATTRIBUTION = '© OpenStreetMap, CARTO';
+// Default basemap = Home Assistant's own map_tiles proxy (core 2026.9+), which
+// fronts tile.openstreetmap.org with the User-Agent the OSMF asks for. A
+// browser can't set that header itself, so hotlinking OSM 403s, and CARTO's
+// public rasters now watermark every tile without an API key (#259). The
+// raster endpoint wants the rotating access token in the query string because
+// an <image> can carry no header; the card fetches it via `map_tiles/access_token`
+// and refreshes it on the frontend's cadence. Only a light raster exists — dark
+// themes invert the tile layer in CSS, the same trick HA's map uses.
+export const MAP_TILES_RASTER_PATH = '/api/map_tiles/raster/{z}/{x}/{y}.png';
+export const DEFAULT_TILE_URL = MAP_TILES_RASTER_PATH;
+export const DEFAULT_TILE_ATTRIBUTION = '© OpenStreetMap contributors';
+// Frontend refreshes at 20 min against a 30 min server rotation with two
+// tokens live, so a refresh that runs late still lands on a valid token.
+export const MAP_TILES_TOKEN_REFRESH_MS = 20 * 60 * 1000;
+
+/**
+ * Slippy template for HA's raster proxy. `hassUrl` is `hass.auth.data.hassUrl`
+ * (absolute, so Cast and other off-origin embeds resolve to the instance, not
+ * the page); absent, a relative path resolves against the current origin.
+ */
+export function mapTilesUrl(hassUrl: string | undefined, token: string): string {
+  const base = (hassUrl || '').replace(/\/+$/, '');
+  return `${base}${MAP_TILES_RASTER_PATH}?token=${encodeURIComponent(token)}`;
+}
+
+/**
+ * One-shot WS fetch of the map_tiles access token. `null` on any failure —
+ * most commonly a core older than 2026.9, where the command doesn't exist —
+ * which the caller treats as "no basemap, draw the plain outline". Never
+ * rejects.
+ */
+export async function fetchMapTilesToken(conn: Connection): Promise<string | null> {
+  try {
+    const result = await conn.sendMessagePromise<{ token?: unknown }>({
+      type: 'map_tiles/access_token',
+    });
+    const token = result?.token;
+    return typeof token === 'string' && token.length > 0 ? token : null;
+  } catch {
+    return null;
+  }
+}
+
 const TILE_SIZE = 256;
 const TARGET_PX = 512;        // fit padded bbox within ~this many px → ≤ ~9 tiles
 const MIN_ZOOM = 1;

@@ -267,9 +267,10 @@ const PORT = 3742;
         }, { timeout: 10000 });
         await page.evaluate(id => document.getElementById(id).updateComplete, 'card-geometry');
 
-        // 'map' style draws CARTO raster tiles as SVG <image> elements fetched
-        // over the network. The polygon-shape wait above fires before those
-        // tiles finish loading, so capture too early and the basemap is blank.
+        // 'map' style draws raster tiles as SVG <image> elements fetched over
+        // the network (via the map_tiles route above). The polygon-shape wait
+        // fires before those tiles finish loading, so capture too early and the
+        // basemap is blank.
         // Re-load each tile href via HTMLImageElement (hits the browser cache)
         // and wait for them all to settle before screenshotting.
         await page.evaluate(async () => {
@@ -333,6 +334,25 @@ const PORT = 3742;
   const compositePage = await compositeContext.newPage();
   await compositePage.addInitScript(icons => { window.__MDI_ICONS__ = icons; }, MDI_ICONS);
   await compositePage.addInitScript(now => { Date.now = () => now; }, SCREENSHOT_NOW);
+  // The geometry set's 'map' style asks HA's map_tiles proxy for raster tiles,
+  // which resolve against the harness origin and would 404 on the static
+  // server. Stand in for the proxy: fetch the same OSM tile upstream with the
+  // User-Agent the OSMF tile policy asks for (a browser can't set one, which is
+  // the whole reason the proxy exists). A handful of tiles a few times a year.
+  await compositePage.route('**/api/map_tiles/raster/**', async (route) => {
+    const m = route.request().url().match(/\/raster\/(\d+)\/(\d+)\/(\d+)\.png/);
+    if (!m) return route.fulfill({ status: 404 });
+    try {
+      const res = await fetch(`https://tile.openstreetmap.org/${m[1]}/${m[2]}/${m[3]}.png`, {
+        headers: { 'User-Agent': 'weather-alerts-card screenshot harness (+https://github.com/seevee/weather_alerts_card)' },
+      });
+      if (!res.ok) return route.fulfill({ status: res.status });
+      const body = Buffer.from(await res.arrayBuffer());
+      return route.fulfill({ status: 200, contentType: 'image/png', body });
+    } catch {
+      return route.fulfill({ status: 502 });
+    }
+  });
 
   for (const set of COMPOSITE_SETS) {
     if (themeFilter.length && !themeFilter.includes(set.name)) continue;

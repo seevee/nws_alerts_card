@@ -24,6 +24,9 @@ export interface HomeAssistant {
   devices?: Record<string, DeviceRegistryDisplayEntry>;
   // Live WS connection — used to subscribe to entity_registry updates.
   connection?: Connection;
+  // Instance URL the frontend authenticated against. Absolute, so it's the
+  // right base for tile hrefs when the card runs off-origin (Cast).
+  auth?: { data?: { hassUrl?: string } };
   // Fire a HA service call. Present on the real hass object; typed here as the
   // subset used by tap_action dispatch (toggle / call-service).
   callService?(
@@ -166,8 +169,8 @@ export interface WeatherAlertsCardConfig {
   showInstructions?: boolean; // undefined/true: show instructions block in details; false: hide
   showGeometry?: boolean;    // undefined/false: no geometry mini-map; true: show affected-area SVG in details (cap_alerts only)
   geometryStyle?: 'shape' | 'map'; // undefined/'shape': bare polygon outline (offline); 'map': OSM raster-tile basemap behind the polygon (opt-in, fetches tiles, online). Only applies when showGeometry is on.
-  geometryTileUrl?: string;  // undefined: default CARTO basemap (theme-aware light/dark, same tiles HA's map uses); override slippy-map template ({z}/{x}/{y}[/{s}]) for self-hosted/proxied/privacy sources. Only applies when geometryStyle: 'map'.
-  geometryTileAttribution?: string; // undefined: attribution for the default/override source; set to credit a custom geometryTileUrl provider. Only applies when geometryStyle: 'map'.
+  geometryTileUrl?: string;  // undefined: Home Assistant's own map_tiles proxy (OSM, core 2026.9+; dark themes invert the tiles like HA's map); override slippy-map template ({z}/{x}/{y}[/{s}]) for self-hosted/keyed/privacy sources — rendered as-is, no inversion. Only applies when geometryStyle: 'map'.
+  geometryTileAttribution?: string; // undefined: '© OpenStreetMap contributors' for the default, '© OpenStreetMap' for an override; set to credit a custom geometryTileUrl provider. Only applies when geometryStyle: 'map'.
   showProvider?: boolean;    // undefined/false: hide provider hint; true: show provider label above title
   showSourceLink?: boolean;  // undefined/true: show "Open Source" link; false: hide link (kiosk mode)
   timezone?: 'server' | 'browser';  // undefined/'server': HA server tz; 'browser': client tz

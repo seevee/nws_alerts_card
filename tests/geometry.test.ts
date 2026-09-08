@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   buildGeometrySvg,
   buildGeometryMap,
+  mapTilesUrl,
+  fetchMapTilesToken,
   DEFAULT_TILE_URL,
+  DEFAULT_TILE_ATTRIBUTION,
   type Bbox,
   type GeoJsonPolygon,
   type GeoJsonMultiPolygon,
@@ -135,10 +138,10 @@ describe('buildGeometryMap', () => {
     expect(attribution).toMatch(/OpenStreetMap/);
   });
 
-  it('emits default CARTO tile hrefs with z/x/y substituted and z in range', () => {
+  it('emits proxy-relative tile hrefs with z/x/y substituted and z in range', () => {
     const { tiles } = buildGeometryMap(BBOX);
     for (const t of tiles) {
-      expect(t.href).toMatch(/^https:\/\/basemaps\.cartocdn\.com\/light_all\/\d+\/\d+\/\d+\.png$/);
+      expect(t.href).toMatch(/^\/api\/map_tiles\/raster\/\d+\/\d+\/\d+\.png$/);
       expect(t.size).toBe(256);
       const z = tileZoom(t.href);
       expect(z).toBeGreaterThanOrEqual(1);
@@ -202,8 +205,51 @@ describe('buildGeometryMap', () => {
     expect(h).toBeGreaterThan(0);
   });
 
-  it('exposes a CORS-friendly default tile URL constant with z/x/y tokens', () => {
+  it('defaults to the HA map_tiles proxy and credits OSM contributors', () => {
     expect(DEFAULT_TILE_URL).toContain('{z}/{x}/{y}');
-    expect(DEFAULT_TILE_URL).toContain('cartocdn.com');
+    expect(DEFAULT_TILE_URL).toContain('/api/map_tiles/raster/');
+    expect(DEFAULT_TILE_ATTRIBUTION).toBe('© OpenStreetMap contributors');
+  });
+});
+
+describe('mapTilesUrl', () => {
+  it('builds the base-plus-token template and keeps z/x/y tokens', () => {
+    const url = mapTilesUrl('http://homeassistant.local:8123', 'abc123');
+    expect(url).toBe('http://homeassistant.local:8123/api/map_tiles/raster/{z}/{x}/{y}.png?token=abc123');
+    const { tiles } = buildGeometryMap(BBOX, undefined, { tileUrl: url });
+    expect(tiles[0].href).toMatch(/^http:\/\/homeassistant\.local:8123\/api\/map_tiles\/raster\/\d+\/\d+\/\d+\.png\?token=abc123$/);
+  });
+
+  it('strips a trailing slash from the base and falls back to a relative path', () => {
+    expect(mapTilesUrl('https://example.ui.nabu.casa/', 't')).toBe(
+      'https://example.ui.nabu.casa/api/map_tiles/raster/{z}/{x}/{y}.png?token=t',
+    );
+    expect(mapTilesUrl(undefined, 't')).toBe('/api/map_tiles/raster/{z}/{x}/{y}.png?token=t');
+  });
+
+  it('URL-encodes the token', () => {
+    expect(mapTilesUrl('', 'a b&c')).toContain('?token=a%20b%26c');
+  });
+});
+
+describe('fetchMapTilesToken', () => {
+  const conn = (impl: (msg: { type: string }) => Promise<unknown>) =>
+    ({ sendMessagePromise: impl } as unknown as Parameters<typeof fetchMapTilesToken>[0]);
+
+  it('sends map_tiles/access_token and returns the token', async () => {
+    const seen: string[] = [];
+    const token = await fetchMapTilesToken(conn(async (msg) => {
+      seen.push(msg.type);
+      return { token: 'deadbeef' };
+    }));
+    expect(seen).toEqual(['map_tiles/access_token']);
+    expect(token).toBe('deadbeef');
+  });
+
+  it('resolves null (never rejects) on an unknown command or a malformed reply', async () => {
+    await expect(fetchMapTilesToken(conn(async () => { throw new Error('unknown_command'); })))
+      .resolves.toBeNull();
+    await expect(fetchMapTilesToken(conn(async () => ({})))).resolves.toBeNull();
+    await expect(fetchMapTilesToken(conn(async () => ({ token: '' })))).resolves.toBeNull();
   });
 });

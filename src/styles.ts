@@ -612,6 +612,15 @@ export const cardStyles = css`
   .alert-geometry.map image {
     image-rendering: auto;
   }
+  /* HA's proxy serves one light raster. Dark themes invert the tile layer the
+     way HA's own map does; a theme that sets --map-filter wins either way. The
+     polygon and frame sit outside the group so they keep their true colors. */
+  .alert-geometry.map .geometry-tiles {
+    filter: var(--map-filter, none);
+  }
+  .alert-geometry.map.dark .geometry-tiles {
+    filter: var(--map-filter, invert(0.9) hue-rotate(170deg) brightness(1.5) contrast(1.2) saturate(0.3));
+  }
   /* Over tiles the bbox frame is just a hairline; the polygon does the work. */
   .alert-geometry.map .geometry-frame {
     fill: none;

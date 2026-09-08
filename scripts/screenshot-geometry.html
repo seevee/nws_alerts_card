@@ -156,6 +156,9 @@
     // The card draws the bbox frame synchronously from the entity attributes, then
     // fetches the full polygon via the `cap_alerts/geometry` WS command. Resolve
     // that command to the stub FeatureCollection so the polygon overlays the frame.
+    // The 'map' style also asks for HA's map_tiles access token; any string will
+    // do, the tile requests it produces (/api/map_tiles/raster/...) are answered
+    // by a Playwright route in screenshot.js, not by an HA instance.
     const CAP_ENTITY = 'sensor.cap_alert_demo_screenshot';
 
     const MOCK_CONNECTION = {
@@ -163,8 +166,13 @@
         if (msg && msg.type === 'cap_alerts/geometry') {
           return Promise.resolve(CAP_GEOMETRY_STUB);
         }
+        if (msg && msg.type === 'map_tiles/access_token') {
+          return Promise.resolve({ token: 'screenshot' });
+        }
         return Promise.reject(new Error(`unhandled WS command: ${msg && msg.type}`));
       },
+      addEventListener() {},
+      removeEventListener() {},
     };
 
     const MOCK_HASS = {

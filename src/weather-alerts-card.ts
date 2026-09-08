@@ -52,17 +52,25 @@ import {
 import { getAdapter, ENTITY_NAME_PATTERNS, canHandleAny } from './adapters';
 import {
   fetchGeometry,
+  fetchMapTilesToken,
+  mapTilesUrl,
   buildGeometrySvg,
   buildGeometryMap,
-  DEFAULT_TILE_URL,
-  DEFAULT_TILE_URL_DARK,
   DEFAULT_TILE_ATTRIBUTION,
+  MAP_TILES_TOKEN_REFRESH_MS,
   GeoJsonGeometry,
 } from './geometry';
 import { handleTapAction, hasTapAction } from './actions';
 import { t } from './localize';
 import { cardStyles } from './styles';
 import './weather-alerts-card-editor';
+
+// Geometry miss retry policy (#258). A miss is a 404 from cap_alerts' in-memory
+// polygon store: evicted under load, or empty after an HA restart until the
+// next poll (300 s default). 60 s sits well under that poll and nowhere near a
+// storm; ten attempts cover the restart window and then give up on a dead ref.
+export const GEOMETRY_MISS_COOLDOWN_MS = 60_000;
+export const GEOMETRY_MISS_MAX_ATTEMPTS = 10;
 
 /* eslint-disable no-console */
 declare const __CARD_VERSION__: string;
@@ -227,12 +235,30 @@ export class WeatherAlertsCard extends LitElement {
   private _subscribedRegistryConn?: Connection;
 
   // cap_alerts geometry mini-map (opt-in via showGeometry). Cache maps a
-  // geometry_ref → fetched geometry (or `null` for 404/eviction, cached to
-  // avoid refetch storms). In-flight set dedupes concurrent fetches. Cache is
-  // cleared on connection swap (the backing store is per-connection ephemeral).
-  @state() private _geometryCache = new Map<string, GeoJsonGeometry | null>();
+  // geometry_ref → fetched geometry. A polygon that arrived is immutable for
+  // its ref, so hits are never refetched. Misses (404: evicted, or the store
+  // is empty after an HA restart) are temporary — the integration repopulates
+  // on its next poll — so they live in a separate map with a cooldown and an
+  // attempt cap (#258): retried once the cooldown passes, abandoned after
+  // GEOMETRY_MISS_MAX_ATTEMPTS so a dead ref isn't polled for the whole
+  // session. In-flight set dedupes concurrent fetches. All three are cleared
+  // on connection swap (the backing store is per-connection ephemeral).
+  @state() private _geometryCache = new Map<string, GeoJsonGeometry>();
+  private _geometryMisses = new Map<string, { at: number; attempts: number }>();
   private _geometryInFlight = new Set<string>();
   private _geometryConn?: Connection;
+
+  // Basemap access token for geometryStyle: 'map' (HA's map_tiles proxy, #259).
+  // Fetched once per connection when the map style is on, refreshed on the
+  // frontend's cadence (20 min interval + the connection's `ready` event) and
+  // held in state so a rotation re-renders the tile hrefs. A rejected fetch
+  // (core < 2026.9) stays rejected for that connection — no retry per hass
+  // update — and the card draws the plain outline instead.
+  @state() private _mapTilesToken: string | null = null;
+  private _mapTilesConn?: Connection;
+  private _mapTilesInFlight = false;
+  private _mapTilesTimer: ReturnType<typeof setInterval> | null = null;
+  private _onMapTilesReady = () => this._refreshMapTilesToken();
 
   private _motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   private _onMotionChange = () => this.requestUpdate();
@@ -246,6 +272,7 @@ export class WeatherAlertsCard extends LitElement {
       this._reloadDismissalsIfScopeChanged();
     }
     this._maybeSubscribeRegistry();
+    this._maybeAcquireMapTilesToken();
   }
 
   disconnectedCallback() {
@@ -254,6 +281,7 @@ export class WeatherAlertsCard extends LitElement {
     this._unsubscribeDismissals?.();
     this._unsubscribeDismissals = undefined;
     this._teardownRegistrySubscription();
+    this._teardownMapTilesToken();
     // Drop any in-flight geometry fetches; the cache may persist for a quick
     // remount (connection-swap detection re-validates it on next fetch).
     this._geometryInFlight.clear();
@@ -281,6 +309,7 @@ export class WeatherAlertsCard extends LitElement {
     if ((changed.has('hass') || changed.has('_config')) && this.isConnected) {
       this._maybeSubscribeRegistry();
       this._maybeFetchGeometry();
+      this._maybeAcquireMapTilesToken();
     }
     // The detail pop-up is reconciled after render, never during it, so
     // render() stays side-effect free:
@@ -353,6 +382,7 @@ export class WeatherAlertsCard extends LitElement {
     // and ephemeral, so drop everything and refetch against the new socket.
     if (conn !== this._geometryConn) {
       this._geometryCache = new Map();
+      this._geometryMisses.clear();
       this._geometryInFlight.clear();
       this._geometryConn = conn;
     }
@@ -370,16 +400,30 @@ export class WeatherAlertsCard extends LitElement {
     for (const ref of [...this._geometryInFlight]) {
       if (!refs.has(ref)) this._geometryInFlight.delete(ref);
     }
+    for (const ref of [...this._geometryMisses.keys()]) {
+      if (!refs.has(ref)) this._geometryMisses.delete(ref);
+    }
 
-    // Fetch each new ref exactly once. Results (geometry or null) are cached so
-    // a 404 doesn't refetch on every state update.
+    // Fetch each new ref once; a hit is final, a miss is retried after the
+    // cooldown until the attempt cap. Many hass updates inside the cooldown
+    // must produce no request at all.
+    const now = Date.now();
     for (const ref of refs) {
       if (this._geometryCache.has(ref) || this._geometryInFlight.has(ref)) continue;
+      const miss = this._geometryMisses.get(ref);
+      if (miss && (miss.attempts >= GEOMETRY_MISS_MAX_ATTEMPTS
+        || now - miss.at < GEOMETRY_MISS_COOLDOWN_MS)) continue;
       this._geometryInFlight.add(ref);
       fetchGeometry(conn, ref).then((result) => {
         // Drop the result if the connection swapped mid-flight.
         if (conn !== this._geometryConn) return;
         this._geometryInFlight.delete(ref);
+        if (result === null) {
+          const prior = this._geometryMisses.get(ref);
+          this._geometryMisses.set(ref, { at: Date.now(), attempts: (prior?.attempts ?? 0) + 1 });
+          return;
+        }
+        this._geometryMisses.delete(ref);
         this._geometryCache.set(ref, result);
         this.requestUpdate();
       }).catch(() => {
@@ -387,6 +431,68 @@ export class WeatherAlertsCard extends LitElement {
         if (conn === this._geometryConn) this._geometryInFlight.delete(ref);
       });
     }
+  }
+
+  // Basemap token lifecycle (#259). Gated on the map style with no user tile
+  // override, so every other config incurs zero WS traffic. Mirrors the
+  // registry subscription's connection-swap discipline. Runs from
+  // connectedCallback/updated(); never from render/_getAlerts/getCardSize.
+  private _wantsMapTiles(): boolean {
+    return this._config?.showGeometry === true
+      && this._config?.geometryStyle === 'map'
+      && !this._config?.geometryTileUrl;
+  }
+
+  private _maybeAcquireMapTilesToken(): void {
+    if (!this._wantsMapTiles()) {
+      this._teardownMapTilesToken();
+      return;
+    }
+    const conn = this.hass?.connection;
+    if (!conn || conn === this._mapTilesConn) return;
+    // New (or first) connection — drop the old token, timer and listener.
+    this._teardownMapTilesToken();
+    this._mapTilesConn = conn;
+    // Re-arm on reconnect (`ready`) and on the refresh interval, like the
+    // frontend does. Mock connections in tests may lack the event API.
+    if (typeof conn.addEventListener === 'function') {
+      conn.addEventListener('ready', this._onMapTilesReady);
+    }
+    this._mapTilesTimer = setInterval(this._onMapTilesReady, MAP_TILES_TOKEN_REFRESH_MS);
+    this._refreshMapTilesToken();
+  }
+
+  private _refreshMapTilesToken(): void {
+    const conn = this._mapTilesConn;
+    if (!conn || this._mapTilesInFlight) return;
+    this._mapTilesInFlight = true;
+    fetchMapTilesToken(conn).then((token) => {
+      // Drop the result if the connection swapped (or the style was turned
+      // off) mid-flight.
+      if (conn !== this._mapTilesConn) return;
+      this._mapTilesInFlight = false;
+      // A failed refresh keeps the previous token: with two tokens live
+      // server-side it stays valid for a while, and the outline is a worse
+      // fallback than a briefly stale basemap.
+      if (token !== null && token !== this._mapTilesToken) this._mapTilesToken = token;
+    }).catch(() => {
+      // fetchMapTilesToken never rejects, but stay defensive.
+      if (conn === this._mapTilesConn) this._mapTilesInFlight = false;
+    });
+  }
+
+  private _teardownMapTilesToken(): void {
+    const conn = this._mapTilesConn;
+    if (conn && typeof conn.removeEventListener === 'function') {
+      conn.removeEventListener('ready', this._onMapTilesReady);
+    }
+    if (this._mapTilesTimer !== null) {
+      clearInterval(this._mapTilesTimer);
+      this._mapTilesTimer = null;
+    }
+    this._mapTilesConn = undefined;
+    this._mapTilesInFlight = false;
+    if (this._mapTilesToken !== null) this._mapTilesToken = null;
   }
 
   public setConfig(config: WeatherAlertsCardConfig): void {
@@ -1660,9 +1766,15 @@ export class WeatherAlertsCard extends LitElement {
     if (this._config?.showGeometry !== true || !alert.bbox) return nothing;
     const geometry = alert.geometryRef ? this._geometryCache.get(alert.geometryRef) : undefined;
     if (this._config?.geometryStyle === 'map') {
-      return this._renderGeometryMap(alert, geometry ?? undefined);
+      // Default basemap needs the proxy token. Until it arrives — or for good
+      // on a core without map_tiles — the plain outline is the honest render:
+      // a tokenless <image> would just 403 into a blank map frame.
+      const override = this._config?.geometryTileUrl;
+      if (override || this._mapTilesToken !== null) {
+        return this._renderGeometryMap(alert, geometry);
+      }
     }
-    const { viewBox, polygonPaths } = buildGeometrySvg(alert.bbox, geometry ?? undefined);
+    const { viewBox, polygonPaths } = buildGeometrySvg(alert.bbox, geometry);
     return html`
       <svg
         class="alert-geometry"
@@ -1682,18 +1794,21 @@ export class WeatherAlertsCard extends LitElement {
   // gets a white casing for legibility over busy tiles. Tile failure / offline
   // leaves the frame + polygon visible. The attribution lives in an HTML overlay
   // (CSS-positioned) rather than the SVG so it doesn't scale with the viewBox.
+  // Caller guarantees either a user tile override or a live proxy token.
   private _renderGeometryMap(
     alert: WeatherAlert,
     geometry?: GeoJsonGeometry,
   ): TemplateResult {
-    // Default basemap follows the card's theme (CARTO light/dark, matching HA's
-    // own map). A user override opts out of theme-switching and OSM-credit
-    // assumptions, so default its attribution to the generic OSM credit.
+    // Default basemap is HA's proxy, which serves one (light) raster; the
+    // `dark` class inverts the tile layer in CSS like HA's map. A user override
+    // opts out of that inversion and of the OSM-credit assumption, so default
+    // its attribution to the generic OSM credit and leave its tiles untouched.
     const override = this._config?.geometryTileUrl;
     const tileUrl = override
-      || (this._themeMode === 'dark' ? DEFAULT_TILE_URL_DARK : DEFAULT_TILE_URL);
+      || mapTilesUrl(this.hass?.auth?.data?.hassUrl, this._mapTilesToken ?? '');
     const attribution = this._config?.geometryTileAttribution
       ?? (override ? '© OpenStreetMap' : DEFAULT_TILE_ATTRIBUTION);
+    const invert = !override && this._themeMode === 'dark';
     const { viewBox, aspect, tiles, polygonPaths } = buildGeometryMap(
       alert.bbox as [number, number, number, number],
       geometry,
@@ -1703,19 +1818,21 @@ export class WeatherAlertsCard extends LitElement {
     return html`
       <div class="alert-geometry-map" style="aspect-ratio: ${aspect};">
         <svg
-          class="alert-geometry map"
+          class="alert-geometry map ${invert ? 'dark' : ''}"
           viewBox=${viewBox}
           preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label=${label}
         >
-          ${tiles.map(tile => svg`<image
-            href=${tile.href}
-            x=${tile.x}
-            y=${tile.y}
-            width=${tile.size}
-            height=${tile.size}
-          ></image>`)}
+          <g class="geometry-tiles">
+            ${tiles.map(tile => svg`<image
+              href=${tile.href}
+              x=${tile.x}
+              y=${tile.y}
+              width=${tile.size}
+              height=${tile.size}
+            ></image>`)}
+          </g>
           <rect class="geometry-frame" x="0" y="0" width="100%" height="100%"></rect>
           ${polygonPaths.map(d => svg`<path class="geometry-shape-casing" d=${d}></path>`)}
           ${polygonPaths.map(d => svg`<path class="geometry-shape" d=${d}></path>`)}
