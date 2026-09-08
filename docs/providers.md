@@ -111,6 +111,9 @@ type: custom:weather-alerts-card
 device: 8f2c1e04a9b7d3651fa0c8e29d47b5a3
 ```
 
+Pick it from the editor's **Alert devices** selector, which lists NINA devices beside CAP
+Alerts ones. Two regions are two devices; list the second under `devices:`.
+
 Listing the slot entities directly works too, and is what you want if you only care about
 the first slot or two:
 
@@ -218,8 +221,24 @@ type: custom:weather-alerts-card
 device: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d
 ```
 
-Pick the device from the editor's CAP Alerts device selector rather than hand-typing the
+Pick the device from the editor's **Alert devices** selector rather than hand-typing the
 id. `device` can coexist with `entities:` for mixed setups.
+
+Every CAP Alerts entry is one provider for one scope, so a second location or a second
+provider is a second device. Add it under `devices:` and the card merges them. An alert
+both devices carry (a home zone and a GPS tracker that overlap) is shown once, and a
+device that goes dark is named on its own while the other keeps serving:
+
+```yaml
+type: custom:weather-alerts-card
+device: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d      # NWS, home zone
+devices:
+  - 9f8e7d6c5b4a39281706f5e4d3c2b1a0    # NWS, GPS tracker for the car
+  - 0a1b2c3d4e5f60718293a4b5c6d7e8f9    # GDACS, worldwide
+```
+
+The device selector is multi-select and writes this shape: first pick to `device`, the
+rest to `devices`.
 
 It ingests any CAP 1.2 feed — NWS, ECCC, MeteoAlarm, and the WMO Severe Weather
 Information Centre firehose for countries with no dedicated integration. Because it

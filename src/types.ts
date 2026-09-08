@@ -138,7 +138,8 @@ export interface WeatherAlertsCardConfig {
   type: string;
   entity: string;
   entities?: string[];           // additional entities to merge alerts from
-  device?: string;               // HA device_id — auto-discovers per-alert sensors under it. Provider-agnostic; currently only the CAP Alerts integration produces this shape.
+  device?: string;               // HA device_id — auto-discovers per-alert sensors under it. Provider-agnostic; CAP Alerts and NINA both produce this shape.
+  devices?: string[];            // additional device ids, the same shape `entities` gives `entity` — every cap_alerts entry is one provider × one scope, so two locations or two providers is two devices. `device` stays the single-value form; the editor writes the first pick there and the rest here.
   sources?: string[];            // geo_location feed `source` attribute values (e.g. ["nsw_rural_fire_service_feed"]) — auto-collects EVERY entity carrying that source, so per-incident providers (NSW RFS) never need hand-listed, churning entity ids. Usually auto-filled by selecting the matching provider.
   title?: string;
   zones?: string[];
@@ -242,6 +243,12 @@ export interface AlertAdapter {
   // radius control. Read by the editor only — the filter itself is data-driven
   // (it tests for a point on the alert), never provider-gated.
   carriesPoint?: boolean;
+  // `WeatherAlert.id` is the upstream identifier (CAP id, NWS ID, BoM id, RFS
+  // external_id), so the same alert observed through two sources carries the
+  // same id. Opts the provider into dedup's phase 0 (same provider + id, keep
+  // one). Leave unset for adapters that synthesise ids from event + onset:
+  // those collide across regions and belong to phase 1's zone merge instead.
+  stableIds?: boolean;
 }
 
 // Raw NWS alert shape from the nws_alerts integration (v6.1+)

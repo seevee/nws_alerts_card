@@ -3,6 +3,7 @@
 // backend/integration is untouched; this is a pure frontend concern.
 
 import type { WeatherAlert, DismissalRecord } from './types';
+import { configuredDevices } from './registry';
 
 export const STORAGE_KEY_PREFIX = 'weather-alerts-card:dismissals:v1:';
 export const STALE_TTL_SEC = 30 * 86400;
@@ -42,12 +43,13 @@ export interface ScopeConfig {
   entity?: string;
   entities?: string[];
   device?: string;
+  devices?: string[];
   sources?: string[];
 }
 
 /**
  * The dismissal-scope source tokens for a card config: primary entity, any
- * extra entities, and the device id (prefixed). The card and editor MUST both
+ * extra entities, and every device id (prefixed). The card and editor MUST both
  * derive their scope from this single helper — if they diverge, the editor
  * loads/clears the wrong storage key and the "restore all" UI silently fails.
  * In particular a device-mode CAP card has no `entity`, so a tokeniser that
@@ -65,7 +67,9 @@ export function configuredScopeTokens(config: ScopeConfig | undefined): string[]
       if (id) tokens.push(id);
     }
   }
-  if (config.device) tokens.push(`device:${config.device}`);
+  // One token per device, in a fixed order, so reordering `devices:` in YAML
+  // (or moving an id between `device` and `devices`) does not fork the scope.
+  for (const id of [...configuredDevices(config)].sort()) tokens.push(`device:${id}`);
   if (config.sources) {
     for (const s of config.sources) {
       if (s) tokens.push(`source:${s}`);

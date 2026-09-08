@@ -4,7 +4,7 @@ import type { Connection } from 'home-assistant-js-websocket';
 import { HomeAssistant, WeatherAlertsCardConfig, AlertSeverity, ContrastMode, EntityRegistryDisplayEntry, AlertProvider, DecoPhase, ProgressDecoration, IconBorderStyle, ProgressStyleConfig, IconBorderStyleConfig, ActionConfig, PROGRESS_DECO_DEFAULTS, ICON_BORDER_DEFAULTS } from './types';
 import { canHandleAny, ENTITY_NAME_PATTERNS, getAdapter, knownFeedSources, pointCapableProviders } from './adapters';
 import { LengthUnit, displayToKm, kmToDisplay, toLengthUnit } from './utils';
-import { resolveDeviceAlertEntities, subscribeEntityRegistry } from './registry';
+import { configuredDevices, deviceEntityIds, resolveDeviceAlertEntities, subscribeEntityRegistry } from './registry';
 import { t } from './localize';
 import { scopeHashForConfig, loadDismissals, restoreAll, subscribeToDismissalChanges } from './dismissal';
 
@@ -20,7 +20,8 @@ export class WeatherAlertsCardEditor extends LitElement {
   private _unsubscribeDismissals?: () => void;
 
   // Live entity-registry copy. `null` until the WS subscription delivers;
-  // `_renderNoEntitiesHint` falls back to `hass.entities` while it is null.
+  // `_renderNoEntitiesHint` and the device-children exclusion in
+  // `_getMatchingEntityIds` fall back to `hass.entities` while it is null.
   private _registryEntries: EntityRegistryDisplayEntry[] | null = null;
   private _unsubscribeRegistry?: () => void;
   private _subscribedRegistryConn?: Connection;
@@ -56,9 +57,10 @@ export class WeatherAlertsCardEditor extends LitElement {
   }
 
   private _maybeSubscribeRegistry(): void {
-    // Only the device-mode hint reads the entity registry. Don't subscribe
-    // (and refetch the whole registry on every update) for plain entity cards.
-    if (!this._config?.device) {
+    // Only device mode reads the entity registry (the hint and the entity
+    // picker's device-children exclusion). Don't subscribe (and refetch the
+    // whole registry on every update) for plain entity cards.
+    if (configuredDevices(this._config).length === 0) {
       this._teardownRegistrySubscription();
       return;
     }
@@ -153,20 +155,31 @@ export class WeatherAlertsCardEditor extends LitElement {
   private _cachedEntityIds?: string[];
 
   private _getMatchingEntityIds(): string[] {
-    // Cache is keyed on both hass identity AND the configured entity set:
-    // editing config while hass is unchanged must still surface a newly
-    // configured entity in the list.
-    const configKey = this._getSelectedEntities().join(',');
+    // Cache is keyed on hass identity, the configured entity set AND the
+    // configured device set: editing config while hass is unchanged must still
+    // surface a newly configured entity, or drop a newly selected device's
+    // children, from the list.
+    const devices = configuredDevices(this._config);
+    const configKey = [...this._getSelectedEntities(), ...devices.map(d => `device:${d}`)].join(',');
     if (this._cachedHass === this.hass && this._cachedConfigKey === configKey && this._cachedEntityIds) {
       return this._cachedEntityIds;
     }
     this._cachedHass = this.hass;
     this._cachedConfigKey = configKey;
+    // A selected device's per-alert children pass canHandleAny too, so without
+    // this they would churn through the entity list as alerts come and go —
+    // and hand-picking one there only duplicates what the device already
+    // collects. Keep them out; the device selector owns them.
+    const deviceChildren = new Set<string>();
+    for (const d of devices) {
+      for (const id of deviceEntityIds(this.hass, d, this._registryEntries)) deviceChildren.add(id);
+    }
     const ids: string[] = [];
     for (const [id, entity] of Object.entries(this.hass.states)) {
       // geo_location.* is admitted for per-incident providers (NSW RFS); the
       // canHandleAny test below keeps it provider-specific (no broad name pattern).
       if (!id.startsWith('sensor.') && !id.startsWith('binary_sensor.') && !id.startsWith('geo_location.')) continue;
+      if (deviceChildren.has(id)) continue;
       if (ENTITY_NAME_PATTERNS.some(p => p.test(id)) || canHandleAny(entity.attributes)) {
         ids.push(id);
       }
@@ -228,16 +241,28 @@ export class WeatherAlertsCardEditor extends LitElement {
   }
 
   private _renderNoEntitiesHint(lang: string): TemplateResult | typeof nothing {
-    // Device-mode: surface a distinct hint while resolution returns 0 so the
-    // user knows the device is wired correctly but has no active alerts yet.
-    if (this._config?.device && this.hass) {
-      const resolved = resolveDeviceAlertEntities(
-        this.hass,
-        this._config.device,
-        this._registryEntries,
+    // Device-mode. Two signals, aggregated over every configured device:
+    //   - a device id the registry no longer knows (integration removed, entry
+    //     recreated) warns by id, like a feed with no live entities does —
+    //     otherwise it silently drops the card to preview, and with a list that
+    //     is easy to miss. Only judged when the device registry is present.
+    //   - the "no alerts yet" hint shows only when EVERY device resolves to
+    //     zero, so one quiet device beside a busy one is not flagged.
+    const devices = configuredDevices(this._config);
+    if (devices.length > 0 && this.hass) {
+      const registry = this.hass.devices;
+      const missing = registry ? devices.filter(id => !registry[id]) : [];
+      const warning = missing.length > 0
+        ? html`<ha-alert alert-type="warning"
+            >${t('editor.devices_missing_warning', lang, { ids: missing.join(', ') })}</ha-alert
+          >`
+        : nothing;
+      const anyResolved = devices.some(
+        id => resolveDeviceAlertEntities(this.hass, id, this._registryEntries).length > 0,
       );
-      if (resolved.length > 0) return nothing;
-      return html`<ha-alert alert-type="info">${t('editor.no_device_alerts_hint', lang)}</ha-alert>`;
+      // Every device gone: the warning already says why nothing resolves.
+      if (anyResolved || missing.length === devices.length) return warning;
+      return html`${warning}<ha-alert alert-type="info">${t('editor.no_device_alerts_hint', lang)}</ha-alert>`;
     }
     const ids = this._getMatchingEntityIds();
     // The list always includes the configured entity as a fallback;
@@ -308,13 +333,27 @@ export class WeatherAlertsCardEditor extends LitElement {
 
   private _deviceChanged(ev: CustomEvent): void {
     const value = ev.detail.value;
-    const deviceId: string = typeof value === 'string' ? value : '';
-    if (deviceId === (this._config.device || '')) return;
+    // ha-selector with multiple: true returns string[]
+    const raw: unknown[] = Array.isArray(value) ? value : (value ? [value] : []);
+    const selected: string[] = [];
+    for (const v of raw) {
+      if (typeof v === 'string' && v && !selected.includes(v)) selected.push(v);
+    }
+    const current = configuredDevices(this._config);
+    if (selected.length === current.length && selected.every((id, i) => id === current[i])) return;
     const newConfig: WeatherAlertsCardConfig = { ...this._config };
-    if (deviceId) {
-      newConfig.device = deviceId;
+
+    // Mirrors _entityChanged: device = first selected (a one-device config
+    // stays byte-identical to before `devices` existed); devices = the rest.
+    if (selected.length > 0) {
+      newConfig.device = selected[0];
     } else {
       delete newConfig.device;
+    }
+    if (selected.length > 1) {
+      newConfig.devices = selected.slice(1);
+    } else {
+      delete newConfig.devices;
     }
     this._fireConfigChanged(newConfig);
   }
@@ -592,7 +631,7 @@ export class WeatherAlertsCardEditor extends LitElement {
   }
 
   private _currentScopeHash(): string {
-    // Must match the card's scope exactly (entity + entities + device), or the
+    // Must match the card's scope exactly (entity + entities + devices), or the
     // restore-all UI reads the wrong storage key. Notably, a device-mode CAP
     // card has no `entity`, so omitting `device` here yields an empty scope and
     // the dismissed-count/restore-all status never appears.
@@ -1041,7 +1080,7 @@ export class WeatherAlertsCardEditor extends LitElement {
           .selector=${{ entity: { multiple: true, include_entities: this._getMatchingEntityIds() } }}
           .value=${this._getSelectedEntities()}
           .label=${t('editor.entities', lang)}
-          .required=${!this._config?.device && !this._config?.sources?.length}
+          .required=${!configuredDevices(this._config).length && !this._config?.sources?.length}
           @value-changed=${this._entityChanged}
         ></ha-selector>
         ${this._renderEntityWarning(lang)}
@@ -1049,10 +1088,18 @@ export class WeatherAlertsCardEditor extends LitElement {
 
         <ha-selector
           .hass=${this.hass}
-          .selector=${{ device: { integration: 'cap_alerts' } }}
-          .value=${this._config.device || ''}
-          .label=${t('editor.device', lang)}
-          .helper=${t('editor.device_helper', lang)}
+          .selector=${{
+            device: {
+              multiple: true,
+              // Every integration that publishes one alert per entity under a
+              // device. cap_alerts is the general case; NINA is the built-in
+              // one the docs already send users here for.
+              filter: [{ integration: 'cap_alerts' }, { integration: 'nina' }],
+            },
+          }}
+          .value=${configuredDevices(this._config)}
+          .label=${t('editor.devices', lang)}
+          .helper=${t('editor.devices_helper', lang)}
           .helperPersistent=${true}
           @value-changed=${this._deviceChanged}
         ></ha-selector>

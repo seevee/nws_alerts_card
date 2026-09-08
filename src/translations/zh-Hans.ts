@@ -78,8 +78,8 @@ export const zhHans: TranslationMap = {
   'editor.provider_eccc': 'ECCC（加拿大）',
   'editor.provider_nsw_rfs': 'NSW RFS（澳大利亚）',
   'editor.provider_cap': 'CAP 警报（多区域）',
-  'editor.device': 'CAP 警报设备（可选）',
-  'editor.device_helper': '自动拉取该设备下的所有活跃警报传感器。',
+  'editor.devices': '警报设备（可选）',
+  'editor.devices_helper': '自动拉取所选设备下的所有活跃警报传感器（CAP Alerts、NINA）。添加更多设备可合并多个地点或提供方。',
   'editor.zones': '区域（可选）',
   'editor.zones_helper': '以逗号分隔的 BoM area_id 代码，例如 NSW_FL049',
   'editor.event_codes': '事件代码（可选）',
@@ -185,7 +185,8 @@ export const zhHans: TranslationMap = {
   'editor.feeds_helper': '检测到的集成订阅源。勾选一项即可包含其报告的所有实时事件——无需逐个列出实体。需要先在 Home Assistant 中配置该集成。',
   'editor.source_hint': '正从订阅源自动收集 {count} 个实时事件——无需手动列出实体。',
   'editor.feeds_missing_warning': '{feeds} 无实时数据。该订阅源已启用但没有任何内容提供——是否在 Home Assistant 中配置了该集成？',
-  'editor.no_device_alerts_hint': '该设备下尚未找到活跃警报传感器。当 CAP Alerts 发布警报时，卡片将自动填充。',
+  'editor.devices_missing_warning': '未找到 {ids} 对应的设备。该集成是否已被移除？',
+  'editor.no_device_alerts_hint': '所选设备下尚未找到活跃警报传感器。当集成发布警报时，卡片将自动填充。',
 
   // Editor section labels
   'editor.section_entity': '实体与提供方',

@@ -78,8 +78,8 @@ export const it: TranslationMap = {
   'editor.provider_eccc': 'ECCC (Canada)',
   'editor.provider_nsw_rfs': 'NSW RFS (Australia)',
   'editor.provider_cap': 'Allerte CAP (multi-regione)',
-  'editor.device': 'Dispositivo CAP Alerts (opzionale)',
-  'editor.device_helper': 'Aggiunge automaticamente ogni sensore di allerta attivo sotto questo dispositivo.',
+  'editor.devices': 'Dispositivi di allerta (opzionale)',
+  'editor.devices_helper': 'Aggiunge automaticamente ogni sensore di allerta attivo sotto i dispositivi selezionati (CAP Alerts, NINA). Aggiungi altri dispositivi per combinare località o fornitori.',
   'editor.zones': 'Zone (opzionale)',
   'editor.zones_helper': 'Codici area_id BoM separati da virgola, es. NSW_FL049',
   'editor.event_codes': 'Codici evento (opzionale)',
@@ -185,7 +185,8 @@ export const it: TranslationMap = {
   'editor.feeds_helper': 'Feed di integrazione rilevati. Selezionane uno per includere ogni incidente in tempo reale che segnala — nessuna entita per incidente da elencare. Richiede che l\'integrazione sia configurata in Home Assistant.',
   'editor.source_hint': 'Raccolta automatica di {count} incident(i) in tempo reale dal feed — nessuna entita da elencare manualmente.',
   'editor.feeds_missing_warning': 'Nessun dato in tempo reale per {feeds}. Questo feed e abilitato ma nulla lo fornisce — l\'integrazione e configurata in Home Assistant?',
-  'editor.no_device_alerts_hint': 'Nessun sensore di allerta attivo trovato sotto questo dispositivo per ora. La scheda si popolera automaticamente quando CAP Alerts pubblichera delle allerte.',
+  'editor.devices_missing_warning': 'Nessun dispositivo trovato per {ids}. L\'integrazione è stata rimossa?',
+  'editor.no_device_alerts_hint': 'Nessun sensore di allerta attivo trovato sotto i dispositivi selezionati per ora. La scheda si popolerà automaticamente quando l\'integrazione pubblicherà delle allerte.',
 
   // Editor section labels
   'editor.section_entity': 'Entità e fornitore',

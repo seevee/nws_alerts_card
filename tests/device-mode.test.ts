@@ -23,6 +23,7 @@ beforeAll(() => {
 
 import { WeatherAlertsCard, resolveDeviceAlertEntities } from '../src/weather-alerts-card';
 import { DISMISSALS_CHANGED_EVENT, storageKey } from '../src/dismissal';
+import { configuredDevices } from '../src/registry';
 import type {
   HomeAssistant,
   EntityRegistryDisplayEntry,
@@ -766,5 +767,176 @@ describe('WeatherAlertsCard degraded signal in device mode (#201 device gap)', (
       { [DEVICE]: { id: DEVICE, name: DEVICE_NAME } },
     );
     expect(card._brokenSources()).toEqual([{ name: DEVICE_NAME }]);
+  });
+});
+
+describe('configuredDevices', () => {
+  it('returns [] for undefined or empty config', () => {
+    expect(configuredDevices(undefined)).toEqual([]);
+    expect(configuredDevices({})).toEqual([]);
+    expect(configuredDevices({ devices: [] })).toEqual([]);
+  });
+
+  it('lists `device` first, then `devices`, dropping empties and repeats', () => {
+    expect(configuredDevices({ device: 'a', devices: ['b', '', 'a', 'c'] })).toEqual(['a', 'b', 'c']);
+  });
+
+  it('accepts a devices-only config', () => {
+    expect(configuredDevices({ devices: ['b'] })).toEqual(['b']);
+  });
+});
+
+describe('WeatherAlertsCard with multiple devices (#256)', () => {
+  const A1 = 'sensor.cap_alerts_zone_cap_alert_frost_aaa';
+  const A2 = 'sensor.cap_alerts_zone_cap_alert_wind_bbb';
+  const B1 = 'sensor.cap_alerts_gps_cap_alert_frost_ccc';
+  const ZONE_NAME = 'NWS Home Zone';
+  const GPS_NAME = 'NWS Car';
+  const names = {
+    [DEVICE]: { id: DEVICE, name: ZONE_NAME },
+    [OTHER_DEVICE]: { id: OTHER_DEVICE, name: GPS_NAME },
+  };
+  const restored = (): Record<string, unknown> => ({ restored: true, friendly_name: 'Restored' });
+  const caveat = (card: CardInternals): string =>
+    (shadow(card).querySelector('.no-alerts-caveat')?.textContent || '').trim();
+  const twoDevices = { type: 'custom:weather-alerts-card', device: DEVICE, devices: [OTHER_DEVICE] } as WeatherAlertsCardConfig;
+
+  it('setConfig accepts a devices-only config', () => {
+    const card = makeCard();
+    expect(() =>
+      card.setConfig({ type: 'custom:weather-alerts-card', devices: [DEVICE] } as WeatherAlertsCardConfig),
+    ).not.toThrow();
+    expect(card._config?.device).toBeUndefined();
+    expect(card._config?.devices).toEqual([DEVICE]);
+  });
+
+  it('_getAllEntities walks every device in config order, without repeats', () => {
+    const card = makeCard();
+    card.setConfig({
+      type: 'custom:weather-alerts-card',
+      device: DEVICE,
+      devices: [OTHER_DEVICE, DEVICE],
+    } as WeatherAlertsCardConfig);
+    card.hass = makeHass(
+      [entry(A1), entry(A2), entry(B1, OTHER_DEVICE)],
+      Object.fromEntries([A1, A2, B1].map(id => [id, { state: 'moderate', attributes: capAlertAttrs() }])),
+    );
+    expect(card._getAllEntities()).toEqual([A1, A2, B1]);
+  });
+
+  it('_getAllEntities honours a devices-only config', () => {
+    const card = makeCard();
+    card.setConfig({ type: 'custom:weather-alerts-card', devices: [OTHER_DEVICE] } as WeatherAlertsCardConfig);
+    card.hass = makeHass(
+      [entry(A1), entry(B1, OTHER_DEVICE)],
+      Object.fromEntries([A1, B1].map(id => [id, { state: 'moderate', attributes: capAlertAttrs() }])),
+    );
+    expect(card._getAllEntities()).toEqual([B1]);
+  });
+
+  it('renders "No active alerts" when only the second device is registered', async () => {
+    // `device` is unknown to the registry; `devices[0]` is registered but idle.
+    const { card, cleanup } = await mountCard(twoDevices, makeHass([entry(B1, OTHER_DEVICE)], {}));
+    expect(hasEl(card, '.preview-label')).toBe(false);
+    expect(hasEl(card, '.no-alerts')).toBe(true);
+    cleanup();
+  });
+
+  it('collapses the same CAP alert seen through two devices to one row', async () => {
+    // capAlertAttrs() carries one fixed CAP id, so A1 and B1 are the same alert
+    // observed from a zone device and a GPS device whose scopes overlap.
+    const hass = makeHass(
+      [entry(A1), entry(B1, OTHER_DEVICE)],
+      {
+        [A1]: { state: 'moderate', attributes: capAlertAttrs({ event: 'Frost' }) },
+        [B1]: { state: 'moderate', attributes: capAlertAttrs({ event: 'Frost' }) },
+      },
+    );
+    const { card, cleanup } = await mountCard(twoDevices, hass);
+    const alerts = card._getAlerts() as { id: string; sourceEntityId?: string; mergedCount?: number }[];
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].sourceEntityId).toBe(A1);
+    expect(alerts[0].mergedCount).toBeUndefined();
+    expect(shadow(card).querySelectorAll('.alert-card')).toHaveLength(1);
+    cleanup();
+  });
+
+  it('keeps two different CAP alerts from two devices', async () => {
+    const hass = makeHass(
+      [entry(A1), entry(B1, OTHER_DEVICE)],
+      {
+        [A1]: { state: 'moderate', attributes: capAlertAttrs({ id: 'urn:oid:zone', event: 'Frost' }) },
+        [B1]: { state: 'severe', attributes: capAlertAttrs({ id: 'urn:oid:gps', event: 'Wind', severity_normalized: 'severe' }) },
+      },
+    );
+    const { card, cleanup } = await mountCard(twoDevices, hass);
+    expect(shadow(card).querySelectorAll('.alert-card')).toHaveLength(2);
+    cleanup();
+  });
+
+  it('_brokenSources names only the dark device of two', () => {
+    const card = makeCard();
+    card.setConfig(twoDevices);
+    card.hass = makeHass(
+      [entry(A1), entry(B1, OTHER_DEVICE)],
+      {
+        [A1]: { state: 'unavailable', attributes: restored() },
+        [B1]: { state: 'moderate', attributes: capAlertAttrs() },
+      },
+      names,
+    );
+    expect(card._brokenSources()).toEqual([{ name: ZONE_NAME }]);
+  });
+
+  it('_brokenSources lists each dark device, in config order', () => {
+    const card = makeCard();
+    card.setConfig(twoDevices);
+    card.hass = makeHass(
+      [entry(A1), entry(B1, OTHER_DEVICE)],
+      {
+        [A1]: { state: 'unavailable', attributes: restored() },
+        [B1]: { state: 'unavailable', attributes: restored() },
+      },
+      names,
+    );
+    expect(card._brokenSources()).toEqual([{ name: ZONE_NAME }, { name: GPS_NAME }]);
+  });
+
+  it('the empty-state caveat counts two dark devices', async () => {
+    const hass = makeHass(
+      [entry(A1), entry(B1, OTHER_DEVICE)],
+      {
+        [A1]: { state: 'unavailable', attributes: restored() },
+        [B1]: { state: 'unavailable', attributes: restored() },
+      },
+      names,
+    );
+    const { card, cleanup } = await mountCard(twoDevices, hass);
+    expect(caveat(card)).toContain('2 sources unavailable');
+    cleanup();
+  });
+
+  it('subscribes to the entity registry for a devices-only config', async () => {
+    // The registry subscription is what resolves device children; the gate
+    // must open on `devices` alone, not only on `device`.
+    const mock = makeMockConnection([]);
+    const hass = {
+      states: { [A1]: { state: 'moderate', attributes: capAlertAttrs({ event: 'Frost' }) } },
+      locale: { language: 'en' },
+      entities: undefined,
+      connection: mock.conn,
+    } as unknown as HomeAssistant;
+    const { card, cleanup } = await mountCard(
+      { type: 'custom:weather-alerts-card', devices: [DEVICE] } as WeatherAlertsCardConfig,
+      hass,
+    );
+    expect(hasEl(card, '.preview-label')).toBe(true);
+
+    mock.setSnapshot([entry(A1)]);
+    mock.fireEvent();
+    await flushAsync();
+    await (card as unknown as { updateComplete: Promise<void> }).updateComplete;
+    expect(hasEl(card, '.alert-card')).toBe(true);
+    cleanup();
   });
 });

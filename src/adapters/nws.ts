@@ -29,6 +29,10 @@ function collectZones(alert: NwsAlert): string[] {
 export class NwsAdapter implements AlertAdapter {
   provider: AlertProvider = 'nws';
 
+  // `ID` is the api.weather.gov alert identifier, identical wherever the same
+  // alert is observed (two zone entities, a zone plus a GPS entity).
+  stableIds = true;
+
   canHandle(attributes: Record<string, unknown>): boolean {
     const alerts = attributes['Alerts'];
     if (!Array.isArray(alerts)) return false;

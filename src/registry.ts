@@ -3,6 +3,24 @@ import { HomeAssistant, EntityRegistryDisplayEntry } from './types';
 import { canHandleAny } from './adapters';
 
 /**
+ * The device ids a card collects from: `device` first, then `devices`, with
+ * empties and repeats dropped. `device` stays the single-value form so a
+ * one-device config is unchanged; `devices` is to `device` what `entities` is
+ * to `entity`. Every reader of the device list (card, editor, dismissal scope)
+ * goes through here so none of them can disagree on what is configured.
+ */
+export function configuredDevices(
+  config: { device?: string; devices?: string[] } | undefined,
+): string[] {
+  if (!config) return [];
+  const result: string[] = [];
+  for (const id of [config.device, ...(config.devices || [])]) {
+    if (id && !result.includes(id)) result.push(id);
+  }
+  return result;
+}
+
+/**
  * Returns entity IDs of per-alert sensors that belong to the given device.
  * Filters by attribute shape (any adapter's `canHandle`) rather than
  * entity_id prefix — the CAP Alerts integration produces ids of the form

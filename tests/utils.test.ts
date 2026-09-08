@@ -1103,3 +1103,63 @@ describe('formatDistance', () => {
     expect(formatDistance(1234, 'km', 'en')).toBe('1,234 km');
   });
 });
+
+describe('deduplicateAlerts same-id (phase 0, #256)', () => {
+  const stable = new Set<AlertProvider>(['cap', 'nws']);
+
+  it('keeps one copy of the same alert seen through two sources, first seen wins', () => {
+    const zone = makeAlert({ id: 'urn:oid:1', provider: 'cap', sourceEntityId: 'sensor.zone_a' });
+    const gps = makeAlert({ id: 'urn:oid:1', provider: 'cap', sourceEntityId: 'sensor.gps_b' });
+    const result = deduplicateAlerts([zone, gps], undefined, stable);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('urn:oid:1');
+    expect(result[0].sourceEntityId).toBe('sensor.zone_a');
+    // A same-id collapse is not a zone merge, so the "N zones" badge stays off.
+    expect(result[0].mergedCount).toBeUndefined();
+  });
+
+  it('leaves distinct ids alone even when the text is identical', () => {
+    const a = makeAlert({ id: 'quake-1', provider: 'cap', event: 'Earthquake', onsetTs: 1000 });
+    const b = makeAlert({ id: 'quake-2', provider: 'cap', event: 'Earthquake', onsetTs: 2000 });
+    expect(deduplicateAlerts([a, b], undefined, stable)).toHaveLength(2);
+  });
+
+  it('ignores providers outside the stable-id set, leaving them to the zone merge', () => {
+    // DWD synthesises ids from event + onset, so two regions collide on id;
+    // that pair is a phase 1 zone merge, not a same-alert collapse.
+    const a = makeAlert({ id: 'dwd_x_1', provider: 'dwd', zones: ['A'], areaDesc: 'A' });
+    const b = makeAlert({ id: 'dwd_x_1', provider: 'dwd', zones: ['B'], areaDesc: 'B' });
+    const result = deduplicateAlerts([a, b], undefined, stable);
+    expect(result).toHaveLength(1);
+    expect(result[0].mergedCount).toBe(2);
+    expect(result[0].zones).toEqual(['A', 'B']);
+  });
+
+  it('does not collapse the same id across providers', () => {
+    const a = makeAlert({ id: 'shared', provider: 'cap', event: 'Flood', endsTs: 0 });
+    const b = makeAlert({ id: 'shared', provider: 'nws', event: 'Wind', endsTs: 0 });
+    expect(deduplicateAlerts([a, b], undefined, stable)).toHaveLength(2);
+  });
+
+  it('skips alerts with an empty id', () => {
+    const a = makeAlert({ id: '', provider: 'cap', onsetTs: 1000 });
+    const b = makeAlert({ id: '', provider: 'cap', onsetTs: 2000 });
+    expect(deduplicateAlerts([a, b], undefined, stable)).toHaveLength(2);
+  });
+
+  it('is a no-op without a stable-id set', () => {
+    const a = makeAlert({ id: 'same', provider: 'cap', onsetTs: 1000 });
+    const b = makeAlert({ id: 'same', provider: 'cap', onsetTs: 2000 });
+    expect(deduplicateAlerts([a, b])).toHaveLength(2);
+    expect(deduplicateAlerts([a, b], undefined, new Set())).toHaveLength(2);
+  });
+
+  it('feeds the surviving copy into the cross-provider pass', () => {
+    const capA = makeAlert({ id: 'urn:1', provider: 'cap', event: 'Flood Warning', endsTs: 5000 });
+    const capB = makeAlert({ id: 'urn:1', provider: 'cap', event: 'Flood Warning', endsTs: 5000 });
+    const pw = makeAlert({ id: 'pw-1', provider: 'pirateweather', event: 'Flood Warning', endsTs: 5000 });
+    const result = deduplicateAlerts([capA, capB, pw], ['cap', 'pirateweather'], stable);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('urn:1');
+  });
+});

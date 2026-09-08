@@ -141,6 +141,19 @@ describe('configuredScopeTokens', () => {
     })).toEqual(['sensor.a', 'sensor.b', 'device:dev1']);
   });
 
+  it('emits one token per device, sorted, so YAML order does not fork the scope', () => {
+    expect(configuredScopeTokens({ device: 'zz', devices: ['aa'] })).toEqual(['device:aa', 'device:zz']);
+    expect(configuredScopeTokens({ device: 'aa', devices: ['zz'] })).toEqual(['device:aa', 'device:zz']);
+    expect(configuredScopeTokens({ devices: ['zz', 'aa'] })).toEqual(['device:aa', 'device:zz']);
+  });
+
+  it('keeps a one-device scope identical whether or not `devices` is present', () => {
+    const single = scopeHashForConfig({ device: 'abc' });
+    expect(scopeHashForConfig({ device: 'abc', devices: [] })).toBe(single);
+    expect(scopeHashForConfig({ device: 'abc', devices: ['abc'] })).toBe(single);
+    expect(scopeHashForConfig({ devices: ['abc'] })).toBe(single);
+  });
+
   it('returns [] for empty/undefined config', () => {
     expect(configuredScopeTokens(undefined)).toEqual([]);
     expect(configuredScopeTokens({})).toEqual([]);

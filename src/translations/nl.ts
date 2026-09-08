@@ -78,8 +78,8 @@ export const nl: TranslationMap = {
   'editor.provider_eccc': 'ECCC (Canada)',
   'editor.provider_nsw_rfs': 'NSW RFS (Australië)',
   'editor.provider_cap': 'CAP Alerts (meerdere regio\'s)',
-  'editor.device': 'CAP Alerts-apparaat (optioneel)',
-  'editor.device_helper': 'Haalt automatisch elke actieve waarschuwingssensor onder dit apparaat binnen.',
+  'editor.devices': 'Waarschuwingsapparaten (optioneel)',
+  'editor.devices_helper': 'Haalt automatisch elke actieve waarschuwingssensor onder de geselecteerde apparaten binnen (CAP Alerts, NINA). Voeg meer apparaten toe om locaties of aanbieders te combineren.',
   'editor.zones': 'Zones (optioneel)',
   'editor.zones_helper': 'Comma-gescheiden BoM area_id codes, bijv. NSW_FL049',
   'editor.event_codes': 'Gebeurteniscodes (optioneel)',
@@ -185,7 +185,8 @@ export const nl: TranslationMap = {
   'editor.feeds_helper': 'Gedetecteerde integratie-feeds. Vink er een aan om elk live incident op te nemen dat deze rapporteert — geen entiteiten per incident te vermelden. Vereist dat de integratie is ingesteld in Home Assistant.',
   'editor.source_hint': 'Automatisch verzamelen van {count} live incident(en) uit de feed — geen entiteiten om handmatig te vermelden.',
   'editor.feeds_missing_warning': 'Geen live gegevens voor {feeds}. Deze feed is ingeschakeld maar niets levert gegevens — is de integratie ingesteld in Home Assistant?',
-  'editor.no_device_alerts_hint': 'Nog geen actieve waarschuwingssensoren gevonden onder dit apparaat. De kaart wordt automatisch gevuld wanneer CAP Alerts waarschuwingen publiceert.',
+  'editor.devices_missing_warning': 'Geen apparaat gevonden voor {ids}. Is de integratie verwijderd?',
+  'editor.no_device_alerts_hint': 'Nog geen actieve waarschuwingssensoren gevonden onder de geselecteerde apparaten. De kaart wordt automatisch gevuld wanneer de integratie waarschuwingen publiceert.',
 
   // Editor section labels
   'editor.section_entity': 'Entiteiten & Provider',

@@ -10,14 +10,15 @@ They are CSS custom properties. See [Theming](./theming).
 
 ## Sources
 
-Where the card gets its alerts. At least one of `entity`, `device` or `sources` is
-required; they can be combined freely.
+Where the card gets its alerts. At least one of `entity`, `device`, `devices` or
+`sources` is required; they can be combined freely.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `entity` | *(required, unless `device` or `sources` is set)* | Alert sensor entity |
+| `entity` | *(required, unless `device`, `devices` or `sources` is set)* | Alert sensor entity |
 | `entities` | — | Additional alert entities to merge (e.g. DWD current + advance) |
-| `device` | — | HA `device_id` — auto-discovers all per-alert sensors under that device, and re-discovers as alerts come and go. Currently only the CAP Alerts integration uses this shape |
+| `device` | — | HA `device_id` — auto-discovers all per-alert sensors under that device, and re-discovers as alerts come and go. CAP Alerts and NINA both produce this shape |
+| `devices` | — | Additional device ids, the same shape `entities` gives `entity`. An alert both devices carry is shown once; each device that goes dark is named on its own |
 | `sources` | — | Feed `source` attribute values to auto-collect, e.g. `['nsw_rural_fire_service_feed']` |
 | `provider` | auto-detect | `'nws'`, `'bom'`, `'meteoalarm'`, `'dwd'`, `'nina'`, `'meteoswiss'`, `'eccc'`, `'nsw_rfs'`, `'pirateweather'`, `'cap'` |
 
@@ -322,6 +323,19 @@ type: custom:weather-alerts-card
 device: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d
 ```
 
+**Two CAP Alerts devices — home zone plus a GPS tracker**
+
+Every CAP Alerts entry is one provider for one scope, so a second location or
+provider is a second device. The editor's device selector is multi-select and
+writes this shape: first pick to `device`, the rest to `devices`.
+
+```yaml
+type: custom:weather-alerts-card
+device: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d      # NWS, home zone
+devices:
+  - 9f8e7d6c5b4a39281706f5e4d3c2b1a0    # NWS, GPS tracker for the car
+```
+
 Per-provider examples live on the [Providers](./providers) page.
 
 ## Config schema
@@ -333,6 +347,7 @@ interface WeatherAlertsCardConfig {
   entity: string;              // required — e.g. "sensor.nws_alerts_alerts"
   entities?: string[];         // additional entities to merge alerts from
   device?: string;             // HA device_id — auto-discovers per-alert sensors under it
+  devices?: string[];          // additional device ids, same shape `entities` gives `entity`
   sources?: string[];          // feed `source` values to auto-collect, re-scanned each render
   title?: string;              // optional card header
   zones?: string[];            // zone filter — e.g. ["COC059", "COZ039"]

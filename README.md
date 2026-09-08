@@ -212,9 +212,10 @@ Then click the Download button, and click Reload when prompted.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `entity` | *(required, unless `device` is set)* | Alert sensor entity |
+| `entity` | *(required, unless `device`, `devices` or `sources` is set)* | Alert sensor entity |
 | `entities` | — | Additional alert entities to merge (e.g. DWD current + advance) |
-| `device` | — | HA `device_id` — auto-discovers all per-alert sensors under that device and re-discovers as alerts come and go. Currently only the CAP Alerts integration uses this shape. Can be combined with `entity`/`entities` or used on its own. |
+| `device` | — | HA `device_id` — auto-discovers all per-alert sensors under that device and re-discovers as alerts come and go. CAP Alerts and NINA both produce this shape. Can be combined with `entity`/`entities` or used on its own. |
+| `devices` | — | Additional device ids, the same shape `entities` gives `entity`. Every CAP Alerts entry is one provider × one scope, so a home zone plus a GPS tracker, or NWS plus GDACS, is two devices. The same alert seen through two devices is shown once; each device that goes dark is named on its own. |
 | `sources` | — | Feed `source` attribute values to auto-collect (e.g. `['nsw_rural_fire_service_feed']`). Harvests **every** entity whose `source` attribute matches, re-scanning each render so per-incident entities appear and vanish with the live feed — no volatile `geo_location.*` ids to hand-list. Independent of `provider` (each collected entity still auto-detects its adapter). Can be used on its own or combined with `entity`/`entities`/`device`. |
 | `provider` | auto-detect | `'nws'`, `'bom'`, `'meteoalarm'`, `'dwd'`, `'nina'`, `'meteoswiss'`, `'eccc'`, `'nsw_rfs'`, `'pirateweather'`, `'cap'` |
 | `title` | — | Card header title |
@@ -344,6 +345,8 @@ type: custom:weather-alerts-card
 device: 8f2c1e04a9b7d3651fa0c8e29d47b5a3
 ```
 
+Pick it from the editor's **Alert devices** selector, which lists NINA devices beside CAP
+Alerts ones; two regions are two devices, so list the second under `devices:`.
 Listing slot entities directly works too. An empty slot reads as "no active alerts",
 never as an unavailable source, and the per-slot diagnostic sensors the integration also
 creates (`sensor.*_headline_1`, …) are ignored. See
@@ -430,8 +433,23 @@ type: custom:weather-alerts-card
 device: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d
 ```
 
-Pick the device from the editor's CAP Alerts device selector to avoid hand-typing
+Pick the device from the editor's **Alert devices** selector to avoid hand-typing
 the id. `device` can also coexist with `entities:` for mixed setups.
+
+Every CAP Alerts entry is one provider for one scope, so a second location or a
+second provider is a second device. Add it under `devices:` and the card merges
+them, showing an alert that both devices carry only once:
+
+```yaml
+type: custom:weather-alerts-card
+device: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d      # NWS, home zone
+devices:
+  - 9f8e7d6c5b4a39281706f5e4d3c2b1a0    # NWS, GPS tracker for the car
+  - 0a1b2c3d4e5f60718293a4b5c6d7e8f9    # GDACS, worldwide
+```
+
+The editor's device selector is multi-select and writes this shape for you: the
+first pick lands in `device:`, the rest in `devices:`.
 
 **Theming the card surface** — see [Surface theming (`--wac-*` tokens)](#surface-theming---wac--tokens) under Themes for the token table and card-mod examples (translucent theme, pill/chip look).
 
@@ -474,7 +492,7 @@ colorTheme: eccc      # ECCC's official red/orange/yellow/grey palette
 showGeometry: true    # affected-area mini-map
 ```
 
-Pick the device from the editor's CAP Alerts device selector rather than
+Pick the device from the editor's **Alert devices** selector rather than
 hand-typing the id. The provider auto-detects as `eccc`; set `provider: eccc`
 explicitly only if you've disabled auto-detection.
 

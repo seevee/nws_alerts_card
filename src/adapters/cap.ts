@@ -9,6 +9,10 @@ import { normalizeSeverity, parseTimestamp } from '../utils';
 export class CapAdapter implements AlertAdapter {
   provider: AlertProvider = 'cap';
 
+  // `id` is the CAP identifier, so the same alert seen through two cap_alerts
+  // devices (overlapping scopes) is one alert with one id.
+  stableIds = true;
+
   canHandle(attributes: Record<string, unknown>): boolean {
     return typeof attributes['incident_platform_version'] === 'string'
       && typeof attributes['id'] === 'string';

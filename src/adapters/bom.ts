@@ -59,6 +59,10 @@ function bomPhaseLabel(phase: string): string {
 export class BomAdapter implements AlertAdapter {
   provider: AlertProvider = 'bom';
 
+  // `id` is BoM's own warning identifier, shared by every location entity the
+  // warning covers.
+  stableIds = true;
+
   canHandle(attributes: Record<string, unknown>): boolean {
     const warnings = attributes['warnings'];
     if (!Array.isArray(warnings)) return false;

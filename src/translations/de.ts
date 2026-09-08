@@ -78,8 +78,8 @@ export const de: TranslationMap = {
   'editor.provider_eccc': 'ECCC (Kanada)',
   'editor.provider_nsw_rfs': 'NSW RFS (Australien)',
   'editor.provider_cap': 'CAP-Warnungen (multi-regional)',
-  'editor.device': 'CAP-Alerts-Gerät (optional)',
-  'editor.device_helper': 'Bezieht automatisch jeden aktiven Warnsensor unter diesem Gerät ein.',
+  'editor.devices': 'Warngeräte (optional)',
+  'editor.devices_helper': 'Bezieht automatisch jeden aktiven Warnsensor unter den ausgewählten Geräten ein (CAP Alerts, NINA). Weitere Geräte hinzufügen, um Orte oder Anbieter zu kombinieren.',
   'editor.zones': 'Zonen (optional)',
   'editor.zones_helper': 'Kommagetrennte BoM area_id-Codes, z. B. NSW_FL049',
   'editor.event_codes': 'Ereigniscodes (optional)',
@@ -185,7 +185,8 @@ export const de: TranslationMap = {
   'editor.feeds_helper': 'Erkannte Integrations-Feeds. Wahlen Sie einen aus, um jedes gemeldete Live-Ereignis einzuschliessen — keine Entitaten pro Ereignis aufzulisten. Erfordert, dass die Integration in Home Assistant eingerichtet ist.',
   'editor.source_hint': 'Automatische Erfassung von {count} Live-Ereignis(sen) aus dem Feed — keine Entitaten manuell aufzulisten.',
   'editor.feeds_missing_warning': 'Keine Live-Daten fur {feeds}. Dieser Feed ist aktiviert, aber nichts liefert Daten — ist die Integration in Home Assistant eingerichtet?',
-  'editor.no_device_alerts_hint': 'Noch keine aktiven Warnsensoren unter diesem Gerat gefunden. Die Karte fullt sich automatisch, sobald CAP Alerts Warnungen veroffentlicht.',
+  'editor.devices_missing_warning': 'Kein Gerät für {ids} gefunden. Wurde die Integration entfernt?',
+  'editor.no_device_alerts_hint': 'Noch keine aktiven Warnsensoren unter den ausgewählten Geräten gefunden. Die Karte füllt sich automatisch, sobald die Integration Warnungen veröffentlicht.',
 
   // Editor section labels
   'editor.section_entity': 'Entität und Anbieter',

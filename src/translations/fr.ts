@@ -78,8 +78,8 @@ export const fr: TranslationMap = {
   'editor.provider_eccc': 'ECCC (Canada)',
   'editor.provider_nsw_rfs': 'NSW RFS (Australie)',
   'editor.provider_cap': 'Alertes CAP (multi-region)',
-  'editor.device': 'Appareil CAP Alerts (optionnel)',
-  'editor.device_helper': 'Recupere automatiquement chaque capteur d\'alerte actif sous cet appareil.',
+  'editor.devices': 'Appareils d\'alerte (optionnel)',
+  'editor.devices_helper': 'Récupère automatiquement chaque capteur d\'alerte actif sous les appareils sélectionnés (CAP Alerts, NINA). Ajoutez d\'autres appareils pour combiner des lieux ou des fournisseurs.',
   'editor.zones': 'Zones (optionnel)',
   'editor.zones_helper': 'Codes area_id BoM separes par des virgules, ex. NSW_FL049',
   'editor.event_codes': 'Codes d\'evenement (optionnel)',
@@ -185,7 +185,8 @@ export const fr: TranslationMap = {
   'editor.feeds_helper': 'Flux d\'integration detectes. Cochez-en un pour inclure chaque incident en direct qu\'il signale — aucune entite par incident a lister. Necessite que l\'integration soit configuree dans Home Assistant.',
   'editor.source_hint': 'Collecte automatique de {count} incident(s) en direct du flux — aucune entite a lister manuellement.',
   'editor.feeds_missing_warning': 'Aucune donnee en direct pour {feeds}. Ce flux est active mais rien ne l\'alimente — l\'integration est-elle configuree dans Home Assistant ?',
-  'editor.no_device_alerts_hint': 'Aucun capteur d\'alerte actif trouve sous cet appareil pour le moment. La carte se remplira automatiquement lorsque CAP Alerts publiera des alertes.',
+  'editor.devices_missing_warning': 'Aucun appareil trouvé pour {ids}. L\'intégration a-t-elle été supprimée ?',
+  'editor.no_device_alerts_hint': 'Aucun capteur d\'alerte actif trouvé sous les appareils sélectionnés pour le moment. La carte se remplira automatiquement lorsque l\'intégration publiera des alertes.',
 
   // Editor section labels
   'editor.section_entity': 'Entite et fournisseur',

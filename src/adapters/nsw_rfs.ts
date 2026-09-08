@@ -64,6 +64,10 @@ export class NswRfsAdapter implements AlertAdapter {
   // maxDistanceKm radius control for cards fed by this provider.
   carriesPoint = true;
 
+  // `external_id` is the feed's incident identifier; the synthesised fallback
+  // (location + sent) only stands in for the same incident, never a different one.
+  stableIds = true;
+
   canHandle(attributes: Record<string, unknown>): boolean {
     return typeof attributes['category'] === 'string'
       && typeof attributes['status'] === 'string'

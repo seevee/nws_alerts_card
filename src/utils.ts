@@ -644,12 +644,34 @@ export function alertMatchesZones(alert: WeatherAlert, zones: Set<string>): bool
 export function deduplicateAlerts(
   alerts: WeatherAlert[],
   providerPriority?: AlertProvider[],
+  stableIdProviders?: Set<AlertProvider>,
 ): WeatherAlert[] {
+  // Phase 0: collapse the same alert observed through more than one source —
+  // two cap_alerts devices whose scopes overlap (home zone + GPS tracker), or
+  // an entity hand-listed beside the device that owns it. Keyed on provider +
+  // upstream id, so two alerts that merely read alike (two earthquakes) stay
+  // apart. Only providers whose adapter declares `stableIds` take part: the
+  // ones that synthesise ids from event + onset would collide across regions,
+  // and those are phase 1's zone merge. First seen wins (config order), and
+  // `mergedCount` is deliberately not bumped — that badge means a zone merge,
+  // and one alert seen twice is not one.
+  let input = alerts;
+  if (stableIdProviders && stableIdProviders.size > 0) {
+    const seenIds = new Set<string>();
+    input = alerts.filter(alert => {
+      if (!alert.id || !stableIdProviders.has(alert.provider)) return true;
+      const key = `${alert.provider}\0${alert.id}`;
+      if (seenIds.has(key)) return false;
+      seenIds.add(key);
+      return true;
+    });
+  }
+
   // Phase 1: merge zone-split alerts within the same provider
   const groups = new Map<string, WeatherAlert[]>();
   const order: string[] = [];
 
-  for (const alert of alerts) {
+  for (const alert of input) {
     const key = `${alert.event}\0${alert.severity}\0${alert.onsetTs}\0${alert.endsTs}\0${alert.provider}`;
     const group = groups.get(key);
     if (group) {

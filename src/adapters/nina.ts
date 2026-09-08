@@ -58,6 +58,10 @@ function buildDescription(description: string, sender: string): string {
 export class NinaAdapter implements AlertAdapter {
   provider: AlertProvider = 'nina';
 
+  // `id` is NINA's message identifier, and it is the one attribute the
+  // deprecation above keeps — shared across regions carrying the same message.
+  stableIds = true;
+
   canHandle(attributes: Record<string, unknown>): boolean {
     // `recommended_actions` + `affected_areas` collide with no other adapter's
     // signature, and both keys are written unconditionally for an occupied slot

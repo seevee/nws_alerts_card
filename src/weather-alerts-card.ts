@@ -4,6 +4,7 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import type { Connection } from 'home-assistant-js-websocket';
 import { HomeAssistant, WeatherAlertsCardConfig, WeatherAlert, AlertProgress, AlertProvider, ContrastMode, DismissalRecord, EntityRegistryDisplayEntry, HassEntity, DecoPhase, PROGRESS_DECO_DEFAULTS, ICON_BORDER_DEFAULTS } from './types';
 import {
+  configuredDevices,
   resolveDeviceAlertEntities,
   deviceEntityIds,
   deviceHasAnyEntity,
@@ -297,7 +298,7 @@ export class WeatherAlertsCard extends LitElement {
     }
     this._swipeState = null;
     this._swipeExiting = null;
-    if (this._config?.entity || this._config?.device) {
+    if (this._hasStateKeySources()) {
       WeatherAlertsCard._editorExpandedState.set(this._entityStateKey(), this._expandedAlerts);
     }
   }
@@ -335,8 +336,8 @@ export class WeatherAlertsCard extends LitElement {
     // Only device mode reads the entity registry (to resolve per-alert child
     // sensors under a device). A plain entity/entities card never touches
     // _registryEntries, so subscribing would refetch the entire registry on
-    // every entity_registry_updated event for nothing. Gate it.
-    if (!this._config?.device) {
+    // every entity_registry_updated event for nothing. Gate it on any device.
+    if (configuredDevices(this._config).length === 0) {
       this._teardownRegistrySubscription();
       return;
     }
@@ -499,7 +500,7 @@ export class WeatherAlertsCard extends LitElement {
 
   public setConfig(config: WeatherAlertsCardConfig): void {
     const hasEntity = !!config.entity || !!config.entities?.length;
-    if (!hasEntity && !config.device && !config.sources?.length) {
+    if (!hasEntity && !config.device && !config.devices?.length && !config.sources?.length) {
       throw new Error('You need to define an entity, device, or feed');
     }
     const { _preview, ...rest } = config;
@@ -517,8 +518,15 @@ export class WeatherAlertsCard extends LitElement {
     this._reloadDismissalsIfScopeChanged();
   }
 
+  // Whether the config names a stable source to key the editor's expanded-state
+  // carry-over on: an entity or any device. Source-only cards have no stable
+  // key (their entity set churns), matching the pre-`devices` behaviour.
+  private _hasStateKeySources(): boolean {
+    return !!this._config?.entity || configuredDevices(this._config).length > 0;
+  }
+
   private get _scopeHash(): string {
-    // Hash the *configured* sources (entity + device id), not the resolved
+    // Hash the *configured* sources (entity + device ids), not the resolved
     // entity list — device-mode alerts come and go, and the dismissal scope
     // must stay stable across that churn. Shared with the editor so both
     // agree on the storage key (see scopeHashForConfig).
@@ -597,11 +605,15 @@ export class WeatherAlertsCard extends LitElement {
         result.push(id);
       }
     }
-    if (this._config.device && this.hass) {
-      for (const id of resolveDeviceAlertEntities(this.hass, this._config.device, this._registryEntries)) {
-        if (!seen.has(id)) {
-          seen.add(id);
-          result.push(id);
+    if (this.hass) {
+      // Device order is config order (`device` first, then `devices`), which is
+      // what makes "first seen wins" in dedup's phase 0 a stable choice.
+      for (const deviceId of configuredDevices(this._config)) {
+        for (const id of resolveDeviceAlertEntities(this.hass, deviceId, this._registryEntries)) {
+          if (!seen.has(id)) {
+            seen.add(id);
+            result.push(id);
+          }
         }
       }
     }
@@ -654,6 +666,9 @@ export class WeatherAlertsCard extends LitElement {
     const allAlerts: WeatherAlert[] = [];
     const providerPriority: AlertProvider[] = [];
     const seenProviders = new Set<AlertProvider>();
+    // Providers whose ids are upstream identifiers — dedup collapses the same
+    // alert seen through two of their sources (see deduplicateAlerts phase 0).
+    const stableIdProviders = new Set<AlertProvider>();
     for (const entityId of this._getAllEntities()) {
       const entity = this.hass.states[entityId];
       if (!entity) continue;
@@ -661,12 +676,13 @@ export class WeatherAlertsCard extends LitElement {
       if (!seenProviders.has(adapter.provider)) {
         seenProviders.add(adapter.provider);
         providerPriority.push(adapter.provider);
+        if (adapter.stableIds) stableIdProviders.add(adapter.provider);
       }
       const parsed = adapter.parseAlerts(entity.attributes);
       for (const a of parsed) a.sourceEntityId = entityId;
       allAlerts.push(...parsed);
     }
-    let filtered = this._filterAndSort(allAlerts, { providerPriority });
+    let filtered = this._filterAndSort(allAlerts, { providerPriority, stableIdProviders });
     if (this._config.allowDismiss && !this._forcePreview && this._dismissals.size > 0) {
       const { visible, updatedMap } = applyDismissals(filtered, this._dismissals);
       // applyDismissals can change the map (un-dismiss on signature shift,
@@ -889,7 +905,10 @@ export class WeatherAlertsCard extends LitElement {
     `;
   }
 
-  private _filterAndSort(alerts: WeatherAlert[], opts?: { skipZones?: boolean; providerPriority?: AlertProvider[] }): WeatherAlert[] {
+  private _filterAndSort(
+    alerts: WeatherAlert[],
+    opts?: { skipZones?: boolean; providerPriority?: AlertProvider[]; stableIdProviders?: Set<AlertProvider> },
+  ): WeatherAlert[] {
     if (!this._config) return alerts;
     let result = alerts;
 
@@ -912,7 +931,7 @@ export class WeatherAlertsCard extends LitElement {
     }
 
     if (this._config.deduplicate !== false) {
-      result = deduplicateAlerts(result, opts?.providerPriority);
+      result = deduplicateAlerts(result, opts?.providerPriority, opts?.stableIdProviders);
     }
 
     if (!opts?.skipZones && this._config.zones && this._config.zones.length > 0) {
@@ -1081,7 +1100,7 @@ export class WeatherAlertsCard extends LitElement {
     const next = new Map(this._expandedAlerts);
     next.set(alertId, !next.get(alertId));
     this._expandedAlerts = next;
-    if (this._config?.entity || this._config?.device) {
+    if (this._hasStateKeySources()) {
       WeatherAlertsCard._editorExpandedState.set(this._entityStateKey(), next);
     }
   }
@@ -1158,10 +1177,12 @@ export class WeatherAlertsCard extends LitElement {
   // A "source" is either an explicitly-listed entity or a whole device:
   //   - entity/entities: each id that is itself broken (see _isBroken), named by
   //     its friendly_name.
-  //   - device: ONE source, dark when it is registered, yields no parseable
-  //     alert across ANY of its entities, and has at least one entity in an
-  //     error state. Detection reads the UNFILTERED device entities, not the
-  //     canHandle-filtered alert list (_getAllEntities): an unavailable source
+  //   - device/devices: ONE source EACH, dark when it is registered, yields no
+  //     parseable alert across ANY of its entities, and has at least one entity
+  //     in an error state. Counted per device, so two devices where one has gone
+  //     dark names that one and leaves the other alone. Detection reads the
+  //     UNFILTERED device entities, not the canHandle-filtered alert list
+  //     (_getAllEntities): an unavailable source
   //     loses its alert attributes, so the alert list can no longer see it —
   //     the exact reason a dark cap_alerts device previously showed a false
   //     all-clear. Named from the device registry (see _deviceName) so 'message'
@@ -1182,18 +1203,18 @@ export class WeatherAlertsCard extends LitElement {
       if (e && this._isBroken(e)) sources.push({ name: this._friendlyName(id) });
     }
 
-    if (this._config?.device) {
+    for (const deviceId of configuredDevices(this._config)) {
       let hasParseable = false;
       let hasErrored = false;
-      for (const id of deviceEntityIds(this.hass, this._config.device, this._registryEntries)) {
+      for (const id of deviceEntityIds(this.hass, deviceId, this._registryEntries)) {
         if (COMMAND_DOMAINS.has(id.split('.', 1)[0])) continue;
         const e = this.hass.states[id];
         if (!e) continue;
-        const parses = getAdapter(this._config.provider, e.attributes).parseAlerts(e.attributes).length > 0;
+        const parses = getAdapter(this._config?.provider, e.attributes).parseAlerts(e.attributes).length > 0;
         if (parses) hasParseable = true;
         else if (e.state === 'unavailable' || e.state === 'unknown') hasErrored = true;
       }
-      if (!hasParseable && hasErrored) sources.push({ name: this._deviceName(this._config.device) });
+      if (!hasParseable && hasErrored) sources.push({ name: this._deviceName(deviceId) });
     }
 
     return sources;
@@ -1252,10 +1273,10 @@ export class WeatherAlertsCard extends LitElement {
     const allEntityIds = this._getAllEntities();
     const resolvedEntities = allEntityIds.map(id => this.hass.states[id]).filter(Boolean);
 
-    // Device mode: if the device is registered (even when no per-alert
-    // children currently exist), treat zero-resolved as "no active alerts"
-    // rather than falling back to preview.
-    const deviceLinked = !!this._config.device && this._deviceHasAnyEntity(this._config.device);
+    // Device mode: if any configured device is registered (even when no
+    // per-alert children currently exist), treat zero-resolved as "no active
+    // alerts" rather than falling back to preview.
+    const deviceLinked = configuredDevices(this._config).some(id => this._deviceHasAnyEntity(id));
     if ((resolvedEntities.length === 0 && !deviceLinked) || this._forcePreview) {
       return this._renderPreview();
     }
