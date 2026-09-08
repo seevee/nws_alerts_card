@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.3.2 — 2026-09-08
+
+### Added
+- Add maxDistanceKm radius filter for point incidents (#254) (f80ba73…)
+
+### Documentation
+- Add a guide for getting alert text in your own language (#255) (62fb534…)
+- Name the dev container weather-alerts-card-ha (#260) (6cf24a8…)
+
+### Fixed
+- Translate four Dutch editor strings left in English (#257) (908a300…)
+- Serve the basemap from HA's map_tiles proxy, retry missed polygons (#261) (bc8e232…)
+
 ## 3.3.1 — 2026-08-08
 
 ### Fixed
